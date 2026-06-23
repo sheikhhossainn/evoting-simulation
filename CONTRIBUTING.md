@@ -1,13 +1,26 @@
 # Contributing Guide
 
+> **Important:** All commands in this guide must be run in **Git Bash**, not Command Prompt or PowerShell. This ensures compatibility across all operating systems and prevents path/command issues.
+
 ## Branch Naming Convention
 
-Create branches using this format: `feature/your-name-or-task`
+Create feature branches using this format: `feature/your-name-or-task`
 
 **Examples:**
 - `feature/crypto`
 - `feature/voting-logic`
-- `feature/john-smith`
+- `feature/humaira-auth`
+- `feature/sheikh-ui`
+
+## Branching Strategy
+
+This project uses a three-tier branching model:
+
+- **`main`** — Production-ready code (stable releases only)
+- **`dev`** — Integration branch for testing (where features are merged first)
+- **`feature/***`** — Your work branches (created from `dev`)
+
+**Golden Rule:** Nobody pushes directly to `main` or `dev`. All work goes through pull requests.
 
 ## Getting Started
 
@@ -18,27 +31,26 @@ git clone https://github.com/sheikhhossainn/evoting-simulation.git
 cd evoting-simulation
 ```
 
-### 2. Create a New Local Branch
+### 2. Create a Local Feature Branch (Always from `dev`)
+
+First, ensure you have the latest `dev` branch:
 
 ```bash
-git checkout main
-git pull origin main
+git checkout dev
+git pull origin dev
+```
+
+Then create your feature branch from `dev`:
+
+```bash
 git checkout -b feature/your-task-name
 ```
 
-Replace `your-task-name` with your actual task (e.g., `git checkout -b feature/crypto`).
-
-### 3. Push Your Branch to Remote
-
-```bash
-git push -u origin feature/your-task-name
-```
-
-The `-u` flag sets the upstream branch, so future pushes only need `git push`.
+Replace `your-task-name` with your actual task (e.g., `git checkout -b feature/add-encryption`).
 
 ## Making and Committing Changes
 
-After making changes to your code, follow these steps to commit and push:
+After making changes to your code, follow these steps:
 
 ### 1. Stage Your Changes
 
@@ -55,12 +67,14 @@ git add path/to/file.js
 ### 2. Commit Your Changes
 
 ```bash
-git commit -m "Description of your changes"
+git commit -m "Clear description of what you changed"
 ```
 
 **Commit message tips:**
-- Use clear, descriptive messages (e.g., "Add ElGamal encryption module" instead of "fix stuff")
-- Keep messages concise but informative
+- Be specific: "Add ElGamal encryption module" ✅ instead of "fix stuff" ❌
+- Start with a verb: Add, Fix, Update, Remove, Refactor
+- Keep it under 50 characters if possible
+- Use lowercase and no period at the end
 
 ### 3. Push to Remote
 
@@ -74,38 +88,48 @@ If this is your first push on this branch, use:
 git push -u origin feature/your-task-name
 ```
 
-## Syncing with Main During Development
+The `-u` flag sets the upstream, so future pushes only need `git push`.
 
-If other team members push changes to `main` while you're working on your feature branch, keep your branch up to date:
+## Syncing `dev` into Your Feature Branch During Development
+
+If other team members push changes to `dev` while you're working, keep your branch up to date:
 
 ```bash
-git checkout main
-git pull origin main
+git checkout dev
+git pull origin dev
 git checkout feature/your-task-name
-git merge main
+git merge dev
 ```
 
-This pulls the latest changes from `main` into your feature branch, preventing conflicts later.
+This pulls the latest changes from `dev` into your feature branch, preventing merge conflicts later.
 
 ## Creating a Pull Request
 
-When your work is complete and committed, create a pull request to merge your changes into `main`:
+When your work is complete and committed, create a pull request to merge into `dev`:
 
 1. **Go to the repository** on GitHub: https://github.com/sheikhhossainn/evoting-simulation
 2. **Click the "Pull requests" tab** at the top
 3. **Click "New pull request"** (green button)
 4. **Select your branch** as the "compare" branch (the one you've been working on)
-5. **Ensure `main` is selected** as the base branch
+5. **Ensure `dev` is selected** as the base branch (NOT `main`)
 6. **Add a clear title and description** of your changes
 7. **Click "Create pull request"**
 
-A team member will review your changes and provide feedback or approval.
+A team member will review your changes, request modifications if needed, or approve and merge.
 
 ## Deleting Your Branch After Merge
 
-Once your pull request is merged, clean up your local and remote branches:
+Once your pull request is merged into `dev`, clean up your local and remote branches:
 
-### Delete Local Branch
+### 1. Switch to `dev`
+
+First, move away from your feature branch:
+
+```bash
+git checkout dev
+```
+
+### 2. Delete Local Branch
 
 ```bash
 git branch -d feature/your-task-name
@@ -113,15 +137,13 @@ git branch -d feature/your-task-name
 
 Use `-d` for safe deletion (only works if the branch is fully merged).
 
-If you want to force delete a branch (use only if you're certain):
+If you need to force delete (only if you're absolutely sure):
 
 ```bash
 git branch -D feature/your-task-name
 ```
 
-Use `-D` only if the branch was never merged and you're sure you want to discard all changes.
-
-### Delete Remote Branch
+### 3. Delete Remote Branch
 
 ```bash
 git push origin --delete feature/your-task-name
@@ -129,63 +151,74 @@ git push origin --delete feature/your-task-name
 
 ## Contribution Rules
 
-- ⛔ **No direct pushes to `main`** — all changes require a pull request
-- 👥 **Code review required** — at least one team member must approve before merging
-- 📝 **Create a pull request** with a clear description of your changes
-- 🔄 **Keep branches synced** — merge `main` into your branch to stay up to date
+- ⛔ **No direct pushes to `main` or `dev`** — all changes require a pull request
+- 👥 **Code review required** — at least one team member must review and approve before merging
+- 📝 **Always target `dev`** — feature branches merge into `dev`, not `main`
+- 🔄 **Keep branches synced** — merge `dev` into your branch regularly to avoid conflicts
 - 🧹 **Clean up branches** — delete your branch after merging to keep the repo tidy
 
 ## Full Example: Complete Workflow
 
-Here's a step-by-step example of the entire contribution cycle:
+Here's the entire contribution cycle from start to finish:
 
 ```bash
 # 1. Clone the repository (first time only)
 git clone https://github.com/sheikhhossainn/evoting-simulation.git
 cd evoting-simulation
 
-# 2. Start your day by syncing with main
-git checkout main
-git pull origin main
+# 2. Get the latest dev branch
+git checkout dev
+git pull origin dev
 
-# 3. Create and switch to your feature branch
-git checkout -b feature/add-voting-logic
+# 3. Create your feature branch from dev
+git checkout -b feature/add-ballot-verification
 
-# 4. Make your changes (edit files, write code, etc.)
+# 4. Make your changes
 # ... edit files in your editor ...
 
 # 5. Stage and commit your changes
 git add .
-git commit -m "Add voting logic module with ballot verification"
+git commit -m "Add ballot verification logic with checksum validation"
 
 # 6. Push your branch to remote
-git push -u origin feature/add-voting-logic
+git push -u origin feature/add-ballot-verification
 
-# 7. If main gets updated while you're working, sync it
-git merge main
+# 7. If dev gets updated while you're working, keep your branch in sync
+git checkout dev
+git pull origin dev
+git checkout feature/add-ballot-verification
+git merge dev
 
-# 8. When done, push final changes
+# 8. Push the merge
 git push
 
 # 9. Create a pull request on GitHub
 # Go to: https://github.com/sheikhhossainn/evoting-simulation
 # Click "Pull requests" → "New pull request"
-# Select your branch and main, add description, create PR
+# Select your branch as compare, dev as base, add description, create PR
 
-# 10. After PR is merged, delete local branch
-git branch -d feature/add-voting-logic
+# 10. Wait for review and approval from a team member
 
-# 11. Delete remote branch
-git push origin --delete feature/add-voting-logic
+# 11. After PR is merged, switch to dev
+git checkout dev
+
+# 12. Delete local branch
+git branch -d feature/add-ballot-verification
+
+# 13. Delete remote branch
+git push origin --delete feature/add-ballot-verification
+
+# 14. Pull the latest dev to stay updated
+git pull origin dev
 ```
 
 ## Daily Workflow
 
-Always start your day by syncing with main to avoid conflicts:
+Start every day by syncing with the latest `dev`:
 
 ```bash
-git checkout main
-git pull origin main
+git checkout dev
+git pull origin dev
 ```
 
 Then switch to your feature branch and continue work:
@@ -194,14 +227,17 @@ Then switch to your feature branch and continue work:
 git checkout feature/your-task-name
 ```
 
-Before pushing, make sure to pull any recent changes from `main` into your branch:
+Before you start coding each day, it's a good idea to merge the latest `dev` into your branch:
 
 ```bash
-git merge main
+git merge dev
 ```
+
+This keeps your work aligned with what the team has been doing.
 
 ## Need Help?
 
-- Refer to the main [README.md](README.md) for project details and setup instructions
-- Ask a team member if you're stuck or unsure about any step
-- Check out [GitHub's Git documentation](https://docs.github.com/en/get-started/using-git) for more advanced Git commands
+- **Stuck on a Git command?** Ask a team member
+- **Project details?** Check the main [README.md](README.md)
+- **Learn Git better?** See [GitHub's Git documentation](https://docs.github.com/en/get-started/using-git)
+- **Merge conflicts?** Reach out to the team—don't force push unless you're absolutely sure
