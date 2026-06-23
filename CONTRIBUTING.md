@@ -27,8 +27,8 @@ Create feature branches using this format: `feature/your-name-or-task`
 **Examples:**
 - `feature/crypto`
 - `feature/voting-logic`
-- `feature/humaira-auth`
-- `feature/sheikh-ui`
+- `feature/auth`
+- `feature/ui`
 
 ## Getting Started
 
