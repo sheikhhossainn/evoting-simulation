@@ -1,3 +1,156 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ───────────────────────────────────────────────
+   Design System — Custom Properties
+   ─────────────────────────────────────────────── */
+:root {
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-glass: rgba(30, 41, 59, 0.6);
+  --color-border-glass: rgba(148, 163, 184, 0.15);
+  --color-accent: #6366f1;
+  --color-accent-light: #818cf8;
+  --color-success: #10b981;
+  --color-success-light: #34d399;
+  --radius-card: 1.25rem;
+  --radius-button: 0.75rem;
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+}
+
+/* ───────────────────────────────────────────────
+   Base Reset & Typography
+   ─────────────────────────────────────────────── */
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-color: var(--color-bg-primary);
+    color: #e2e8f0;
+  }
+
+  ::selection {
+    background-color: rgba(99, 102, 241, 0.3);
+    color: #fff;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-primary);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+  }
+}
+
+/* ───────────────────────────────────────────────
+   Component Utilities
+   ─────────────────────────────────────────────── */
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border-glass);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Primary action button */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center px-8 py-3.5 
+           font-semibold text-white rounded-xl overflow-hidden
+           transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+    background-size: 200% 200%;
+    background-position: 0% 50%;
+  }
+  .btn-primary:hover {
+    background-position: 100% 50%;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Ghost / secondary button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           font-medium rounded-xl border transition-all duration-300;
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.2);
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.4);
+    background: rgba(148, 163, 184, 0.08);
+  }
+
+  /* Text input */
+  .input-field {
+    @apply w-full px-5 py-3.5 rounded-xl text-white placeholder-slate-500 
+           transition-all duration-300 outline-none;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+  .input-field:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+
+  /* Floating animated orb */
+  .orb {
+    @apply absolute rounded-full blur-3xl opacity-30 pointer-events-none;
+  }
+
+  /* Shimmer text effect */
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      #6366f1 0%,
+      #a78bfa 25%,
+      #6366f1 50%,
+      #a78bfa 75%,
+      #6366f1 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3s linear infinite;
+  }
+}
+
+/* ───────────────────────────────────────────────
+   Utility Animations
+   ─────────────────────────────────────────────── */
+@layer utilities {
+  .opacity-0-init {
+    opacity: 0;
+  }
+}

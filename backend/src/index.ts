@@ -11,7 +11,7 @@ app.use(express.json());
 
 // Zod schema for vote request
 const voteSchema = z.object({
-  nid: z.string(),
+  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
 });
 
 // POST /vote — validates { nid: string } and returns { status: "queued" }
