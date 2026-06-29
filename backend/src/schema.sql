@@ -51,6 +51,12 @@ CREATE TABLE voters (
                     CONSTRAINT ck_voters_name_not_empty
                         CHECK (length(trim(name)) > 0),
 
+    -- Constituency assignment (e.g. "DHK-01", "CTG-03")
+    -- Links the voter to their constituency for candidate lookup
+    constituency_code VARCHAR(10)   NOT NULL
+                    CONSTRAINT ck_voters_constituency_code_format
+                        CHECK (constituency_code ~ '^[A-Z]{2,4}-\d{1,3}$'),
+
     -- Whether this voter is eligible to cast a vote
     is_eligible     BOOLEAN         NOT NULL DEFAULT true,
 
@@ -147,7 +153,54 @@ CREATE INDEX idx_votes_tx_hash
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 
 -- =============================================================
--- 3. FUNCTIONS & TRIGGERS
+-- 3. CANDIDATES TABLE
+-- =============================================================
+-- Stores the slate of candidates standing in each constituency.
+-- Populated by the EC Admin before voting opens.
+-- =============================================================
+
+CREATE TABLE candidates (
+    -- Primary key: auto-generated UUID
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Candidate's display name
+    name                TEXT        NOT NULL
+                        CONSTRAINT ck_candidates_name_not_empty
+                            CHECK (length(trim(name)) > 0),
+
+    -- Political party name
+    party               TEXT        NOT NULL
+                        CONSTRAINT ck_candidates_party_not_empty
+                            CHECK (length(trim(party)) > 0),
+
+    -- Party symbol identifier (emoji or icon key, e.g. "⛵", "sheaf")
+    symbol              TEXT        NOT NULL,
+
+    -- Constituency this candidate is standing in
+    constituency_code   VARCHAR(10) NOT NULL
+                        CONSTRAINT ck_candidates_constituency_code_format
+                            CHECK (constituency_code ~ '^[A-Z]{2,4}-\d{1,3}$'),
+
+    -- Timestamp
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    -- ── Constraints ──
+    -- A candidate can only stand in one constituency (name + constituency unique)
+    CONSTRAINT uq_candidate_per_constituency
+        UNIQUE (name, constituency_code)
+);
+
+-- ── Candidates Indexes ──
+
+-- Fast lookup of all candidates for a given constituency (the ballot query)
+CREATE INDEX idx_candidates_constituency_code
+    ON candidates (constituency_code);
+
+-- ── Candidates RLS ──
+ALTER TABLE candidates ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- 4. FUNCTIONS & TRIGGERS
 -- =============================================================
 
 -- ── Auto-update `updated_at` on row modification ──

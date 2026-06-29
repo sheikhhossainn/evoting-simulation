@@ -3,20 +3,26 @@
 @tailwind utilities;
 
 /* ───────────────────────────────────────────────
-   Design System — Custom Properties
+   Design System — Custom Properties (Bangladesh Theme)
    ─────────────────────────────────────────────── */
 :root {
-  --color-bg-primary: #0f172a;
-  --color-bg-secondary: #1e293b;
-  --color-bg-glass: rgba(30, 41, 59, 0.6);
-  --color-border-glass: rgba(148, 163, 184, 0.15);
-  --color-accent: #6366f1;
-  --color-accent-light: #818cf8;
-  --color-success: #10b981;
-  --color-success-light: #34d399;
-  --radius-card: 1.25rem;
-  --radius-button: 0.75rem;
-  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+  --color-bd-green: #006A4E;
+  --color-bd-green-light: #00875A;
+  --color-bd-green-dark: #004D38;
+  --color-bd-red: #F42A41;
+  --color-bd-navy: #0A2540;
+  --color-bd-navy-light: #1A3550;
+  --color-bd-gold: #C8920A;
+  --color-bg-primary: #F2F5FA;
+  --color-bg-secondary: #ffffff;
+  --color-bg-glass: rgba(255, 255, 255, 0.85);
+  --color-border-glass: rgba(10, 37, 64, 0.1);
+  --color-text-primary: #0A2540;
+  --color-text-secondary: #627d98;
+  --radius-card: 1rem;
+  --radius-button: 0.625rem;
+  --shadow-card: 0 1px 3px rgba(10, 37, 64, 0.08), 0 1px 2px rgba(10, 37, 64, 0.06);
+  --shadow-card-hover: 0 10px 25px rgba(10, 37, 64, 0.1), 0 4px 10px rgba(10, 37, 64, 0.06);
 }
 
 /* ───────────────────────────────────────────────
@@ -35,12 +41,12 @@
   body {
     font-family: "Inter", system-ui, sans-serif;
     background-color: var(--color-bg-primary);
-    color: #e2e8f0;
+    color: var(--color-text-primary);
   }
 
   ::selection {
-    background-color: rgba(99, 102, 241, 0.3);
-    color: #fff;
+    background-color: rgba(0, 106, 78, 0.2);
+    color: #003D2D;
   }
 
   /* Custom scrollbar */
@@ -51,11 +57,11 @@
     background: var(--color-bg-primary);
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.3);
+    background: rgba(10, 37, 64, 0.2);
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.5);
+    background: rgba(10, 37, 64, 0.35);
   }
 }
 
@@ -63,29 +69,30 @@
    Component Utilities
    ─────────────────────────────────────────────── */
 @layer components {
-  /* Glassmorphism card */
+  /* Clean white card */
   .glass-card {
-    background: var(--color-bg-glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-glass);
     border-radius: var(--radius-card);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .glass-card:hover {
+    box-shadow: var(--shadow-card-hover);
   }
 
-  /* Primary action button */
+  /* Primary action button — Bangladesh green */
   .btn-primary {
     @apply relative inline-flex items-center justify-center px-8 py-3.5 
            font-semibold text-white rounded-xl overflow-hidden
            transition-all duration-300 ease-out;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
-    background-size: 200% 200%;
-    background-position: 0% 50%;
+    background: var(--color-bd-green);
+    border-radius: var(--radius-button);
   }
   .btn-primary:hover {
-    background-position: 100% 50%;
+    background: var(--color-bd-green-light);
     transform: translateY(-1px);
-    box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 25px rgba(0, 106, 78, 0.3);
   }
   .btn-primary:active {
     transform: translateY(0);
@@ -97,30 +104,60 @@
     box-shadow: none;
   }
 
+  /* Navy button — for card headers and secondary actions */
+  .btn-navy {
+    @apply relative inline-flex items-center justify-center px-8 py-3.5 
+           font-semibold text-white rounded-xl overflow-hidden
+           transition-all duration-300 ease-out;
+    background: var(--color-bd-navy);
+    border-radius: var(--radius-button);
+  }
+  .btn-navy:hover {
+    background: var(--color-bd-navy-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(10, 37, 64, 0.3);
+  }
+
   /* Ghost / secondary button */
   .btn-ghost {
     @apply inline-flex items-center justify-center px-6 py-3 
            font-medium rounded-xl border transition-all duration-300;
-    color: #94a3b8;
-    border-color: rgba(148, 163, 184, 0.2);
+    color: var(--color-text-secondary);
+    border-color: rgba(10, 37, 64, 0.15);
     background: transparent;
+    border-radius: var(--radius-button);
   }
   .btn-ghost:hover {
-    color: #e2e8f0;
-    border-color: rgba(148, 163, 184, 0.4);
-    background: rgba(148, 163, 184, 0.08);
+    color: var(--color-text-primary);
+    border-color: rgba(10, 37, 64, 0.3);
+    background: rgba(10, 37, 64, 0.04);
   }
 
-  /* Text input */
+  /* Text input — light theme */
   .input-field {
+    @apply w-full px-4 py-3 rounded-lg text-sm transition-all duration-300 outline-none;
+    color: var(--color-text-primary);
+    background: #ffffff;
+    border: 1px solid rgba(10, 37, 64, 0.15);
+  }
+  .input-field::placeholder {
+    color: #9fb3c8;
+  }
+  .input-field:focus {
+    border-color: var(--color-bd-green);
+    box-shadow: 0 0 0 3px rgba(0, 106, 78, 0.1);
+  }
+
+  /* Dark input — for dark-bg pages (voter login etc) */
+  .input-field-dark {
     @apply w-full px-5 py-3.5 rounded-xl text-white placeholder-slate-500 
            transition-all duration-300 outline-none;
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.15);
   }
-  .input-field:focus {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  .input-field-dark:focus {
+    border-color: var(--color-bd-green);
+    box-shadow: 0 0 0 3px rgba(0, 106, 78, 0.15);
   }
 
   /* Floating animated orb */
@@ -132,11 +169,11 @@
   .shimmer-text {
     background: linear-gradient(
       90deg,
-      #6366f1 0%,
-      #a78bfa 25%,
-      #6366f1 50%,
-      #a78bfa 75%,
-      #6366f1 100%
+      #006A4E 0%,
+      #00875A 25%,
+      #006A4E 50%,
+      #C8920A 75%,
+      #006A4E 100%
     );
     background-size: 200% auto;
     -webkit-background-clip: text;

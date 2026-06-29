@@ -24,60 +24,62 @@ const VoterLogin = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
-      {/* ── Background gradient ── */}
-      <div className="absolute inset-0 bg-gradient-to-br from-surface-950 via-brand-950 to-surface-900" />
-
-      {/* ── Floating orbs ── */}
-      <div className="orb w-72 h-72 bg-brand-500 top-[-5%] left-[-5%] animate-float" />
-      <div className="orb w-96 h-96 bg-purple-600 bottom-[-10%] right-[-8%] animate-float-delayed" />
-      <div className="orb w-48 h-48 bg-indigo-400 top-[40%] right-[15%] animate-float-slow" />
-
+    <div
+      className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden"
+      style={{ background: "#F2F5FA" }}
+    >
       {/* ── Login card ── */}
-      <div className="relative z-10 w-full max-w-md animate-fade-in-up">
-        <div className="glass-card p-8 md:p-10">
-          {/* Shield icon */}
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/25">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.8}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-                />
-              </svg>
-            </div>
-          </div>
-
-          {/* Heading */}
-          <h1 className="text-2xl md:text-3xl font-bold text-center text-white mb-2">
-            Voter Verification
+      <div className="relative z-10 w-full max-w-md">
+        {/* ── Page heading ── */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold" style={{ color: "#0A2540" }}>
+            Voter Portal
           </h1>
-          <p className="text-slate-400 text-center text-sm mb-8">
+          <p className="mt-1 text-sm" style={{ color: "#627d98" }}>
             Enter your National ID to access the secure voting portal
           </p>
+        </div>
+
+        <div className="glass-card overflow-hidden">
+          {/* Dark header */}
+          <div
+            className="flex items-center gap-2 px-6 py-3.5"
+            style={{ background: "#0A2540" }}
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="#34d399"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+              />
+            </svg>
+            <span className="text-sm font-semibold text-white">
+              Voter Verification
+            </span>
+          </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5 p-6">
             {/* NID input */}
             <div>
               <label
                 htmlFor="nid-input"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="mb-1.5 block text-sm font-medium"
+                style={{ color: "#0A2540" }}
               >
                 National ID (NID)
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
                   <svg
-                    className={`w-5 h-5 transition-colors duration-300 ${
-                      isFocused ? "text-brand-400" : "text-slate-500"
+                    className={`h-4 w-4 transition-colors duration-300 ${
+                      isFocused ? "text-bd-green-600" : "text-slate-400"
                     }`}
                     fill="none"
                     viewBox="0 0 24 24"
@@ -91,7 +93,7 @@ const VoterLogin = () => {
                     />
                   </svg>
                 </div>
-                 <input
+                <input
                   id="nid-input"
                   type="text"
                   value={nid}
@@ -100,11 +102,14 @@ const VoterLogin = () => {
                   onBlur={() => setIsFocused(false)}
                   placeholder="e.g. 12345678901"
                   autoComplete="off"
-                  className="input-field pl-12 font-mono tracking-wider"
+                  className="input-field pl-10 font-mono tracking-wider"
                 />
               </div>
               {nid.length > 0 && !isValid && (
-                <p className="mt-2 text-xs text-amber-400/80">
+                <p
+                  className="mt-2 text-xs"
+                  style={{ color: "#C8920A" }}
+                >
                   NID must be exactly 11 digits ({nid.length}/11)
                 </p>
               )}
@@ -114,10 +119,11 @@ const VoterLogin = () => {
             <button
               type="submit"
               disabled={!isValid}
-              className="btn-primary w-full text-base"
+              id="voter-verify-btn"
+              className="btn-primary w-full text-sm"
             >
               <svg
-                className="w-5 h-5 mr-2"
+                className="mr-2 h-4 w-4"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -134,13 +140,16 @@ const VoterLogin = () => {
           </form>
 
           {/* Divider */}
-          <div className="mt-8 pt-6 border-t border-slate-700/50">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div
+            className="mx-6 mb-5 border-t pt-4"
+            style={{ borderColor: "rgba(10, 37, 64, 0.08)" }}
+          >
+            <div className="flex items-center gap-2 text-xs" style={{ color: "#627d98" }}>
               <svg
-                className="w-4 h-4 text-emerald-500/70 flex-shrink-0"
+                className="h-4 w-4 flex-shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke="currentColor"
+                stroke="#006A4E"
                 strokeWidth={1.5}
               >
                 <path
@@ -158,10 +167,13 @@ const VoterLogin = () => {
         </div>
 
         {/* Back to home */}
-        <div className="text-center mt-6">
+        <div className="mt-5 text-center">
           <button
             onClick={() => navigate("/")}
-            className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-sm transition-colors"
+            style={{ color: "#627d98" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#0A2540")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#627d98")}
           >
             ← Back to Home
           </button>
