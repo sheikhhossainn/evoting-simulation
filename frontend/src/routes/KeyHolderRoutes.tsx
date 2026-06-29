@@ -1,14 +1,9 @@
 /**
- * keyholderRoutes.tsx
+ * KeyHolderRoutes.tsx
  *
  * Route definitions for the Key Holder portal.
- * Mount this in your top-level Routes (Sheikh / integration phase).
- *
- * Usage in App.tsx:
- *   import { keyholderRoutes } from "./routes/keyholderRoutes";
- *   <Routes>
- *     {keyholderRoutes}
- *   </Routes>
+ * These are standalone routes (no Layout wrapper)
+ * for a focused key management experience.
  */
 
 import { Route } from "react-router-dom";
@@ -18,7 +13,7 @@ import KeyShareStatus from "../pages/KeyShareStatus";
 
 export const keyholderRoutes = (
   <>
-    <Route path="/keyholder" element={<KeyHolderLogin />} />
+    <Route path="/keyholder/login" element={<KeyHolderLogin />} />
     <Route path="/keyholder/submit" element={<KeyShareSubmit />} />
     <Route path="/keyholder/status" element={<KeyShareStatus />} />
   </>

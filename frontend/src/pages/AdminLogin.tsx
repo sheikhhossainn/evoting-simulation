@@ -1,26 +1,24 @@
 /**
- * KeyHolderLogin.tsx
+ * AdminLogin.tsx
  *
- * Login page for Shamir's Secret Sharing key holders.
- * Redesigned to match the Figma reference: dark navy header,
- * Share ID + Passphrase inputs, demo credentials box.
- *
- * UI shell only — auth integration comes later.
+ * EC Administrator login page. UI-only — no auth logic yet.
+ * Matches the Figma reference: dark navy header, username + password form,
+ * demo credentials hint box.
  */
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function KeyHolderLogin() {
+export default function AdminLogin() {
   const navigate = useNavigate();
-  const [shareId, setShareId] = useState("");
-  const [passphrase, setPassphrase] = useState("");
-  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Placeholder handler — no validation, no API call yet
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/keyholder/submit");
+    navigate("/admin/dashboard");
   };
 
   return (
@@ -31,11 +29,14 @@ export default function KeyHolderLogin() {
       <div className="w-full max-w-md">
         {/* ── Page heading ── */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold" style={{ color: "#0A2540" }}>
-            Decryption Authority Portal
+          <h1
+            className="text-2xl font-bold"
+            style={{ color: "#0A2540" }}
+          >
+            Election Commission Portal
           </h1>
           <p className="mt-1 text-sm" style={{ color: "#627d98" }}>
-            Authorized key holders only — all access attempts are logged
+            Restricted — Authorized EC Personnel Only
           </p>
         </div>
 
@@ -56,11 +57,11 @@ export default function KeyHolderLogin() {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+                d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
               />
             </svg>
             <span className="text-sm font-semibold text-white">
-              Key Holder Authentication
+              EC Administrator Login
             </span>
           </div>
 
@@ -68,46 +69,46 @@ export default function KeyHolderLogin() {
           <form onSubmit={handleSubmit} className="space-y-4 p-6">
             <div>
               <label
-                htmlFor="share-id"
+                htmlFor="admin-username"
                 className="mb-1.5 block text-sm font-medium"
                 style={{ color: "#0A2540" }}
               >
-                Share ID
+                Username
               </label>
               <input
-                id="share-id"
+                id="admin-username"
                 type="text"
-                value={shareId}
-                onChange={(e) => setShareId(e.target.value)}
-                placeholder="e.g. KH-001"
-                autoComplete="off"
-                className="input-field font-mono"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="EC username"
+                autoComplete="username"
+                className="input-field"
               />
             </div>
 
             <div>
               <label
-                htmlFor="passphrase"
+                htmlFor="admin-password"
                 className="mb-1.5 block text-sm font-medium"
                 style={{ color: "#0A2540" }}
               >
-                Passphrase
+                Password
               </label>
               <div className="relative">
                 <input
-                  id="passphrase"
-                  type={showPassphrase ? "text" : "password"}
-                  value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
+                  id="admin-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
                   className="input-field pr-10"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassphrase(!showPassphrase)}
+                  onClick={() => setShowPassword(!showPassword)}
                   className="absolute inset-y-0 right-0 flex items-center pr-3"
-                  aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   <svg
                     className="h-4 w-4"
@@ -116,7 +117,7 @@ export default function KeyHolderLogin() {
                     stroke="#9fb3c8"
                     strokeWidth={1.5}
                   >
-                    {showPassphrase ? (
+                    {showPassword ? (
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -143,10 +144,10 @@ export default function KeyHolderLogin() {
 
             <button
               type="submit"
-              id="keyholder-login-btn"
+              id="admin-login-btn"
               className="btn-navy w-full text-sm"
             >
-              Access Key Portal
+              Access Dashboard
             </button>
           </form>
         </div>
@@ -177,18 +178,12 @@ export default function KeyHolderLogin() {
               <p className="text-xs font-semibold" style={{ color: "#856207" }}>
                 Demo Credentials
               </p>
-              <div
-                className="mt-1.5 space-y-0.5 text-xs font-mono"
+              <code
+                className="mt-1 block text-xs font-mono"
                 style={{ color: "#a77b08" }}
               >
-                <div>KH-001 — Chief Justice Secretariat</div>
-                <div>KH-002 — Armed Forces Division</div>
-                <div>KH-003 — EC Secretariat</div>
-                <div>KH-004 — UN Observer Mission</div>
-                <div className="mt-1.5 border-t pt-1.5" style={{ borderColor: "rgba(200, 146, 10, 0.15)" }}>
-                  Passphrase: keyholder (all)
-                </div>
-              </div>
+                ec.admin / ec1234
+              </code>
             </div>
           </div>
         </div>
