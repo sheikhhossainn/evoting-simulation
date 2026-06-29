@@ -1,0 +1,338 @@
+[
+  {
+    "id": "c1-1",
+    "constituencyId": 1,
+    "name": "Ayesha Rahman",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c1-2",
+    "constituencyId": 1,
+    "name": "Karim Hossain",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c1-3",
+    "constituencyId": 1,
+    "name": "Fatima Begum",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c1-4",
+    "constituencyId": 1,
+    "name": "Rafiq Uddin",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c1-5",
+    "constituencyId": 1,
+    "name": "Selina Hayat",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c1-6",
+    "constituencyId": 1,
+    "name": "Mahmudul Hasan",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c2-1",
+    "constituencyId": 2,
+    "name": "Nusrat Jahan",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c2-2",
+    "constituencyId": 2,
+    "name": "Arif Islam",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c2-3",
+    "constituencyId": 2,
+    "name": "Salma Akter",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c2-4",
+    "constituencyId": 2,
+    "name": "Tariqul Islam",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c2-5",
+    "constituencyId": 2,
+    "name": "Sultana Kamal",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c2-6",
+    "constituencyId": 2,
+    "name": "Ziaur Rahman",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c3-1",
+    "constituencyId": 3,
+    "name": "Mehedi Hasan",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c3-2",
+    "constituencyId": 3,
+    "name": "Sajeda Chowdhury",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c3-3",
+    "constituencyId": 3,
+    "name": "Kamrul Hasan",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c3-4",
+    "constituencyId": 3,
+    "name": "Farhana Islam",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c3-5",
+    "constituencyId": 3,
+    "name": "Tariq Anam",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c3-6",
+    "constituencyId": 3,
+    "name": "Sabina Yasmin",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c4-1",
+    "constituencyId": 4,
+    "name": "Jamal Uddin",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c4-2",
+    "constituencyId": 4,
+    "name": "Mina Akter",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c4-3",
+    "constituencyId": 4,
+    "name": "Abdur Rahman",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c4-4",
+    "constituencyId": 4,
+    "name": "Shirin Sharmin",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c4-5",
+    "constituencyId": 4,
+    "name": "Badrul Amin",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c4-6",
+    "constituencyId": 4,
+    "name": "Runa Laila",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c5-1",
+    "constituencyId": 5,
+    "name": "Rubel Hossain",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c5-2",
+    "constituencyId": 5,
+    "name": "Tasnim Rahman",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c5-3",
+    "constituencyId": 5,
+    "name": "Kawsar Ali",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c5-4",
+    "constituencyId": 5,
+    "name": "Laila Khan",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c5-5",
+    "constituencyId": 5,
+    "name": "Emdadul Haque",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c5-6",
+    "constituencyId": 5,
+    "name": "Sumaiya Zafar",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c6-1",
+    "constituencyId": 6,
+    "name": "Elias Kanchon",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c6-2",
+    "constituencyId": 6,
+    "name": "Rima Das",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c6-3",
+    "constituencyId": 6,
+    "name": "Moinuddin Ahmed",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c6-4",
+    "constituencyId": 6,
+    "name": "Sonia Akter",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c6-5",
+    "constituencyId": 6,
+    "name": "Iqbal Hossain",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c6-6",
+    "constituencyId": 6,
+    "name": "Fahmida Khatun",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c7-1",
+    "constituencyId": 7,
+    "name": "Habib Rahman",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c7-2",
+    "constituencyId": 7,
+    "name": "Nazma Begum",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c7-3",
+    "constituencyId": 7,
+    "name": "Mahmudullah Riyad",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c7-4",
+    "constituencyId": 7,
+    "name": "Tania Sultana",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c7-5",
+    "constituencyId": 7,
+    "name": "Sajjad Ali",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c7-6",
+    "constituencyId": 7,
+    "name": "Maliha Hossain",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  },
+  {
+    "id": "c8-1",
+    "constituencyId": 8,
+    "name": "Shakib Al Hasan",
+    "party": "Progressive Alliance",
+    "symbol": "🌿"
+  },
+  {
+    "id": "c8-2",
+    "constituencyId": 8,
+    "name": "Jahanara Alam",
+    "party": "Unity Front",
+    "symbol": "🤝"
+  },
+  {
+    "id": "c8-3",
+    "constituencyId": 8,
+    "name": "Mushfiqur Rahim",
+    "party": "People's Voice",
+    "symbol": "📢"
+  },
+  {
+    "id": "c8-4",
+    "constituencyId": 8,
+    "name": "Rumana Ahmed",
+    "party": "National Reform",
+    "symbol": "⚖️"
+  },
+  {
+    "id": "c8-5",
+    "constituencyId": 8,
+    "name": "Anwar Chowdhury",
+    "party": "Democratic League",
+    "symbol": "🕊️"
+  },
+  {
+    "id": "c8-6",
+    "constituencyId": 8,
+    "name": "Purnima Dey",
+    "party": "Civic Coalition",
+    "symbol": "🌟"
+  }
+]
