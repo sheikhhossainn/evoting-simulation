@@ -19,19 +19,17 @@ const VoteConfirmation = () => {
   });
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
-      {/* ── Background ── */}
-      <div className="absolute inset-0 bg-gradient-to-br from-surface-950 via-emerald-950/30 to-surface-900" />
-      <div className="orb w-72 h-72 bg-emerald-500 top-[-8%] right-[-5%] animate-float" />
-      <div className="orb w-64 h-64 bg-brand-500 bottom-[-5%] left-[-8%] animate-float-delayed" />
-
+    <div
+      className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden"
+      style={{ background: "#F2F5FA" }}
+    >
       <div className="relative z-10 w-full max-w-lg">
         {/* ── Success animation ── */}
         <div className="flex justify-center mb-8 animate-scale-in">
           <div className="relative">
             {/* Glow rings */}
-            <div className="absolute inset-0 w-24 h-24 rounded-full bg-emerald-500/20 animate-ping" />
-            <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
+            <div className="absolute inset-0 w-24 h-24 rounded-full bg-emerald-500/10 animate-ping" />
+            <div className="relative w-24 h-24 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <svg
                 className="w-12 h-12 text-white"
                 fill="none"
@@ -56,10 +54,10 @@ const VoteConfirmation = () => {
 
         {/* ── Heading ── */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: "#0A2540" }}>
             Vote Recorded!
           </h1>
-          <p className="text-slate-400 text-lg">
+          <p className="text-lg" style={{ color: "#627d98" }}>
             Your vote has been encrypted and securely submitted.
           </p>
         </div>
@@ -68,15 +66,17 @@ const VoteConfirmation = () => {
         <div className="glass-card p-6 md:p-8 mb-6 opacity-0-init animate-fade-in-up-delayed">
           {/* Candidate info */}
           {state?.candidateName && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-500/8 border border-emerald-500/15">
-              <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-medium">
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+              <p className="text-xs uppercase tracking-wider mb-1 font-medium" style={{ color: "#627d98" }}>
                 Your Selection
               </p>
-              <p className="text-lg font-semibold text-white">
+              <p className="text-lg font-semibold" style={{ color: "#0A2540" }}>
                 {state.candidateName}
               </p>
               {state.candidateParty && (
-                <p className="text-sm text-emerald-400">{state.candidateParty}</p>
+                <p className="text-sm font-medium" style={{ color: "#006A4E" }}>
+                  {state.candidateParty}
+                </p>
               )}
             </div>
           )}
@@ -90,10 +90,10 @@ const VoteConfirmation = () => {
           </div>
 
           {/* Blockchain badge */}
-          <div className="mt-6 pt-5 border-t border-slate-700/40 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
+          <div className="mt-6 pt-5 border-t border-slate-200 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
               <svg
-                className="w-4 h-4 text-violet-400"
+                className="w-4 h-4 text-violet-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -106,9 +106,9 @@ const VoteConfirmation = () => {
                 />
               </svg>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs leading-relaxed" style={{ color: "#627d98" }}>
               This vote is anchored on the{" "}
-              <span className="text-violet-400 font-medium">
+              <span className="text-violet-600 font-medium">
                 Polygon Network
               </span>{" "}
               and can be independently verified using the transaction hash above.
@@ -120,7 +120,7 @@ const VoteConfirmation = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-8 opacity-0-init animate-fade-in-up-delayed">
           <button
             onClick={() => navigate("/")}
-            className="btn-primary flex-1 text-base"
+            className="btn-primary flex-1 text-base shadow-sm"
           >
             <svg
               className="w-5 h-5 mr-2"
@@ -142,9 +142,9 @@ const VoteConfirmation = () => {
         {/* ── Privacy footer ── */}
         <div className="glass-card px-5 py-4 opacity-0-init animate-fade-in-up-delayed">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 mt-0.5 border border-emerald-100">
               <svg
-                className="w-4 h-4 text-brand-400"
+                className="w-4 h-4 text-emerald-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -158,10 +158,10 @@ const VoteConfirmation = () => {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-300 mb-1">
+              <p className="text-sm font-medium mb-1" style={{ color: "#0A2540" }}>
                 Zero-Knowledge Privacy Guarantee
               </p>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs leading-relaxed" style={{ color: "#627d98" }}>
                 Your vote was encrypted using ElGamal encryption before leaving
                 your device. The ZKP proof ensures your vote is valid without
                 revealing your choice. No one — including system administrators —
@@ -191,19 +191,20 @@ function ReceiptRow({
 }) {
   return (
     <div>
-      <p className="text-xs text-slate-500 uppercase tracking-wider mb-1 font-medium">
+      <p className="text-xs uppercase tracking-wider mb-1 font-medium" style={{ color: "#627d98" }}>
         {label}
       </p>
       {status ? (
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="text-sm font-medium text-emerald-400">{value}</span>
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-sm font-medium text-emerald-600">{value}</span>
         </div>
       ) : (
         <p
-          className={`text-sm text-slate-200 ${
+          className={`text-sm ${
             mono ? "font-mono" : ""
           } ${truncate ? "truncate" : ""}`}
+          style={{ color: "#0A2540" }}
         >
           {value}
         </p>
