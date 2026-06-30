@@ -118,6 +118,13 @@
     box-shadow: 0 8px 25px rgba(10, 37, 64, 0.3);
   }
 
+  .btn-navy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
   /* Ghost / secondary button */
   .btn-ghost {
     @apply inline-flex items-center justify-center px-6 py-3 

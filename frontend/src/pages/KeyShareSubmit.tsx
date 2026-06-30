@@ -1,169 +1,463 @@
-/**
- * KeyShareSubmit.tsx
- *
- * Where a key holder submits their Shamir share at tallying time.
- * No logic yet — UI only. The submit button navigates to the status page.
- *
- * Day 1 build — UI shell only. Real submission logic and Supabase
- * integration come in later tasks.
- */
-
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function KeyShareSubmit() {
+const KeyShareSubmit = () => {
   const navigate = useNavigate();
-// Placeholder handler — no validation, no API call yet
-  const handleSubmit = (e: any) => {
+  const [shareIndex, setShareIndex] = useState("");
+  const [shareValue, setShareValue] = useState("");
+  const [passphrase, setPassphrase] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+
+  const isValid =
+    shareIndex.length > 0 &&
+    shareValue.trim().length > 0 &&
+    passphrase.length > 0 &&
+    confirmed;
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isValid) return;
+    setShowModal(true);
+  };
+
+  const handleConfirm = () => {
     navigate("/keyholder/status");
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top bar */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-medium text-slate-900">SecureVote BD</h1>
-            <p className="text-xs text-slate-500">Key Holder Portal</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Signed in
-            </span>
-            <button className="text-sm text-slate-600 hover:text-slate-900">
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-6 py-8">
-
-        {/* Election context */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">
-                Active election
-              </p>
-              <p className="text-base font-medium text-slate-900">
-                NATIONAL-2026-001
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
-                Tallying phase — share submission window open
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">
-                Threshold
-              </p>
-              <p className="text-base font-medium text-slate-900">3 of 4</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Important notice */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-          <div className="flex gap-3">
-            <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    <div
+      className="relative min-h-screen overflow-hidden"
+      style={{ background: "#F2F5FA" }}
+    >
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 md:py-12">
+        {/* ── Header bar (matches VotingPage pattern) ── */}
+        <div className="glass-card overflow-hidden mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in-up">
+          <div
+            className="flex w-full sm:w-auto items-center gap-2 px-6 py-3.5"
+            style={{ background: "#0A2540" }}
+          >
+            <svg
+              className="w-4 h-4 text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+              />
             </svg>
+            <span className="text-sm font-semibold text-white">
+              Threshold Decryption · NATIONAL-2026-001
+            </span>
+          </div>
+          <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-between sm:justify-end gap-4">
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "#627d98" }}
+            >
+              Phase: Tallying
+            </span>
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-amber-50 border border-amber-100">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-mono" style={{ color: "#0A2540" }}>
+                Signed in
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Title ── */}
+        <div className="text-center mb-8 opacity-0-init animate-fade-in-up-delayed">
+          <h1
+            className="text-3xl md:text-4xl font-bold mb-2"
+            style={{ color: "#0A2540" }}
+          >
+            Submit Your Secret Share
+          </h1>
+          <p style={{ color: "#627d98" }}>
+            Your share will be combined with 2 others to reconstruct the private decryption key.
+          </p>
+        </div>
+
+        {/* ── Context strip — 3 quick stats ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {[
+            {
+              label: "Threshold",
+              value: "3 of 4",
+              theme: "from-emerald-500 to-teal-600",
+              accent: "text-emerald-600",
+              bg: "bg-emerald-50",
+              icon: (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                />
+              ),
+            },
+            {
+              label: "Your Position",
+              value: "Key Holder",
+              theme: "from-amber-500 to-orange-600",
+              accent: "text-amber-600",
+              bg: "bg-amber-50",
+              icon: (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+                />
+              ),
+            },
+            {
+              label: "Status",
+              value: "Window Open",
+              theme: "from-violet-500 to-purple-600",
+              accent: "text-violet-600",
+              bg: "bg-violet-50",
+              icon: (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                />
+              ),
+            },
+          ].map((stat, i) => (
+            <div
+              key={stat.label}
+              className="glass-card p-5 opacity-0-init"
+              style={{
+                animation: `fade-in-up 0.5s ease-out ${0.1 + i * 0.1}s forwards`,
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.theme} flex items-center justify-center shadow-sm flex-shrink-0`}
+                >
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    {stat.icon}
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className="text-xs uppercase tracking-wider font-medium"
+                    style={{ color: "#627d98" }}
+                  >
+                    {stat.label}
+                  </p>
+                  <p
+                    className="text-base font-semibold mt-0.5"
+                    style={{ color: "#0A2540" }}
+                  >
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Warning notice ── */}
+        <div
+          className="mb-6 rounded-xl p-4 opacity-0-init"
+          style={{
+            background: "rgba(200, 146, 10, 0.05)",
+            border: "1px solid rgba(200, 146, 10, 0.25)",
+            animation: "fade-in-up 0.5s ease-out 0.4s forwards",
+          }}
+        >
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg
+                className="h-4 w-4 text-amber-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                />
+              </svg>
+            </div>
             <div>
-              <p className="text-sm font-medium text-amber-900">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: "#0A2540" }}
+              >
                 Verify your share before submitting
               </p>
-              <p className="text-sm text-amber-800 mt-1">
-                Once submitted, your share will be combined with others to reconstruct the private key.
-                Make sure the share value matches the one you received during the key ceremony.
+              <p
+                className="mt-1 text-sm leading-relaxed"
+                style={{ color: "#627d98" }}
+              >
+                Once submitted, your share is combined with others to reconstruct the private key. This action cannot be reversed.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Submission form */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-lg font-medium text-slate-900 mb-1">
-            Submit your Shamir share
-          </h2>
-          <p className="text-sm text-slate-500 mb-6">
-            Paste your assigned share below. Your share index identifies which point
-            on the polynomial you hold.
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Share index (x value)
-              </label>
-              <input
-                type="number"
-                placeholder="e.g. 3"
-                min={1}
-                max={4}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        {/* ── Submission form card ── */}
+        <div
+          className="glass-card overflow-hidden opacity-0-init"
+          style={{
+            animation: "fade-in-up 0.5s ease-out 0.5s forwards",
+          }}
+        >
+          {/* Dark header */}
+          <div
+            className="flex items-center gap-2 px-6 py-3.5"
+            style={{ background: "#0A2540" }}
+          >
+            <svg
+              className="h-4 w-4 text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
               />
-              <p className="text-xs text-slate-500 mt-1.5">
-                Your assigned position in the (3, 4) threshold scheme
-              </p>
+            </svg>
+            <span className="text-sm font-semibold text-white">
+              Shamir Share Submission
+            </span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5 p-6 md:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Share Index */}
+              <div className="md:col-span-1">
+                <label
+                  htmlFor="share-index"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{ color: "#0A2540" }}
+                >
+                  Share Index (x)
+                </label>
+                <input
+                  id="share-index"
+                  type="number"
+                  min={1}
+                  max={4}
+                  value={shareIndex}
+                  onChange={(e) => setShareIndex(e.target.value)}
+                  placeholder="1-4"
+                  className="input-field font-mono text-lg text-center"
+                />
+                <p
+                  className="mt-1.5 text-xs"
+                  style={{ color: "#9fb3c8" }}
+                >
+                  Your polynomial position
+                </p>
+              </div>
+
+              {/* Share Value */}
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="share-value"
+                  className="mb-1.5 block text-sm font-medium"
+                  style={{ color: "#0A2540" }}
+                >
+                  Share Value (y)
+                </label>
+                <textarea
+                  id="share-value"
+                  rows={3}
+                  value={shareValue}
+                  onChange={(e) => setShareValue(e.target.value)}
+                  placeholder="Paste cryptographic share (hex or decimal)"
+                  className="input-field font-mono text-xs leading-relaxed resize-none"
+                />
+                <p
+                  className="mt-1.5 text-xs"
+                  style={{ color: "#9fb3c8" }}
+                >
+                  Value from your secure backup
+                </p>
+              </div>
             </div>
 
+            {/* Confirmation passphrase */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Share value (y value)
-              </label>
-              <textarea
-                rows={4}
-                placeholder="Paste your share value here (hex or decimal format)"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <p className="text-xs text-slate-500 mt-1.5">
-                The cryptographic share value from your secure backup
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Confirmation passphrase
+              <label
+                htmlFor="confirm-pass"
+                className="mb-1.5 block text-sm font-medium"
+                style={{ color: "#0A2540" }}
+              >
+                Confirmation Passphrase
               </label>
               <input
+                id="confirm-pass"
                 type="password"
-                placeholder="Re-enter passphrase to confirm submission"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                placeholder="Re-enter your passphrase to authorize"
+                className="input-field"
               />
             </div>
 
-            <div className="flex items-start gap-2 pt-2">
+            {/* Confirmation checkbox */}
+            <label className="flex items-start gap-3 cursor-pointer group">
               <input
                 type="checkbox"
-                id="confirm"
-                className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded cursor-pointer"
+                style={{ accentColor: "#006A4E" }}
               />
-              <label htmlFor="confirm" className="text-sm text-slate-700">
-                I confirm this share is from my authorized custody and I am submitting
-                it for the purpose of tallying election NATIONAL-2026-001.
-              </label>
-            </div>
+              <span
+                className="text-sm leading-relaxed"
+                style={{ color: "#627d98" }}
+              >
+                I confirm this share is from my authorized custody and I am submitting it for the lawful purpose of tallying election{" "}
+                <span
+                  className="font-mono font-semibold"
+                  style={{ color: "#0A2540" }}
+                >
+                  NATIONAL-2026-001
+                </span>
+                .
+              </span>
+            </label>
 
-            <div className="flex gap-3 pt-3 border-t border-slate-100">
+            {/* Actions */}
+            <div
+              className="flex flex-col sm:flex-row gap-3 pt-3 border-t"
+              style={{ borderColor: "rgba(10, 37, 64, 0.08)" }}
+            >
               <button
                 type="button"
-                onClick={() => navigate("/keyholder")}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => navigate("/keyholder/login")}
+                className="btn-ghost text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                disabled={!isValid}
+                className="btn-navy flex-1 text-sm shadow-sm"
               >
-                Submit share
+                <svg
+                  className="mr-2 h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                  />
+                </svg>
+                Submit Share
               </button>
             </div>
           </form>
         </div>
-      </main>
+
+        {/* ── Back to home ── */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => navigate("/")}
+            className="text-sm transition-colors"
+            style={{ color: "#627d98" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#0A2540")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#627d98")}
+          >
+            ← Back to Home
+          </button>
+        </div>
+      </div>
+
+      {/* ── Confirmation Modal (matches VotingPage pattern) ── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setShowModal(false)}
+          />
+          <div className="relative glass-card overflow-hidden max-w-sm w-full animate-scale-in">
+            <div
+              className="flex items-center justify-center py-4"
+              style={{ background: "#0A2540" }}
+            >
+              <h3 className="text-base font-semibold text-white">
+                Confirm Share Submission
+              </h3>
+            </div>
+            <div className="p-8">
+              <div className="flex justify-center mb-5">
+                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+                  <svg
+                    className="w-7 h-7 text-amber-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <p
+                className="text-sm text-center mb-6"
+                style={{ color: "#627d98" }}
+              >
+                This action is irreversible. Confirm submission of share index{" "}
+                <span
+                  className="font-mono font-semibold"
+                  style={{ color: "#0A2540" }}
+                >
+                  {shareIndex}
+                </span>
+                ?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="btn-ghost flex-1 text-sm py-2.5"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  className="btn-navy flex-1 text-sm py-2.5"
+                >
+                  Confirm Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default KeyShareSubmit;

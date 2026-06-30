@@ -1,165 +1,341 @@
-/**
- * KeyShareStatus.tsx
- *
- * Public status page showing which keyholders have submitted their shares
- * and whether the threshold has been met for decryption.
- *
- * Day 1 build — UI only with hard-coded sample state.
- * Real data binding to Supabase comes in later tasks.
- */
-
 import { useNavigate } from "react-router-dom";
 
-// Type for a key holder entry
 type KeyHolder = {
   id: number;
   name: string;
+  role: string;
   submitted: boolean;
   submittedAt: string | null;
+  theme: string;
+  accent: string;
+  bg: string;
 };
 
-// Hard-coded sample state for UI demonstration
-// In later tasks this will come from Supabase
 const SAMPLE_KEYHOLDERS: KeyHolder[] = [
-  { id: 1, name: "Election Commission", submitted: true, submittedAt: "2026-08-30 14:22" },
-  { id: 2, name: "Judiciary Observer", submitted: true, submittedAt: "2026-08-30 14:35" },
-  { id: 3, name: "Academic Auditor", submitted: false, submittedAt: null },
-  { id: 4, name: "Civil Society Observer", submitted: false, submittedAt: null },
+  {
+    id: 1,
+    name: "Election Commission",
+    role: "Primary Authority",
+    submitted: true,
+    submittedAt: "2026-08-30 14:22 UTC",
+    theme: "from-emerald-500 to-teal-600",
+    accent: "text-emerald-600",
+    bg: "bg-emerald-50",
+  },
+  {
+    id: 2,
+    name: "Judiciary Observer",
+    role: "Legal Oversight",
+    submitted: true,
+    submittedAt: "2026-08-30 14:35 UTC",
+    theme: "from-blue-500 to-cyan-600",
+    accent: "text-blue-600",
+    bg: "bg-blue-50",
+  },
+  {
+    id: 3,
+    name: "Academic Auditor",
+    role: "Technical Oversight",
+    submitted: false,
+    submittedAt: null,
+    theme: "from-violet-500 to-purple-600",
+    accent: "text-violet-600",
+    bg: "bg-violet-50",
+  },
+  {
+    id: 4,
+    name: "Civil Society Observer",
+    role: "Public Trust",
+    submitted: false,
+    submittedAt: null,
+    theme: "from-rose-500 to-pink-600",
+    accent: "text-rose-600",
+    bg: "bg-rose-50",
+  },
 ];
 
 const THRESHOLD = 3;
 
-export default function KeyShareStatus() {
+const KeyShareStatus = () => {
   const navigate = useNavigate();
 
   const submittedCount = SAMPLE_KEYHOLDERS.filter((k) => k.submitted).length;
   const thresholdMet = submittedCount >= THRESHOLD;
+  const remaining = Math.max(0, THRESHOLD - submittedCount);
+  const progressPct = (submittedCount / SAMPLE_KEYHOLDERS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top bar */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-medium text-slate-900">SecureVote BD</h1>
-            <p className="text-xs text-slate-500">Key Holder Portal — Status</p>
-          </div>
-          <button
-            onClick={() => navigate("/keyholder/login")}
-            className="text-sm text-indigo-600 hover:text-indigo-700"
+    <div
+      className="relative min-h-screen overflow-hidden"
+      style={{ background: "#F2F5FA" }}
+    >
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 md:py-12">
+        {/* ── Header bar ── */}
+        <div className="glass-card overflow-hidden mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in-up">
+          <div
+            className="flex w-full sm:w-auto items-center gap-2 px-6 py-3.5"
+            style={{ background: "#0A2540" }}
           >
-            ← Back to portal
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-6 py-8">
-
-        {/* Threshold summary card */}
-        <div className={`rounded-xl border p-6 mb-6 ${thresholdMet ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-200"}`}>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">
-                Threshold status
-              </p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-medium text-slate-900">
-                  {submittedCount}
-                </span>
-                <span className="text-lg text-slate-500">
-                  / {THRESHOLD} required
-                </span>
-              </div>
-              <p className={`text-sm mt-2 ${thresholdMet ? "text-emerald-700" : "text-slate-600"}`}>
-                {thresholdMet
-                  ? "Threshold met — private key can be reconstructed for tallying"
-                  : `${THRESHOLD - submittedCount} more share${THRESHOLD - submittedCount === 1 ? "" : "s"} needed before decryption can begin`
-                }
-              </p>
-            </div>
-            <div className={`p-3 rounded-full ${thresholdMet ? "bg-emerald-100" : "bg-slate-100"}`}>
-              {thresholdMet ? (
-                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-5">
-            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${thresholdMet ? "bg-emerald-500" : "bg-indigo-500"}`}
-                style={{ width: `${(submittedCount / SAMPLE_KEYHOLDERS.length) * 100}%` }}
+            <svg
+              className="w-4 h-4 text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
               />
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className="text-xs text-slate-500">0</span>
-              <span className="text-xs text-slate-500">{SAMPLE_KEYHOLDERS.length} keyholders</span>
+            </svg>
+            <span className="text-sm font-semibold text-white">
+              Threshold Decryption · NATIONAL-2026-001
+            </span>
+          </div>
+          <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-between sm:justify-end gap-4">
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "#627d98" }}
+            >
+              Public Transparency Log
+            </span>
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-amber-50 border border-amber-100">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-mono" style={{ color: "#0A2540" }}>
+                Read-only
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Keyholder list */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-base font-medium text-slate-900">Keyholders</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Submission status for election NATIONAL-2026-001
-            </p>
-          </div>
-
-          <ul className="divide-y divide-slate-100">
-            {SAMPLE_KEYHOLDERS.map((kh) => (
-              <li key={kh.id} className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium ${kh.submitted ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                    {kh.id}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{kh.name}</p>
-                    <p className="text-xs text-slate-500">
-                      Share index {kh.id}
-                      {kh.submittedAt && ` · submitted ${kh.submittedAt}`}
-                    </p>
-                  </div>
-                </div>
-
-                {kh.submitted ? (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Submitted
-                  </span>
-                ) : (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200">
-                    Pending
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Action footer */}
-        <div className="mt-6 flex items-center justify-between text-sm">
-          <p className="text-slate-500">
-            This page is publicly visible for election transparency.
+        {/* ── Title ── */}
+        <div className="text-center mb-8 opacity-0-init animate-fade-in-up-delayed">
+          <h1
+            className="text-3xl md:text-4xl font-bold mb-2"
+            style={{ color: "#0A2540" }}
+          >
+            Reconstruction Progress
+          </h1>
+          <p style={{ color: "#627d98" }}>
+            Real-time status of Shamir share submissions toward the 3-of-4 threshold.
           </p>
+        </div>
+
+        {/* ── Big progress card ── */}
+        <div
+          className="glass-card overflow-hidden mb-8 opacity-0-init"
+          style={{ animation: "fade-in-up 0.5s ease-out 0.2s forwards" }}
+        >
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-5">
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0 text-white bg-gradient-to-br ${
+                    thresholdMet ? "from-emerald-500 to-teal-600" : "from-amber-500 to-orange-600"
+                  }`}
+                >
+                  <svg
+                    className="w-7 h-7"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    {thresholdMet ? (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m4.5 12.75 6 6 9-13.5"
+                      />
+                    ) : (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                      />
+                    )}
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className="text-4xl font-bold font-mono"
+                      style={{ color: "#0A2540" }}
+                    >
+                      {submittedCount}
+                    </span>
+                    <span className="text-lg" style={{ color: "#627d98" }}>
+                      of {THRESHOLD} required
+                    </span>
+                  </div>
+                  <p
+                    className="mt-1 text-sm font-medium"
+                    style={{ color: thresholdMet ? "#0F6E56" : "#627d98" }}
+                  >
+                    {thresholdMet
+                      ? "Threshold met — private key can be reconstructed"
+                      : `${remaining} more share${remaining === 1 ? "" : "s"} needed before decryption can begin`}
+                  </p>
+                </div>
+              </div>
+
+              <span
+                className={`inline-block px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                  thresholdMet
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-amber-50 text-amber-600"
+                }`}
+              >
+                {thresholdMet ? "Ready" : "Pending"}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div>
+              <div
+                className="w-full h-2.5 rounded-full overflow-hidden"
+                style={{ background: "rgba(10, 37, 64, 0.08)" }}
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ease-out bg-gradient-to-r ${
+                    thresholdMet
+                      ? "from-emerald-500 to-teal-600"
+                      : "from-amber-500 to-orange-600"
+                  }`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <div
+                className="flex justify-between mt-2 text-xs"
+                style={{ color: "#9fb3c8" }}
+              >
+                <span>0 shares</span>
+                <span>{SAMPLE_KEYHOLDERS.length} keyholders total</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Keyholder grid (matches VotingPage candidate card pattern) ── */}
+        <div className="mb-2 opacity-0-init animate-fade-in-up-delayed">
+          <h2
+            className="text-lg font-semibold mb-4"
+            style={{ color: "#0A2540" }}
+          >
+            Authorized Key Holders
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
+          {SAMPLE_KEYHOLDERS.map((kh, i) => (
+            <div
+              key={kh.id}
+              className={`relative glass-card p-6 opacity-0-init transition-all duration-300 ${
+                kh.submitted ? "" : "opacity-70"
+              }`}
+              style={{
+                animation: `fade-in-up 0.5s ease-out ${0.1 + i * 0.1}s forwards`,
+              }}
+            >
+              {/* Status indicator top-right */}
+              <div className="absolute top-4 right-4">
+                <div
+                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                    kh.submitted
+                      ? "border-emerald-500 bg-emerald-500"
+                      : "border-slate-300"
+                  }`}
+                >
+                  {kh.submitted && (
+                    <svg
+                      className="w-3.5 h-3.5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m4.5 12.75 6 6 9-13.5"
+                      />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div
+                  className={`w-14 h-14 rounded-xl bg-gradient-to-br ${kh.theme} flex items-center justify-center text-lg font-bold shadow-sm flex-shrink-0 text-white`}
+                >
+                  #{kh.id}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3
+                    className="text-base font-semibold truncate"
+                    style={{ color: "#0A2540" }}
+                  >
+                    {kh.name}
+                  </h3>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${kh.bg} ${kh.accent}`}
+                  >
+                    {kh.role}
+                  </span>
+                  <p
+                    className="mt-2 text-xs font-mono"
+                    style={{ color: "#9fb3c8" }}
+                  >
+                    {kh.submitted ? `Submitted ${kh.submittedAt}` : "Awaiting submission"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between text-xs mb-6">
+          <span style={{ color: "#9fb3c8" }}>
+            This page is publicly visible for election transparency.
+          </span>
           <button
             onClick={() => window.location.reload()}
-            className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+            className="flex items-center gap-1 font-medium transition-colors text-amber-600 hover:text-amber-700"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
             </svg>
             Refresh
           </button>
         </div>
-      </main>
+
+        {/* ── Back to home ── */}
+        <div className="text-center">
+          <button
+            onClick={() => navigate("/")}
+            className="text-sm transition-colors"
+            style={{ color: "#627d98" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#0A2540")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#627d98")}
+          >
+            ← Back to Home
+          </button>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default KeyShareStatus;
