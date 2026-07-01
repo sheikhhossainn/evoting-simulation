@@ -1,81 +1,131 @@
 # E-Voting Simulation — Agent Context
 
-> Handoff doc for AI agents. Read this before making changes.
+> Handoff doc for AI agents. Read before making changes.
 
-## What This Project Is
+## What This Is
 
-A **blockchain-based secure e-voting simulation** using ZKP, ElGamal encryption, Shamir's Secret Sharing, and Polygon anchoring. Academic/research project. Monorepo with 3 packages.
+Blockchain-based secure e-voting simulation using ZKP, ElGamal encryption, Shamir's Secret Sharing, and Polygon anchoring. Academic/research project. Monorepo with 3 packages.
 
 ## Repo & Git
 
 - **GitHub**: `sheikhhossainn/evoting-simulation`
-- **Branching**: `main` ← `dev` ← `feature/*`. Never push to `main` or `dev` directly. All changes via PR into `dev`.
-- **Full rules**: See `CONTRIBUTING.md` in repo root.
+- **Branching**: `main` ← `dev` ← `feature/*`. All changes via PR into `dev`.
+- **Rules**: See `CONTRIBUTING.md`.
 
 ## Architecture
 
 ```
 evoting-simulation/
-├── package.json          ← Root orchestrator (no deps, just npm scripts)
-├── frontend/             ← React 19 + Vite 8 + TypeScript + Tailwind CSS 3
-├── backend/              ← Express 5 + TypeScript + Zod 4 + Supabase
-└── shared-interfaces/    ← Shared TS types (currently just a placeholder)
+├── package.json              ← Root orchestrator (scripts only)
+├── frontend/                 ← React 19 + Vite 8 + TS + Tailwind 3
+├── backend/                  ← Express 5 + TS + Zod 4 + Supabase
+└── shared-interfaces/        ← Shared TS types (types.ts)
 ```
 
 ## Tech Stack
 
-| Layer | Stack | Key Config |
-|-------|-------|------------|
-| **Frontend** | React 19, Vite 8, TypeScript 6, Tailwind CSS 3, react-router-dom 7 | `frontend/vite.config.ts`, `frontend/tailwind.config.ts`, `frontend/postcss.config.js` |
-| **Backend** | Express 5, TypeScript 6, Zod 4, Supabase JS, dotenv | `backend/tsconfig.json` (CommonJS), `backend/nodemon.json` (ts-node) |
-| **Shared** | Plain TypeScript | `shared-interfaces/types.ts` |
+| Layer | Stack |
+|-------|-------|
+| **Frontend** | React 19, Vite 8, TypeScript 6, Tailwind CSS 3, react-router-dom 7 |
+| **Backend** | Express 5, TypeScript 6, Zod 4, Supabase JS, dotenv, Node crypto |
+| **Shared** | Plain TypeScript (`shared-interfaces/types.ts`) |
+| **DB** | Supabase (PostgreSQL 15+) |
 
 ## How to Run
 
 ```bash
-# From repo root:
-npm run dev            # Starts frontend (Vite on :5173)
-npm run dev:backend    # Starts backend (Express on :3000)
-npm run install:all    # Installs deps in both frontend/ and backend/
+npm run dev            # Frontend (Vite :5173)
+npm run dev:backend    # Backend (Express :3000)
+npm run install:all    # Install deps in both packages
 ```
 
-Backend requires `backend/.env` with: `PORT`, `SUPABASE_URL`, `SUPABASE_KEY`.
+Backend requires `backend/.env` — see `backend/.env.example` for all keys.
 
-## Current State (as of 2026-06-26)
+## Backend `.env` Keys
 
-### ✅ Done
-- Monorepo scaffolded with root `package.json` orchestrator
-- Frontend: Vite + React + Tailwind initialized, routing configured with 7 routes
-- Backend: Express + Zod initialized, single `POST /vote` endpoint (validates `{ nid: string }`, returns `{ status: "queued" }`)
-- All configs working: TypeScript, Tailwind, PostCSS, Nodemon, Vite
+`PORT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NID_HASH_SALT`, `ELGAMAL_P`, `ELGAMAL_G`, `ELGAMAL_PUBLIC_KEY`, `ELGAMAL_PRIVATE_KEY`
 
-### 📂 Frontend Routes & Pages
-| Route | Component | Status |
-|-------|-----------|--------|
-| `/` | `LandingPage` | Built — shows project intro & contributing instructions |
-| `/voter/login` | `VoterLogin` | Stub (title only) |
-| `/voter/vote` | `VotingPage` | Stub (title only) |
-| `/voter/confirmation` | `VoteConfirmation` | Stub (title only) |
-| `/keyholder/login` | `KeyHolderLogin` | Stub (title only) |
-| `/keyholder/submit` | `KeyShareSubmit` | Stub (title only) |
-| `/keyholder/status` | `KeyShareStatus` | Stub (title only) |
+Generate crypto keys: `npx ts-node src/scripts/setup-keys.ts`
 
-### 📂 Backend Endpoints
+## Database (Supabase)
+
+Schema: `backend/src/schema.sql`. Tables:
+
+| Table | Purpose |
+|-------|---------|
+| `voters` | Registered voters (NID stored as salted SHA-256 hash) |
+| `votes` | Encrypted vote records (ElGamal `{c1,c2}` as JSONB) |
+| `candidates` | Candidates per constituency |
+| `nullifiers` | Double-vote prevention hashes |
+| `key_shares` | Shamir's Secret Sharing shares for tallying |
+
+Stored proc: `fn_cast_vote(p_voter_nid_hash, p_encrypted_vote, p_zkp_proof)` — atomic vote casting.
+
+## Backend API
+
 | Method | Path | Status |
 |--------|------|--------|
-| `POST` | `/vote` | Working — Zod validates `{ nid: string }`, returns `{ status: "queued" }` |
+| `POST` | `/voter/register` | ✅ Salted SHA-256 hash NID, upsert into Supabase |
+| `POST` | `/voter/check-nullifier` | ✅ Check nullifier existence |
+| `POST` | `/vote` | ✅ ElGamal ciphertext `{c1,c2}` → `fn_cast_vote` RPC |
+| `GET` | `/candidates?constituency=CON-XX` | ✅ Filtered candidate list |
+| `GET` | `/election/public-key` | ✅ Returns ElGamal `{p,g,y}` |
+| `GET` | `/health` | ✅ Health check |
 
-### 🔲 Not Yet Started
-- Supabase integration (schema, queries)
-- ElGamal encryption / ZKP / Shamir's Secret Sharing logic
-- Actual voter authentication flow
-- Key holder share management
+## Backend Source Structure
+
+```
+backend/src/
+├── index.ts                  ← Express entry, mounts all routes
+├── supabaseClient.ts         ← Supabase client (service role)
+├── crypto/
+│   └── elgamal.ts            ← ElGamal keygen, encrypt, decrypt (BigInt)
+├── routes/
+│   ├── voter.ts              ← /voter/register, /voter/check-nullifier
+│   ├── vote.ts               ← POST /vote
+│   └── candidates.ts         ← GET /candidates
+└── scripts/
+    ├── setup-keys.ts         ← Generate ElGamal keypair + NID salt → .env
+    ├── seed-voters.ts        ← 20 mock voters across 8 constituencies
+    └── seed-candidates.ts    ← 48 candidates from candidates.json
+```
+
+## Frontend Routes
+
+| Route | Component | Status |
+|-------|-----------|--------|
+| `/` | `LandingPage` | Built |
+| `/voter/login` | `VoterLogin` | Built |
+| `/voter/vote` | `VotingPage` | Built |
+| `/voter/confirmation` | `VoteConfirmation` | Built |
+| `/keyholder/login` | `KeyHolderLogin` | Built |
+| `/keyholder/submit` | `KeyShareSubmit` | Built |
+| `/keyholder/status` | `KeyShareStatus` | Built |
+| `/admin` | `AdminDashboard` | Built |
+
+Frontend API helpers: `frontend/src/utils/api.ts`
+
+## Seeded Data
+
+- **20 voters**: NIDs `10001234567`–`10231234567`, spread across CON-01 to CON-08
+- **48 candidates**: 6 per constituency, from `frontend/public/candidates.json`
+- **Constituency format**: `CON-01` through `CON-08`
+
+## Key Decisions
+
+- **Module systems**: Frontend = ESM, Backend = CommonJS
+- **NID hashing**: `SHA-256(nid + NID_HASH_SALT)` — salt in `.env`
+- **ElGamal**: 256-bit safe prime (simulation-grade), Node.js `crypto` BigInt
+- **Vote storage**: ElGamal ciphertext `{c1, c2}` as JSONB in `votes` table
+- **Atomic voting**: `fn_cast_vote` PostgreSQL function (locks row, checks eligibility, inserts vote, flips `has_voted`)
+- **Dev tools**: Backend uses `nodemon` + `ts-node`, Frontend uses `oxlint`
+- **No root node_modules**: Each sub-project independent
+
+## Not Yet Implemented
+
+- Frontend ↔ Backend ElGamal integration (client-side encryption)
+- Shamir's Secret Sharing key ceremony + reconstruction
+- ZKP vote validity proofs
 - Blockchain/Polygon anchoring
-- Frontend ↔ Backend API integration
-- `shared-interfaces/types.ts` is empty (placeholder comment only)
-
-## Key Decisions Made
-- **Module systems**: Frontend = ESM (`"type": "module"`), Backend = CommonJS (`"type": "commonjs"`)
-- **Linting**: Frontend uses `oxlint` (not ESLint)
-- **Dev tools**: Backend uses `nodemon` + `ts-node` for hot reload
-- **No root node_modules**: Each sub-project manages its own dependencies independently
+- Admin authentication
+- RLS policies (tables have RLS enabled but no policies yet)
