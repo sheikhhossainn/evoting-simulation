@@ -2,8 +2,9 @@
  * index.ts — Express server entry point
  *
  * Mounts:
- *   /voter/*  → voter registration & nullifier checks
- *   /vote     → vote submission
+ *   /voter/*     → voter registration & nullifier checks
+ *   /vote        → vote submission (ElGamal-encrypted)
+ *   /candidates  → candidate lookup by constituency
  */
 
 import express from "express";
@@ -12,6 +13,8 @@ import dotenv from "dotenv";
 
 import voterRouter from "./routes/voter";
 import voteRouter from "./routes/vote";
+import candidatesRouter from "./routes/candidates";
+import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 
 dotenv.config();
 
@@ -29,14 +32,45 @@ app.use(express.json());
 
 // ── Routes ──
 app.use("/voter", voterRouter);
-app.use(voteRouter); // POST /vote lives at root
+app.use(voteRouter);          // POST /vote lives at root
+app.use(candidatesRouter);    // GET /candidates lives at root
 
 // ── Health check ──
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// ── ElGamal public key endpoint ──
+// Frontend fetches this to encrypt votes client-side
+app.get("/election/public-key", (_req, res) => {
+  const pubKey = loadPublicKeyFromEnv();
+  if (!pubKey) {
+    res.status(503).json({
+      error: "ElGamal keys not configured. Run: npx ts-node src/scripts/setup-keys.ts",
+    });
+    return;
+  }
+  res.json(pubKey);
+});
+
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+
+  // Verify ElGamal keys are loaded
+  const pubKey = loadPublicKeyFromEnv();
+  if (pubKey) {
+    console.log(`🔐 ElGamal public key loaded (p=${pubKey.p.slice(0, 12)}...)`);
+  } else {
+    console.warn(
+      "⚠️  ElGamal keys not found in .env — run: npx ts-node src/scripts/setup-keys.ts"
+    );
+  }
+
+  // Verify NID salt
+  if (process.env.NID_HASH_SALT) {
+    console.log("🧂 NID hash salt loaded");
+  } else {
+    console.warn("⚠️  NID_HASH_SALT not set — NID hashes will be unsalted!");
+  }
 });
