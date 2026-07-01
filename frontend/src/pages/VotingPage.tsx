@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { generateNullifier, hashNid, ELECTION_ID } from "../utils/nullifier";
+import { checkNullifier, submitVote, ApiError } from "../utils/api";
 
 interface Candidate {
   id: string;
@@ -48,14 +50,26 @@ const PARTY_THEMES: Record<string, { color: string, ring: string, bg: string, ac
   },
 };
 
+interface LocationState {
+  nid?: string;
+  nidHash?: string;
+  constituencyCode?: string;
+  voterId?: string;
+}
+
 const VotingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const voterNid = (location.state as { nid?: string })?.nid ?? "00000000000";
+  const state = location.state as LocationState | null;
+
+  const voterNid = state?.nid ?? "00000000000";
+  const voterNidHash = state?.nidHash ?? "";
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
 
   // Deterministic constituency mapping: taking the first 4 digits of NID % 8 + 1
   const firstFour = parseInt(voterNid.slice(0, 4)) || 0;
@@ -76,18 +90,67 @@ const VotingPage = () => {
 
   const handleCastVote = () => {
     if (!selectedCandidate) return;
+    setVoteError(null);
     setShowModal(true);
   };
 
-  const handleConfirm = () => {
-    // Navigate to confirmation — no API call
-    navigate("/voter/confirmation", {
-      state: {
-        nid: voterNid,
-        candidateName: selectedCandidate?.name,
-        candidateParty: selectedCandidate?.party,
-      },
-    });
+  const handleConfirm = async () => {
+    if (!selectedCandidate || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setVoteError(null);
+
+    try {
+      // 1. Compute NID hash (if not passed from login)
+      const nidHash = voterNidHash || (await hashNid(voterNid));
+
+      // 2. Generate nullifier: SHA-256(NID + election_id)
+      const nullifierHash = await generateNullifier(voterNid, ELECTION_ID);
+
+      // 3. Check if nullifier already exists (double-vote prevention)
+      const { exists } = await checkNullifier(nullifierHash, ELECTION_ID);
+      if (exists) {
+        setVoteError("You have already voted in this election.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 4. Create mock encrypted vote (placeholder until ElGamal is implemented)
+      const encryptedVote = {
+        c1: btoa(`candidate:${selectedCandidate.id}:${Date.now()}`),
+        c2: btoa(`voter:${nidHash.slice(0, 16)}:${Date.now()}`),
+      };
+
+      // 5. Submit vote to backend
+      const result = await submitVote(
+        nidHash,
+        encryptedVote,
+        nullifierHash,
+        ELECTION_ID
+      );
+
+      // 6. Success — navigate to confirmation
+      navigate("/voter/confirmation", {
+        state: {
+          nid: voterNid,
+          candidateName: selectedCandidate.name,
+          candidateParty: selectedCandidate.party,
+          voteId: result.vote_id,
+          status: result.status,
+        },
+      });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setVoteError(err.message);
+      } else if (err instanceof TypeError && err.message.includes("fetch")) {
+        setVoteError(
+          "Unable to connect to server. Please ensure the backend is running."
+        );
+      } else {
+        setVoteError("An unexpected error occurred. Please try again.");
+      }
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -263,7 +326,9 @@ const VotingPage = () => {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            onClick={() => setShowModal(false)}
+            onClick={() => {
+              if (!isSubmitting) setShowModal(false);
+            }}
           />
 
           {/* Modal card */}
@@ -322,16 +387,73 @@ const VotingPage = () => {
                 );
               })()}
 
+              {/* Error message in modal */}
+              {voteError && (
+                <div
+                  className="flex items-start gap-2 rounded-lg border px-4 py-3 text-sm mb-4"
+                  style={{
+                    borderColor: "rgba(244, 42, 65, 0.25)",
+                    background: "rgba(244, 42, 65, 0.04)",
+                    color: "#F42A41",
+                  }}
+                >
+                  <svg
+                    className="mt-0.5 h-4 w-4 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                    />
+                  </svg>
+                  <span>{voteError}</span>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowModal(false)}
+                  disabled={isSubmitting}
                   className="btn-ghost flex-1 text-sm py-2.5"
                 >
                   Go Back
                 </button>
-                <button onClick={handleConfirm} className="btn-primary flex-1 text-sm py-2.5">
-                  Confirm Vote
+                <button
+                  onClick={handleConfirm}
+                  disabled={isSubmitting}
+                  className="btn-primary flex-1 text-sm py-2.5"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="mr-2 h-4 w-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Submitting…
+                    </span>
+                  ) : (
+                    "Confirm Vote"
+                  )}
                 </button>
               </div>
             </div>

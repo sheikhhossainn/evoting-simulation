@@ -7,12 +7,17 @@ const VoteConfirmation = () => {
     nid?: string;
     candidateName?: string;
     candidateParty?: string;
+    voteId?: string;
+    status?: string;
   } | null;
 
-  // Mock receipt data
+  // Use real vote_id from API, fallback to generated ID if not present
+  const voteId = state?.voteId ?? "EVT-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+  const voteStatus = state?.status ?? "queued";
+
+  // Mock tx_hash — Polygon anchoring not yet implemented
   const txHash =
     "0x7a3f…e91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1a3b5c7d9e";
-  const voteId = "EVT-2026-" + Math.random().toString(36).slice(2, 10).toUpperCase();
   const timestamp = new Date().toLocaleString("en-US", {
     dateStyle: "long",
     timeStyle: "medium",
@@ -86,7 +91,11 @@ const VoteConfirmation = () => {
             <ReceiptRow label="Encrypted Vote ID" value={voteId} mono />
             <ReceiptRow label="Timestamp" value={timestamp} />
             <ReceiptRow label="Transaction Hash" value={txHash} mono truncate />
-            <ReceiptRow label="Status" value="Confirmed on Blockchain" status />
+            <ReceiptRow
+              label="Status"
+              value={voteStatus === "queued" ? "Queued for Blockchain Anchoring" : "Confirmed on Blockchain"}
+              status
+            />
           </div>
 
           {/* Blockchain badge */}

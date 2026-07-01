@@ -1,31 +1,42 @@
+/**
+ * index.ts — Express server entry point
+ *
+ * Mounts:
+ *   /voter/*  → voter registration & nullifier checks
+ *   /vote     → vote submission
+ */
+
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
-import { z } from "zod";
+
+import voterRouter from "./routes/voter";
+import voteRouter from "./routes/vote";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Middleware ──
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    methods: ["GET", "POST"],
+  })
+);
 app.use(express.json());
 
-// Zod schema for vote request
-const voteSchema = z.object({
-  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
+// ── Routes ──
+app.use("/voter", voterRouter);
+app.use(voteRouter); // POST /vote lives at root
+
+// ── Health check ──
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
-// POST /vote — validates { nid: string } and returns { status: "queued" }
-app.post("/vote", (req, res) => {
-  const result = voteSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({ error: result.error.issues });
-    return;
-  }
-
-  res.json({ status: "queued" });
-});
-
+// ── Start ──
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

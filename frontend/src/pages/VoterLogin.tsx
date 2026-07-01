@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registerVoter, ApiError } from "../utils/api";
 
 const VoterLogin = () => {
   const navigate = useNavigate();
   const [nid, setNid] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isValid = /^\d{11}$/.test(nid);
 
@@ -14,13 +17,47 @@ const VoterLogin = () => {
     if (cleanValue.length <= 11) {
       setNid(cleanValue);
     }
+    // Clear error when user starts typing again
+    if (error) setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid) return;
-    // Navigate to voting page with NID in state — no API call
-    navigate("/voter/vote", { state: { nid: nid } });
+    if (!isValid || isLoading) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const voter = await registerVoter(nid);
+
+      if (voter.has_voted) {
+        setError("You have already voted in this election.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Navigate to voting page with voter data
+      navigate("/voter/vote", {
+        state: {
+          nid,
+          nidHash: voter.nid_hash,
+          constituencyCode: voter.constituency_code,
+          voterId: voter.voter_id,
+        },
+      });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof TypeError && err.message.includes("fetch")) {
+        setError(
+          "Unable to connect to server. Please ensure the backend is running."
+        );
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -102,6 +139,7 @@ const VoterLogin = () => {
                   onBlur={() => setIsFocused(false)}
                   placeholder="e.g. 12345678901"
                   autoComplete="off"
+                  disabled={isLoading}
                   className="input-field pl-10 font-mono tracking-wider"
                 />
               </div>
@@ -115,27 +153,81 @@ const VoterLogin = () => {
               )}
             </div>
 
+            {/* Error message */}
+            {error && (
+              <div
+                className="flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
+                style={{
+                  borderColor: "rgba(244, 42, 65, 0.25)",
+                  background: "rgba(244, 42, 65, 0.04)",
+                  color: "#F42A41",
+                }}
+              >
+                <svg
+                  className="mt-0.5 h-4 w-4 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                  />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
+
             {/* Submit button */}
             <button
               type="submit"
-              disabled={!isValid}
+              disabled={!isValid || isLoading}
               id="voter-verify-btn"
               className="btn-primary w-full text-sm"
             >
-              <svg
-                className="mr-2 h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-                />
-              </svg>
-              Verify &amp; Continue
+              {isLoading ? (
+                <>
+                  <svg
+                    className="mr-2 h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  Verifying…
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="mr-2 h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                    />
+                  </svg>
+                  Verify &amp; Continue
+                </>
+              )}
             </button>
           </form>
 
