@@ -430,7 +430,9 @@ CREATE TABLE nullifiers (
 
     -- The nullifier hash — one-way, irreversible
     -- This is what prevents double-voting without storing identity
-    nullifier_hash  TEXT        NOT NULL,
+    nullifier_hash  CHAR(64)    NOT NULL
+                CONSTRAINT ck_nullifiers_hash_hex
+                    CHECK (nullifier_hash ~ '^[a-f0-9]{64}$'),
 
     -- Which election this nullifier was used in
     election_id     TEXT        NOT NULL,

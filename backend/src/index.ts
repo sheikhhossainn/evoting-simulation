@@ -15,6 +15,7 @@ import voterRouter from "./routes/voter";
 import voteRouter from "./routes/vote";
 import candidatesRouter from "./routes/candidates";
 import { loadPublicKeyFromEnv } from "./crypto/elgamal";
+import keySharesRouter from "./routes/keyshares";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use(express.json());
 app.use("/voter", voterRouter);
 app.use(voteRouter);          // POST /vote lives at root
 app.use(candidatesRouter);    // GET /candidates lives at root
+app.use("/keyshares", keySharesRouter);
 
 // ── Health check ──
 app.get("/health", (_req, res) => {
