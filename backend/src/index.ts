@@ -16,6 +16,8 @@ import voteRouter from "./routes/vote";
 import candidatesRouter from "./routes/candidates";
 import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 import keySharesRouter from "./routes/keyshares";
+import anchorRouter from "./routes/anchor";
+import publicRouter from "./routes/public";
 
 dotenv.config();
 
@@ -36,6 +38,8 @@ app.use("/voter", voterRouter);
 app.use(voteRouter);          // POST /vote lives at root
 app.use(candidatesRouter);    // GET /candidates lives at root
 app.use("/keyshares", keySharesRouter);
+app.use(anchorRouter);         // POST /anchor/batch, GET /anchor/verify/:voteId
+app.use(publicRouter);         // GET /public/stats (Public Watchdog page)
 
 // ── Health check ──
 app.get("/health", (_req, res) => {
