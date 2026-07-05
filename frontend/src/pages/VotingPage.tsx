@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { generateNullifier, hashNid, ELECTION_ID } from "../utils/nullifier";
-import { checkNullifier, submitVote, ApiError } from "../utils/api";
-
-interface Candidate {
-  id: string;
-  constituencyId: number;
-  name: string;
-  party: string;
-  symbol: string;
-}
+import {
+  checkNullifier,
+  submitVote,
+  getElectionPublicKey,
+  getCandidates,
+  ApiError,
+  type Candidate,
+  type ElGamalPublicKeyResponse,
+} from "../utils/api";
+import { encryptCandidateId } from "../utils/elgamal";
 
 const PARTY_THEMES: Record<string, { color: string, ring: string, bg: string, accent: string }> = {
   "Progressive Alliance": {
@@ -64,27 +65,39 @@ const VotingPage = () => {
 
   const voterNid = state?.nid ?? "00000000000";
   const voterNidHash = state?.nidHash ?? "";
+  // Fall back to the same deterministic mapping the backend uses, in case
+  // a voter lands here without the constituency_code from /voter/register.
+  const constituencyCode =
+    state?.constituencyCode ??
+    `CON-${String(((parseInt(voterNid.slice(0, 4)) || 0) % 8) + 1).padStart(2, "0")}`;
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteError, setVoteError] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<ElGamalPublicKeyResponse | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Deterministic constituency mapping: taking the first 4 digits of NID % 8 + 1
-  const firstFour = parseInt(voterNid.slice(0, 4)) || 0;
-  const constituencyId = (firstFour % 8) + 1;
-
+  // Load the real candidate roster (DB UUIDs) and the election's ElGamal
+  // public key so the ballot can be genuinely encrypted client-side.
   useEffect(() => {
-    fetch("/candidates.json")
-      .then((res) => res.json())
-      .then((data: Candidate[]) => {
-        // Filter candidates by the assigned constituency
-        const filtered = data.filter((c) => c.constituencyId === constituencyId);
-        setCandidates(filtered);
-      })
-      .catch((err) => console.error("Failed to load candidates", err));
-  }, [constituencyId]);
+    getCandidates(constituencyCode)
+      .then((res) => setCandidates(res.candidates))
+      .catch((err) => {
+        console.error("Failed to load candidates", err);
+        setLoadError("Unable to load candidates. Please ensure the backend is running.");
+      });
+
+    getElectionPublicKey()
+      .then(setPublicKey)
+      .catch((err) => {
+        console.error("Failed to load election public key", err);
+        setLoadError(
+          "Unable to load the election's encryption key. Please ensure the backend is running."
+        );
+      });
+  }, [constituencyCode]);
 
   const selectedCandidate = candidates.find((c) => c.id === selectedId);
 
@@ -96,6 +109,11 @@ const VotingPage = () => {
 
   const handleConfirm = async () => {
     if (!selectedCandidate || isSubmitting) return;
+
+    if (!publicKey) {
+      setVoteError("Encryption key not loaded yet. Please try again in a moment.");
+      return;
+    }
 
     setIsSubmitting(true);
     setVoteError(null);
@@ -115,11 +133,10 @@ const VotingPage = () => {
         return;
       }
 
-      // 4. Create mock encrypted vote (placeholder until ElGamal is implemented)
-      const encryptedVote = {
-        c1: btoa(`candidate:${selectedCandidate.id}:${Date.now()}`),
-        c2: btoa(`voter:${nidHash.slice(0, 16)}:${Date.now()}`),
-      };
+      // 4. Encrypt the selected candidate's real UUID with the election's
+      // ElGamal public key — this is the actual ballot content, and it
+      // never leaves the browser in plaintext.
+      const encryptedVote = encryptCandidateId(selectedCandidate.id, publicKey);
 
       // 5. Submit vote to backend
       const result = await submitVote(
@@ -185,7 +202,7 @@ const VotingPage = () => {
           </div>
           <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-between sm:justify-end gap-4">
              <span className="text-xs font-semibold" style={{ color: "#627d98" }}>
-              Constituency {constituencyId}
+              Constituency {constituencyCode}
             </span>
             <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-slate-100 border border-slate-200">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -206,6 +223,21 @@ const VotingPage = () => {
             submission.
           </p>
         </div>
+
+        {/* Load error banner */}
+        {loadError && (
+          <div
+            className="mb-6 rounded-xl p-4 text-center"
+            style={{
+              background: "rgba(244, 42, 65, 0.05)",
+              border: "1px solid rgba(244, 42, 65, 0.2)",
+            }}
+          >
+            <p className="text-sm font-medium" style={{ color: "#F42A41" }}>
+              ⚠ {loadError}
+            </p>
+          </div>
+        )}
 
         {/* Candidate grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
@@ -279,7 +311,7 @@ const VotingPage = () => {
         <div className="flex justify-center">
           <button
             onClick={handleCastVote}
-            disabled={!selectedId}
+            disabled={!selectedId || !publicKey}
             className="btn-primary text-lg px-12 py-4 shadow-lg shadow-emerald-500/20"
           >
             <svg

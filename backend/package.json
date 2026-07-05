@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.108.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "ethers": "^6.13.5",
     "express": "^5.2.1",
     "secrets.js-grempe": "^2.0.0",
     "uuid": "^14.0.1",

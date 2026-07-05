@@ -45,6 +45,25 @@ export interface SubmitVoteResponse {
   vote_id: string;
 }
 
+export interface ElGamalPublicKeyResponse {
+  p: string;
+  g: string;
+  y: string;
+}
+
+export interface Candidate {
+  id: string;
+  name: string;
+  party: string;
+  symbol: string;
+  constituency_code: string;
+}
+
+export interface CandidatesResponse {
+  constituency_code: string;
+  candidates: Candidate[];
+}
+
 // ── Helper ──
 
 async function apiFetch<T>(
@@ -64,6 +83,19 @@ async function apiFetch<T>(
       typeof data.error === "string"
         ? data.error
         : "Request failed";
+    throw new ApiError(message, res.status, data);
+  }
+
+  return data as T;
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`);
+  const data = await res.json();
+
+  if (!res.ok) {
+    const message =
+      typeof data.error === "string" ? data.error : "Request failed";
     throw new ApiError(message, res.status, data);
   }
 
@@ -109,4 +141,131 @@ export function submitVote(
     nullifier_hash: nullifierHash,
     election_id: electionId,
   });
+}
+
+/**
+ * Fetch the election's ElGamal public key, used to encrypt the ballot
+ * client-side before it ever leaves the browser.
+ */
+export function getElectionPublicKey(): Promise<ElGamalPublicKeyResponse> {
+  return apiGet<ElGamalPublicKeyResponse>("/election/public-key");
+}
+
+/**
+ * Fetch the real candidate list (with DB UUIDs) for a constituency.
+ * These ids are what get ElGamal-encrypted — they must match the
+ * `candidates` table so decrypted tallies can be joined back to names.
+ */
+export function getCandidates(
+  constituencyCode: string
+): Promise<CandidatesResponse> {
+  return apiGet<CandidatesResponse>(
+    `/candidates?constituency=${encodeURIComponent(constituencyCode)}`
+  );
+}
+
+// ── Public Watchdog ──
+
+export interface ConstituencyStat {
+  constituency_code: string;
+  registered_voters: number;
+  votes_cast: number;
+  turnout_pct: number;
+}
+
+export interface PublicStatsResponse {
+  election_id: string;
+  status: "active" | "not_started";
+  total_registered_voters: number;
+  total_votes_cast: number;
+  turnout_pct: number;
+  constituencies: ConstituencyStat[];
+  key_ceremony: {
+    submitted_count: number;
+    threshold: number;
+    total: number;
+    threshold_met: boolean;
+  };
+  anchoring: {
+    batches_anchored: number;
+    latest_batch: {
+      batch_id: number;
+      tx_hash: string;
+      vote_count: number;
+      created_at: string;
+    } | null;
+  };
+}
+
+export function getPublicStats(
+  electionId?: string
+): Promise<PublicStatsResponse> {
+  const qs = electionId ? `?election_id=${encodeURIComponent(electionId)}` : "";
+  return apiGet<PublicStatsResponse>(`/public/stats${qs}`);
+}
+
+export interface VoteVerifyResponse {
+  vote_id: string;
+  batch_id: number;
+  tx_hash: string;
+  root: string;
+  proof: string[];
+  included_locally: boolean;
+  included_on_chain: boolean | null;
+}
+
+export function verifyVoteAnchor(voteId: string): Promise<VoteVerifyResponse> {
+  return apiGet<VoteVerifyResponse>(`/anchor/verify/${encodeURIComponent(voteId)}`);
+}
+
+// ── Tallying (admin) ──
+
+export interface TallyCandidateResult {
+  candidate_id: string;
+  name: string;
+  party: string;
+  votes: number;
+}
+
+export interface TallyConstituencyResult {
+  constituency_code: string;
+  candidates: TallyCandidateResult[];
+}
+
+export interface TallyResponse {
+  election_id: string;
+  tallied_at: string;
+  shares_used: number;
+  total_votes: number;
+  valid_votes: number;
+  invalid_votes: number;
+  results: TallyConstituencyResult[];
+}
+
+/**
+ * Reconstruct the private key from submitted shares and decrypt+tally all
+ * votes. Requires the admin secret (x-admin-secret header) — this is a
+ * one-time, highly sensitive ceremony action.
+ */
+export async function runTally(
+  electionId: string,
+  adminSecret: string
+): Promise<TallyResponse> {
+  const res = await fetch(`${API_BASE}/keyshares/tally`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-secret": adminSecret,
+    },
+    body: JSON.stringify({ election_id: electionId }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const message = typeof data.error === "string" ? data.error : "Tally failed";
+    throw new ApiError(message, res.status, data);
+  }
+
+  return data as TallyResponse;
 }

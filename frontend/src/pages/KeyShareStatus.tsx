@@ -275,6 +275,14 @@ setData(result);
           </span>
         </div>
 
+        {thresholdMet && (
+          <div className="text-center mb-4">
+            <button onClick={() => navigate("/tally")} className="btn-navy text-sm px-6">
+              Proceed to Tallying →
+            </button>
+          </div>
+        )}
+
         <div className="text-center">
           <button onClick={() => navigate("/")} className="text-sm transition-colors" style={{ color: "#627d98" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "#0A2540")}

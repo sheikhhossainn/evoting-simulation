@@ -5,6 +5,7 @@ import Layout from "./components/Layout";
 import LandingPage from "./pages/LandingPage";
 import HowToVote from "./pages/HowToVote";
 import About from "./pages/About";
+import PublicWatchdog from "./pages/PublicWatchdog";
 
 // ── Standalone portal pages (no Navbar — focused experience) ──
 import VoterLogin from "./pages/VoterLogin";
@@ -13,6 +14,7 @@ import VoteConfirmation from "./pages/VoteConfirmation";
 import KeyHolderLogin from "./pages/KeyHolderLogin";
 import KeyShareSubmit from "./pages/KeyShareSubmit";
 import KeyShareStatus from "./pages/KeyShareStatus";
+import TallyingPage from "./pages/TallyingPage";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 
@@ -25,6 +27,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/how-to-vote" element={<HowToVote />} />
           <Route path="/about" element={<About />} />
+          <Route path="/watchdog" element={<PublicWatchdog />} />
         </Route>
 
         {/* ── Voter portal (standalone — no navbar) ── */}
@@ -36,6 +39,7 @@ function App() {
         <Route path="/keyholder/login" element={<KeyHolderLogin />} />
         <Route path="/keyholder/submit" element={<KeyShareSubmit />} />
         <Route path="/keyholder/status" element={<KeyShareStatus />} />
+        <Route path="/tally" element={<TallyingPage />} />
 
         {/* ── EC Admin portal (standalone — no navbar) ── */}
         <Route path="/admin/login" element={<AdminLogin />} />

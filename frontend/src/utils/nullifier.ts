@@ -6,8 +6,14 @@
  * irreversible hash is sent to the server.
  */
 
-/** The hardcoded election ID for this simulation */
-export const ELECTION_ID = "election-2026";
+/**
+ * The hardcoded election ID for this simulation.
+ * Must match the id used across the keyholder/tallying flow
+ * (KeyShareSubmit.tsx, KeyShareStatus.tsx) — votes and key shares are
+ * both keyed by election_id, so a mismatch here would silently split
+ * them into two unrelated "elections" and break tallying.
+ */
+export const ELECTION_ID = "NATIONAL-2026-001";
 
 /**
  * Generate a nullifier hash from NID and election ID.
