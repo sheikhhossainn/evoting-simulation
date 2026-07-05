@@ -464,3 +464,58 @@ ALTER TABLE nullifiers ENABLE ROW LEVEL SECURITY;
 --     sees the raw NID
 -- =============================================================
 
+
+-- =============================================================
+-- E-Voting Simulation — Merkle Batches Table Schema
+--
+-- Each row records one batch of votes anchored on Polygon: the Merkle
+-- root submitted on-chain, the ordered list of vote ids the tree was
+-- built from (needed to regenerate proofs later), and the resulting
+-- transaction hash. batch_id mirrors the sequential id assigned by
+-- MerkleRootStorage.sol on-chain (batches[batch_id]).
+-- =============================================================
+
+CREATE TABLE merkle_batches (
+    -- Primary key: auto-generated UUID
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Sequential on-chain batch id (MerkleRootStorage.batches[batch_id])
+    batch_id        BIGINT      NOT NULL UNIQUE,
+
+    -- Merkle root anchored on-chain for this batch
+    root            CHAR(66)    NOT NULL
+                    CONSTRAINT ck_merkle_batches_root_hex
+                        CHECK (root ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- Polygon transaction hash for the anchorRoot() call
+    tx_hash         VARCHAR(66) NOT NULL
+                    CONSTRAINT ck_merkle_batches_tx_hash_hex
+                        CHECK (tx_hash ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- Ordered vote ids the tree was built from (index = leaf position,
+    -- required to regenerate a Merkle proof for any vote in the batch)
+    vote_ids        JSONB       NOT NULL,
+
+    vote_count      INTEGER     NOT NULL
+                    CONSTRAINT ck_merkle_batches_vote_count_positive
+                        CHECK (vote_count > 0),
+
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_merkle_batches_batch_id ON merkle_batches (batch_id);
+
+-- ── Row-Level Security ──
+ALTER TABLE merkle_batches ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • POST /anchor/batch (admin) selects votes with tx_hash IS NULL,
+--     builds a Merkle tree (backend/src/merkle/merkleTree.ts), calls
+--     MerkleRootStorage.anchorRoot(), then writes one merkle_batches
+--     row and flips those votes' tx_hash + status='confirmed'
+--   • GET /anchor/verify/:voteId regenerates the proof for a single
+--     vote from its batch's stored vote_ids and verifies it both
+--     locally and against the on-chain contract
+-- =============================================================
+
