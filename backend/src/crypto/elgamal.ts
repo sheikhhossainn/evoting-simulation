@@ -220,6 +220,70 @@ export function decrypt(
 }
 
 /**
+ * Encode a UUID (candidate id, with or without dashes) as a BigInt by
+ * parsing its 32 hex chars directly — NOT via UTF-8 byte encoding.
+ * A UUID is 128 bits, safely below the 256-bit prime modulus, whereas
+ * encodeMessage() would treat each hex character as its own UTF-8 byte
+ * (32 chars -> 256 bits) and risk exceeding p.
+ */
+function encodeCandidateId(id: string): bigint {
+  const hex = id.replace(/-/g, "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(hex)) {
+    throw new Error("Candidate id must be a UUID");
+  }
+  return BigInt("0x" + hex);
+}
+
+/** Reform a UUID string from the 128-bit BigInt produced by encodeCandidateId */
+function decodeCandidateId(n: bigint): string {
+  const hex = n.toString(16).padStart(32, "0");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Encrypt a candidate's UUID for a ballot. Uses encodeCandidateId instead
+ * of the generic UTF-8 message encoder so the plaintext (128 bits) always
+ * fits under the 256-bit prime modulus.
+ */
+export function encryptCandidateId(
+  candidateId: string,
+  pubKey: ElGamalPublicKey
+): ElGamalCiphertext {
+  const p = hexToBigInt(pubKey.p);
+  const g = hexToBigInt(pubKey.g);
+  const y = hexToBigInt(pubKey.y);
+
+  const m = encodeCandidateId(candidateId);
+  if (m >= p) {
+    throw new Error("Encoded candidate id too large for the prime modulus");
+  }
+
+  const k = randomBigIntInRange(p);
+  const c1 = modPow(g, k, p);
+  const c2 = (m * modPow(y, k, p)) % p;
+
+  return { c1: bigIntToHex(c1), c2: bigIntToHex(c2) };
+}
+
+/** Decrypt a ballot ciphertext back into the candidate's UUID */
+export function decryptCandidateId(
+  ciphertext: ElGamalCiphertext,
+  privKey: ElGamalPrivateKey
+): string {
+  const p = hexToBigInt(privKey.p);
+  const x = hexToBigInt(privKey.x);
+
+  const c1 = hexToBigInt(ciphertext.c1);
+  const c2 = hexToBigInt(ciphertext.c2);
+
+  const s = modPow(c1, x, p);
+  const sInv = modInverse(s, p);
+  const m = (c2 * sInv) % p;
+
+  return decodeCandidateId(m);
+}
+
+/**
  * Load an ElGamal public key from environment variables.
  * Returns null if any key component is missing.
  */
