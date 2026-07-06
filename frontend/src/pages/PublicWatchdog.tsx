@@ -15,8 +15,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
-  getPublicStats,
-  verifyVoteAnchor,
+  // getPublicStats,
+  // verifyVoteAnchor,
   ApiError,
   type PublicStatsResponse,
   type VoteVerifyResponse,
@@ -36,7 +36,36 @@ export default function PublicWatchdog() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const data = await getPublicStats();
+      // const data = await getPublicStats();
+      // Using mock data as requested
+      const data: PublicStatsResponse = {
+        election_id: "mock-123",
+        status: "active",
+        total_registered_voters: 119100000,
+        total_votes_cast: 35730000,
+        turnout_pct: 30.0,
+        constituencies: [
+          { constituency_code: "DHAKA-10", registered_voters: 322000, votes_cast: 112000, turnout_pct: 34.78 },
+          { constituency_code: "CHATTOGRAM-9", registered_voters: 410000, votes_cast: 135000, turnout_pct: 32.92 },
+          { constituency_code: "SYLHET-1", registered_voters: 450000, votes_cast: 140000, turnout_pct: 31.11 },
+          { constituency_code: "RAJSHAHI-2", registered_voters: 315000, votes_cast: 95000, turnout_pct: 30.15 }
+        ],
+        key_ceremony: {
+          submitted_count: 2,
+          threshold: 3,
+          total: 4,
+          threshold_met: false,
+        },
+        anchoring: {
+          batches_anchored: 1250,
+          latest_batch: {
+            batch_id: 1250,
+            tx_hash: "0x8f2a1a8b9c7d4e3f...9c3b",
+            vote_count: 1500,
+            created_at: new Date().toISOString()
+          }
+        }
+      };
       setStats(data);
       setError(null);
       setLastUpdated(new Date());
@@ -60,7 +89,18 @@ export default function PublicWatchdog() {
     setVerifyResult(null);
 
     try {
-      const result = await verifyVoteAnchor(voteIdInput.trim());
+      // const result = await verifyVoteAnchor(voteIdInput.trim());
+      // Mock successful verification
+      await new Promise(r => setTimeout(r, 800)); // simulate network delay
+      const result: VoteVerifyResponse = {
+        vote_id: voteIdInput.trim(),
+        batch_id: 1250,
+        tx_hash: "0x8f2a1a8b9c7d4e3f...9c3b",
+        root: "0xabc...",
+        proof: [],
+        included_locally: true,
+        included_on_chain: true
+      };
       setVerifyResult(result);
     } catch (err) {
       if (err instanceof ApiError) {

@@ -153,20 +153,21 @@ const LandingPage = () => {
         ))}
       </section>
 
-      {/* ── Results link (placeholder) ── */}
+      {/* ── Results link ── */}
       <section className="pb-12 text-center">
-        <button
-          disabled
-          className="inline-flex items-center gap-1.5 text-sm font-medium opacity-50 cursor-not-allowed"
+        <Link
+          to="/watchdog"
+          id="view-results-btn"
+          className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline transition-colors"
           style={{ color: "#006A4E" }}
         >
           View Public Results &amp; Audit Log
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
           </svg>
-        </button>
-        <p className="mt-1 text-xs" style={{ color: "#9fb3c8" }}>
-          Available after election is completed
+        </Link>
+        <p className="mt-1 text-xs" style={{ color: "#627d98" }}>
+          Monitor live election status, constituency turnout, and on-chain audit logs
         </p>
       </section>
     </div>
