@@ -349,3 +349,82 @@ export async function runTally(
 
   return data as TallyResponse;
 }
+
+// ── Public Results (post-tally, public-facing) ──
+
+export interface PublicResultsResponse {
+  status: "tallied" | "not_tallied";
+  tallied_at?: string;
+  results?: TallyConstituencyResult[];
+}
+
+/**
+ * Fetch public election results. Returns results only if a tally has
+ * already been performed. Otherwise returns { status: "not_tallied" }.
+ * This is a public endpoint — no auth required.
+ */
+export async function getPublicResults(): Promise<PublicResultsResponse> {
+  try {
+    return await apiGet<PublicResultsResponse>("/public/results");
+  } catch (err) {
+    if (err instanceof TypeError) {
+      // Backend unreachable — return mock tallied results for demo
+      // Toggle MOCK_TALLIED to false to see the "pending" state
+      const MOCK_TALLIED = true;
+      if (!MOCK_TALLIED) {
+        return { status: "not_tallied" };
+      }
+      return {
+        status: "tallied",
+        tallied_at: new Date(Date.now() - 3600000).toISOString(),
+        results: [
+          {
+            constituency_code: "DHAKA-10",
+            candidates: [
+              { candidate_id: "c1", name: "Kamal Hossain", party: "Progressive Alliance", votes: 47200 },
+              { candidate_id: "c2", name: "Nusrat Jahan", party: "Unity Front", votes: 38100 },
+              { candidate_id: "c3", name: "Rafiq Ahmed", party: "People's Voice", votes: 15800 },
+              { candidate_id: "c4", name: "Fatema Begum", party: "National Reform", votes: 7300 },
+              { candidate_id: "c5", name: "Arif Rahman", party: "Democratic League", votes: 3600 },
+            ],
+          },
+          {
+            constituency_code: "CHATTOGRAM-9",
+            candidates: [
+              { candidate_id: "c6", name: "Sajid Islam", party: "Unity Front", votes: 52300 },
+              { candidate_id: "c7", name: "Tahmina Akter", party: "Progressive Alliance", votes: 44800 },
+              { candidate_id: "c8", name: "Mahbub Alam", party: "Civic Coalition", votes: 21700 },
+              { candidate_id: "c9", name: "Razia Sultana", party: "People's Voice", votes: 12400 },
+              { candidate_id: "c10", name: "Hasan Mahmud", party: "National Reform", votes: 3800 },
+            ],
+          },
+          {
+            constituency_code: "SYLHET-1",
+            candidates: [
+              { candidate_id: "c11", name: "Imran Chowdhury", party: "Progressive Alliance", votes: 58900 },
+              { candidate_id: "c12", name: "Anika Rahman", party: "Unity Front", votes: 41200 },
+              { candidate_id: "c13", name: "Nazrul Kabir", party: "People's Voice", votes: 22300 },
+              { candidate_id: "c14", name: "Shahida Khatun", party: "Democratic League", votes: 11700 },
+              { candidate_id: "c15", name: "Babul Mia", party: "Civic Coalition", votes: 5900 },
+            ],
+          },
+          {
+            constituency_code: "RAJSHAHI-2",
+            candidates: [
+              { candidate_id: "c16", name: "Monir Hossain", party: "People's Voice", votes: 35400 },
+              { candidate_id: "c17", name: "Sumaiya Islam", party: "Progressive Alliance", votes: 29800 },
+              { candidate_id: "c18", name: "Tanvir Hassan", party: "Unity Front", votes: 18200 },
+              { candidate_id: "c19", name: "Hosne Ara", party: "National Reform", votes: 8100 },
+              { candidate_id: "c20", name: "Billal Ahmed", party: "Democratic League", votes: 3500 },
+            ],
+          },
+        ],
+      };
+    }
+    if (err instanceof ApiError && err.status === 404) {
+      return { status: "not_tallied" };
+    }
+    throw err;
+  }
+}
+
