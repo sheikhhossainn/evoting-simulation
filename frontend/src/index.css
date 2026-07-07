@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────────
+   Design System — Custom Properties (Bangladesh Theme)
+   ─────────────────────────────────────────────── */
+:root {
+  --color-bd-green: #006A4E;
+  --color-bd-green-light: #00875A;
+  --color-bd-green-dark: #004D38;
+  --color-bd-red: #F42A41;
+  --color-bd-navy: #0A2540;
+  --color-bd-navy-light: #1A3550;
+  --color-bd-gold: #C8920A;
+  --color-bg-primary: #F2F5FA;
+  --color-bg-secondary: #ffffff;
+  --color-bg-glass: rgba(255, 255, 255, 0.85);
+  --color-border-glass: rgba(10, 37, 64, 0.1);
+  --color-text-primary: #0A2540;
+  --color-text-secondary: #627d98;
+  --radius-card: 1rem;
+  --radius-button: 0.625rem;
+  --shadow-card: 0 1px 3px rgba(10, 37, 64, 0.08), 0 1px 2px rgba(10, 37, 64, 0.06);
+  --shadow-card-hover: 0 10px 25px rgba(10, 37, 64, 0.1), 0 4px 10px rgba(10, 37, 64, 0.06);
+}
+
+/* ───────────────────────────────────────────────
+   Base Reset & Typography
+   ─────────────────────────────────────────────── */
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+  }
+
+  ::selection {
+    background-color: rgba(0, 106, 78, 0.2);
+    color: #003D2D;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-primary);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(10, 37, 64, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(10, 37, 64, 0.35);
+  }
+}
+
+/* ───────────────────────────────────────────────
+   Component Utilities
+   ─────────────────────────────────────────────── */
+@layer components {
+  /* Clean white card */
+  .glass-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-glass);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .glass-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Primary action button — Bangladesh green */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center px-8 py-3.5 
+           font-semibold text-white rounded-xl overflow-hidden
+           transition-all duration-300 ease-out;
+    background: var(--color-bd-green);
+    border-radius: var(--radius-button);
+  }
+  .btn-primary:hover {
+    background: var(--color-bd-green-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(0, 106, 78, 0.3);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Navy button — for card headers and secondary actions */
+  .btn-navy {
+    @apply relative inline-flex items-center justify-center px-8 py-3.5 
+           font-semibold text-white rounded-xl overflow-hidden
+           transition-all duration-300 ease-out;
+    background: var(--color-bd-navy);
+    border-radius: var(--radius-button);
+  }
+  .btn-navy:hover {
+    background: var(--color-bd-navy-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(10, 37, 64, 0.3);
+  }
+
+  .btn-navy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+  /* Ghost / secondary button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           font-medium rounded-xl border transition-all duration-300;
+    color: var(--color-text-secondary);
+    border-color: rgba(10, 37, 64, 0.15);
+    background: transparent;
+    border-radius: var(--radius-button);
+  }
+  .btn-ghost:hover {
+    color: var(--color-text-primary);
+    border-color: rgba(10, 37, 64, 0.3);
+    background: rgba(10, 37, 64, 0.04);
+  }
+
+  /* Text input — light theme */
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg text-sm transition-all duration-300 outline-none;
+    color: var(--color-text-primary);
+    background: #ffffff;
+    border: 1px solid rgba(10, 37, 64, 0.15);
+  }
+  .input-field::placeholder {
+    color: #9fb3c8;
+  }
+  .input-field:focus {
+    border-color: var(--color-bd-green);
+    box-shadow: 0 0 0 3px rgba(0, 106, 78, 0.1);
+  }
+
+  /* Dark input — for dark-bg pages (voter login etc) */
+  .input-field-dark {
+    @apply w-full px-5 py-3.5 rounded-xl text-white placeholder-slate-500 
+           transition-all duration-300 outline-none;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+  .input-field-dark:focus {
+    border-color: var(--color-bd-green);
+    box-shadow: 0 0 0 3px rgba(0, 106, 78, 0.15);
+  }
+
+  /* Floating animated orb */
+  .orb {
+    @apply absolute rounded-full blur-3xl opacity-30 pointer-events-none;
+  }
+
+  /* Shimmer text effect */
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      #006A4E 0%,
+      #00875A 25%,
+      #006A4E 50%,
+      #C8920A 75%,
+      #006A4E 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3s linear infinite;
+  }
+}
+
+/* ───────────────────────────────────────────────
+   Utility Animations
+   ─────────────────────────────────────────────── */
+@layer utilities {
+  .opacity-0-init {
+    opacity: 0;
+  }
+}
