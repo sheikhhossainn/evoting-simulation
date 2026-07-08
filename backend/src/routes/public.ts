@@ -8,9 +8,11 @@
  *   - key-share ceremony progress (from `key_shares`, no share values)
  *   - Merkle anchoring progress (from `merkle_batches`)
  *
- * Per-candidate results are NOT here — those only exist once the 3-of-4
- * key ceremony completes and POST /keyshares/tally decrypts the batch
- * (see routes/keyshares.ts).
+ * Per-candidate results live in GET /public/results below — they only
+ * exist once the 3-of-4 key ceremony completes and POST /keyshares/tally
+ * has run at least once (see routes/keyshares.ts). That route persists
+ * aggregate counts only (never the key, never raw ballots) to the
+ * `tally_results` table, which this route reads from.
  */
 
 import { Router, Request, Response } from "express";
@@ -101,6 +103,38 @@ router.get("/public/stats", async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("Unexpected error in GET /public/stats:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/public/results", async (req: Request, res: Response) => {
+  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+
+  try {
+    const { data, error } = await supabase
+      .from("tally_results")
+      .select("tallied_at, results")
+      .eq("election_id", election_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Supabase error fetching tally results:", error);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+
+    if (!data) {
+      res.json({ status: "not_tallied" });
+      return;
+    }
+
+    res.json({
+      status: "tallied",
+      tallied_at: data.tallied_at,
+      results: data.results,
+    });
+  } catch (err) {
+    console.error("Unexpected error in GET /public/results:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

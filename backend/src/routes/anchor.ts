@@ -11,16 +11,12 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabaseClient";
 import { requireAdminSecret } from "../middleware/adminAuth";
-import {
-  buildMerkleTree,
-  getProof,
-  hashVoteLeaf,
-  verifyProof,
-} from "../merkle/merkleTree";
+import { buildMerkleTree, getProof, hashVoteLeaf, verifyProof } from "../merkle/merkleTree";
 import {
   getReadOnlyMerkleContract,
   getWritableMerkleContract,
 } from "../blockchain/merkleContract";
+import { runAnchorBatch } from "../services/anchorBatch";
 
 const router = Router();
 
@@ -35,8 +31,7 @@ router.post(
   requireAdminSecret,
   async (_req: Request, res: Response) => {
     try {
-      const contract = getWritableMerkleContract();
-      if (!contract) {
+      if (!getWritableMerkleContract()) {
         res.status(503).json({
           error:
             "Blockchain anchoring not configured. Set AMOY_RPC_URL, MERKLE_CONTRACT_ADDRESS, and ANCHOR_PRIVATE_KEY in backend/.env.",
@@ -44,92 +39,14 @@ router.post(
         return;
       }
 
-      // Batch = all confirmed votes not yet anchored on-chain.
-      const { data: votes, error } = await supabase
-        .from("votes")
-        .select("id, encrypted_vote, created_at")
-        .is("tx_hash", null)
-        .order("created_at", { ascending: true });
+      const result = await runAnchorBatch();
 
-      if (error) {
-        console.error("Supabase error fetching unanchored votes:", error);
-        res.status(500).json({ error: "Internal server error" });
-        return;
-      }
-
-      if (!votes || votes.length === 0) {
+      if (!result) {
         res.status(400).json({ error: "No unanchored votes to batch" });
         return;
       }
 
-      const voteRows = votes as VoteRow[];
-      const voteIds = voteRows.map((v) => v.id);
-      const leaves = voteRows.map((v) =>
-        hashVoteLeaf({
-          voteId: v.id,
-          c1: v.encrypted_vote.c1,
-          c2: v.encrypted_vote.c2,
-          createdAt: v.created_at,
-        })
-      );
-      const tree = buildMerkleTree(leaves);
-
-      const tx = await contract.anchorRoot(tree.root, voteRows.length);
-      const receipt = await tx.wait();
-
-      const event = receipt.logs
-        .map((log: any) => {
-          try {
-            return contract.interface.parseLog(log);
-          } catch {
-            return null;
-          }
-        })
-        .find((parsed: any) => parsed?.name === "BatchAnchored");
-
-      if (!event) {
-        res.status(500).json({
-          error: "Anchored on-chain but could not parse batchId from the receipt",
-        });
-        return;
-      }
-
-      const batchId = Number(event.args.batchId);
-
-      const { error: batchInsertError } = await supabase
-        .from("merkle_batches")
-        .insert({
-          batch_id: batchId,
-          root: tree.root,
-          tx_hash: tx.hash,
-          vote_ids: voteIds,
-          vote_count: voteRows.length,
-        });
-
-      if (batchInsertError) {
-        // The anchor tx already landed on-chain; log loudly but don't
-        // pretend to roll it back — chain state is the source of truth.
-        console.error(
-          "Supabase error inserting merkle_batches row (chain anchor already committed!):",
-          batchInsertError
-        );
-      }
-
-      const { error: updateError } = await supabase
-        .from("votes")
-        .update({ tx_hash: tx.hash, status: "confirmed" })
-        .in("id", voteIds);
-
-      if (updateError) {
-        console.error("Supabase error updating anchored votes:", updateError);
-      }
-
-      res.status(201).json({
-        batch_id: batchId,
-        root: tree.root,
-        tx_hash: tx.hash,
-        vote_count: voteRows.length,
-      });
+      res.status(201).json(result);
     } catch (err) {
       console.error("Unexpected error in POST /anchor/batch:", err);
       res.status(500).json({ error: "Internal server error" });

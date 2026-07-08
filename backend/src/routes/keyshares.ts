@@ -377,7 +377,7 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
         candidates: [...candidateMap.values()].sort((a, b) => b.votes - a.votes),
       }));
 
-    res.json({
+    const tallyRecord = {
       election_id,
       tallied_at: new Date().toISOString(),
       shares_used: shareValues.length,
@@ -385,7 +385,24 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
       valid_votes: validVotes,
       invalid_votes: invalidVotes,
       results,
-    });
+    };
+
+    // Persist aggregate results (never the key, never raw ballots) so
+    // GET /public/results can serve them without re-running decryption.
+    const { error: persistError } = await supabase
+      .from("tally_results")
+      .upsert(tallyRecord, { onConflict: "election_id" });
+
+    if (persistError) {
+      console.error("Supabase error persisting tally results:", persistError);
+      // The tally itself succeeded — surface the result to the caller
+      // even if persistence failed, but flag it so the admin knows
+      // GET /public/results won't reflect this run.
+      res.json({ ...tallyRecord, persisted: false });
+      return;
+    }
+
+    res.json({ ...tallyRecord, persisted: true });
   } catch (err) {
     console.error("Unexpected error in POST /keyshares/tally:", err);
     res.status(500).json({ error: "Internal server error" });
