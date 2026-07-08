@@ -9,6 +9,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { supabase } from "../supabaseClient";
+import { maybeAutoAnchor } from "../services/anchorBatch";
 
 const router = Router();
 
@@ -116,6 +117,13 @@ router.post("/vote", async (req: Request, res: Response) => {
       status: "queued",
       vote_id: voteId,
     });
+
+    // Fire-and-forget: anchors a batch once 50+ votes are waiting.
+    // Never awaited — must not delay or fail the voter's response.
+    // No-ops silently if Amoy anchoring isn't configured yet.
+    maybeAutoAnchor().catch((err) =>
+      console.error("maybeAutoAnchor threw unexpectedly:", err)
+    );
   } catch (err: any) {
     console.error("Error casting vote:", err);
     res.status(500).json({ error: "Internal server error" });

@@ -519,3 +519,43 @@ ALTER TABLE merkle_batches ENABLE ROW LEVEL SECURITY;
 --     locally and against the on-chain contract
 -- =============================================================
 
+
+-- =============================================================
+-- E-Voting Simulation — Tally Results Table Schema
+--
+-- POST /keyshares/tally reconstructs the private key in memory and
+-- decrypts every vote, but never persists the key. The DECRYPTED
+-- RESULTS (aggregate counts only — never raw ballots or the key) are
+-- persisted here so the public can read them afterward without
+-- triggering another decryption ceremony. One row per election;
+-- re-running the tally overwrites the previous row for that election.
+-- =============================================================
+
+CREATE TABLE tally_results (
+    -- Primary key: auto-generated UUID
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- One tally row per election
+    election_id     TEXT        NOT NULL UNIQUE,
+
+    tallied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    shares_used     INTEGER     NOT NULL,
+    total_votes     INTEGER     NOT NULL,
+    valid_votes     INTEGER     NOT NULL,
+    invalid_votes   INTEGER     NOT NULL,
+
+    -- [{ constituency_code, candidates: [{candidate_id, name, party, votes}] }]
+    results         JSONB       NOT NULL
+);
+
+-- ── Row-Level Security ──
+ALTER TABLE tally_results ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • POST /keyshares/tally (admin) upserts this row on election_id
+--     after computing results
+--   • GET /public/results (public, no auth) reads the latest row —
+--     returns { status: "not_tallied" } if none exists yet
+-- =============================================================
+
