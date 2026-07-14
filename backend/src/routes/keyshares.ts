@@ -306,6 +306,29 @@ router.post(
       let privateKey: ElGamalPrivateKey;
       try {
         const x = reconstructKey(shareValues.slice(0, 3));
+
+        // ── Round-trip sanity check ──
+        // secrets.js-grempe's combine() may normalise leading zeros differently
+        // from the original ELGAMAL_PRIVATE_KEY. If reconstructed x ≠ stored key,
+        // every decryption produces garbage and ALL votes land in rejectedVotes.
+        // Catch this early and surface it clearly rather than returning a silent
+        // tally of 0 valid votes.
+        const storedX = process.env.ELGAMAL_PRIVATE_KEY;
+        if (storedX && x !== storedX) {
+          console.error(
+            "Tally abort: reconstructed key does not match ELGAMAL_PRIVATE_KEY. " +
+            `reconstructed=${x.slice(0, 12)}… stored=${storedX.slice(0, 12)}… ` +
+            "Shares may be from an older key generation, or secrets.js-grempe " +
+            "is dropping leading zeros."
+          );
+          res.status(422).json({
+            error:
+              "Reconstructed key does not match the stored private key. " +
+              "Re-run setup-shamir.ts if you regenerated ElGamal keys after distributing shares.",
+          });
+          return;
+        }
+
         privateKey = { p, g, x };
       } catch {
         res.status(400).json({
@@ -313,6 +336,7 @@ router.post(
         });
         return;
       }
+
 
       // Votes now carry their own constituency_code — no `voters` join.
       const [votesRes, candidatesRes] = await Promise.all([
