@@ -312,6 +312,16 @@ export interface TallyConstituencyResult {
   candidates: TallyCandidateResult[];
 }
 
+export interface RejectedVote {
+  vote_id: string;
+  reason:
+    | "decryption_failed"
+    | "candidate_not_found"
+    | "constituency_mismatch"
+    | "duplicate_nullifier"
+    | "invalid_signature";
+}
+
 export interface TallyResponse {
   election_id: string;
   tallied_at: string;
@@ -319,6 +329,7 @@ export interface TallyResponse {
   total_votes: number;
   valid_votes: number;
   invalid_votes: number;
+  rejected_votes: RejectedVote[];
   results: TallyConstituencyResult[];
 }
 

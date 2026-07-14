@@ -314,6 +314,16 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
       (candidatesRes.data ?? []).map((c) => [c.id, c])
     );
 
+    interface RejectedVote {
+  vote_id: string;
+  reason:
+    | "decryption_failed"
+    | "candidate_not_found"
+    | "constituency_mismatch"
+    | "duplicate_nullifier"
+    | "invalid_signature";
+}
+
     interface TallyEntry {
       candidate_id: string;
       name: string;
@@ -322,43 +332,41 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
     }
     const resultsByConstituency = new Map<string, Map<string, TallyEntry>>();
 
-    let validVotes = 0;
-    let invalidVotes = 0;
+let validVotes = 0;
+const rejectedVotes: RejectedVote[] = [];
 
-    for (const vote of votesRes.data ?? []) {
-      const constituencyCode = constituencyByNidHash.get(vote.voter_nid_hash);
+for (const vote of votesRes.data ?? []) {
+  const constituencyCode = constituencyByNidHash.get(vote.voter_nid_hash);
 
-      let candidateId: string;
-      try {
-        candidateId = decryptCandidateId(
-          vote.encrypted_vote as { c1: string; c2: string },
-          privateKey
-        );
-      } catch {
-        invalidVotes++;
-        continue;
-      }
+  let candidateId: string;
+  try {
+    candidateId = decryptCandidateId(
+      vote.encrypted_vote as { c1: string; c2: string },
+      privateKey
+    );
+  } catch {
+    rejectedVotes.push({ vote_id: vote.id, reason: "decryption_failed" });
+    continue;
+  }
 
-      const candidate = candidateById.get(candidateId);
+  const candidate = candidateById.get(candidateId);
 
-      // Reject ballots that don't decrypt to a real candidate standing in
-      // the voter's own constituency — guards tallying against
-      // malformed/tampered ciphertexts (there is no ZKP of vote validity
-      // yet; see context.md "Not Yet Implemented").
-      if (
-        !candidate ||
-        !constituencyCode ||
-        candidate.constituency_code !== constituencyCode
-      ) {
-        invalidVotes++;
-        continue;
-      }
+  if (!candidate) {
+    rejectedVotes.push({ vote_id: vote.id, reason: "candidate_not_found" });
+    continue;
+  }
 
-      validVotes++;
+  if (!constituencyCode || candidate.constituency_code !== constituencyCode) {
+    rejectedVotes.push({ vote_id: vote.id, reason: "constituency_mismatch" });
+    continue;
+  }
 
-      if (!resultsByConstituency.has(constituencyCode)) {
-        resultsByConstituency.set(constituencyCode, new Map());
-      }
+  validVotes++;
+
+  if (!resultsByConstituency.has(constituencyCode)) {
+    resultsByConstituency.set(constituencyCode, new Map());
+  }
+  
       const constituencyResults = resultsByConstituency.get(constituencyCode)!;
       const entry = constituencyResults.get(candidateId) ?? {
         candidate_id: candidateId,
@@ -377,15 +385,16 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
         candidates: [...candidateMap.values()].sort((a, b) => b.votes - a.votes),
       }));
 
-    const tallyRecord = {
-      election_id,
-      tallied_at: new Date().toISOString(),
-      shares_used: shareValues.length,
-      total_votes: (votesRes.data ?? []).length,
-      valid_votes: validVotes,
-      invalid_votes: invalidVotes,
-      results,
-    };
+const tallyRecord = {
+  election_id,
+  tallied_at: new Date().toISOString(),
+  shares_used: shareValues.length,
+  total_votes: (votesRes.data ?? []).length,
+  valid_votes: validVotes,
+  invalid_votes: rejectedVotes.length,
+  rejected_votes: rejectedVotes,
+  results,
+};
 
     // Persist aggregate results (never the key, never raw ballots) so
     // GET /public/results can serve them without re-running decryption.
