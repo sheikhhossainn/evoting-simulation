@@ -1,14 +1,29 @@
 /**
  * voter.ts — Voter registration & nullifier check routes
  *
- * POST /voter/register  — Hash NID (SHA-256 + salt), upsert into Supabase voters table
- * POST /voter/check-nullifier — Check if a nullifier exists for an election
+ * POST /voter/register        — Hash NID (SHA-256 + salt), upsert into
+ *                                Supabase voters table
+ * POST /voter/check-nullifier — Given a RAW NID, compute its nullifier
+ *                                server-side and check whether it already
+ *                                exists for this election
+ *
+ * BALLOT SECRECY NOTE:
+ * The nullifier is now computed server-side using NULLIFIER_SECRET (see
+ * crypto/identity.ts). It used to be computed in the browser from just
+ * SHA-256(nid + election_id), which meant anyone who knew a voter's NID
+ * could reproduce their nullifier and link them to their vote. The client
+ * therefore now sends the raw NID here (as it already did to /register)
+ * rather than a client-computed hash — the server derives everything.
  */
 
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { createHash } from "crypto";
 import { supabase } from "../supabaseClient";
+import {
+  hashNidWithSalt,
+  computeNullifier,
+  constituencyFromNid,
+} from "../crypto/identity";
 
 const router = Router();
 
@@ -19,31 +34,11 @@ const registerSchema = z.object({
 });
 
 const checkNullifierSchema = z.object({
-  nullifier_hash: z.string().min(1, "nullifier_hash is required"),
+  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
   election_id: z.string().min(1, "election_id is required"),
 });
 
 // ── Helpers ──
-
-/**
- * SHA-256 hash with salt from environment.
- * Salt is loaded from NID_HASH_SALT in .env — ensures hashes
- * cannot be rainbow-tabled even if the DB is leaked.
- */
-function sha256WithSalt(input: string): string {
-  const salt = process.env.NID_HASH_SALT || "";
-  return createHash("sha256").update(input + salt).digest("hex");
-}
-
-/**
- * Derive constituency code from NID.
- * First 4 digits mod 8 → CON-01 through CON-08.
- */
-function constituencyFromNid(nid: string): string {
-  const firstFour = parseInt(nid.slice(0, 4)) || 0;
-  const id = (firstFour % 8) + 1;
-  return `CON-${String(id).padStart(2, "0")}`;
-}
 
 /**
  * Derive a display name from NID (for demo/admin UI).
@@ -62,7 +57,7 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 
   const { nid } = parsed.data;
-  const nidHash = sha256WithSalt(nid);
+  const nidHash = hashNidWithSalt(nid);
   const constituencyCode = constituencyFromNid(nid);
   const voterName = nameFromNid(nid);
 
@@ -143,14 +138,18 @@ router.post("/check-nullifier", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nullifier_hash, election_id } = parsed.data;
+  const { nid, election_id } = parsed.data;
+
+  // Derive the nullifier server-side — the client never computes this,
+  // and never learns NULLIFIER_SECRET.
+  const nullifierHash = computeNullifier(nid, election_id);
 
   try {
     const { data, error } = await supabase
       .from("nullifiers")
       .select("id")
       .eq("election_id", election_id)
-      .eq("nullifier_hash", nullifier_hash)
+      .eq("nullifier_hash", nullifierHash)
       .maybeSingle();
 
     if (error) {
@@ -159,6 +158,8 @@ router.post("/check-nullifier", async (req: Request, res: Response) => {
       return;
     }
 
+    // Only the boolean is returned — never the nullifier itself, so a
+    // caller can't harvest nullifiers for NIDs they happen to guess.
     res.json({ exists: !!data });
   } catch (err) {
     console.error("Unexpected error in /voter/check-nullifier:", err);
