@@ -93,10 +93,30 @@ CREATE TABLE votes (
     -- Primary key: auto-generated UUID
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    -- SHA-256 hash of the voter's NID — ensures one vote per person
-    voter_nid_hash  CHAR(64)        NOT NULL
-                    CONSTRAINT ck_votes_nid_hash_hex
-                        CHECK (voter_nid_hash ~ '^[a-f0-9]{64}$'),
+    -- ── Ballot secrecy redesign ──
+    -- votes no longer store voter_nid_hash (which directly identified the
+    -- voter via a FK to the voters table). Instead:
+    --   • nullifier_hash prevents double-voting without linking to identity
+    --     — it's computed server-side as SHA-256(nid + election_id + secret),
+    --     using a secret the server never exposes, so it can't be
+    --     reconstructed by anyone who only knows the voter's NID.
+    --   • constituency_code is non-identifying (shared by thousands of
+    --     voters) and lets tallying group results without ever touching
+    --     the voters table.
+    -- Eligibility and double-vote prevention still happen via nid_hash
+    -- lookups against `voters`/`nullifiers`, but that hash is never
+    -- persisted on the vote row itself.
+
+    -- One-way hash proving "someone voted" without revealing who.
+    -- Same value as nullifiers.nullifier_hash for this vote's submission.
+    nullifier_hash  CHAR(64)        NOT NULL
+                    CONSTRAINT ck_votes_nullifier_hash_hex
+                        CHECK (nullifier_hash ~ '^[a-f0-9]{64}$'),
+
+    -- Non-identifying constituency code, used for tally grouping only.
+    constituency_code VARCHAR(10)   NOT NULL
+                    CONSTRAINT ck_votes_constituency_code_format
+                        CHECK (constituency_code ~ '^[A-Z]{2,4}-\d{1,3}$'),
 
     -- ElGamal ciphertext of the voter's choice
     -- JSONB stores the structured ciphertext { c1, c2 } and allows
@@ -123,13 +143,9 @@ CREATE TABLE votes (
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
 
     -- ── Constraints ──
-    CONSTRAINT uq_votes_voter_nid_hash UNIQUE (voter_nid_hash),
-
-    -- Foreign key: links back to the voters table
-    CONSTRAINT fk_votes_voter FOREIGN KEY (voter_nid_hash)
-        REFERENCES voters (nid_hash)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE
+    -- One vote per nullifier — enforces one-person-one-vote without
+    -- ever storing which specific person cast which specific vote.
+    CONSTRAINT uq_votes_nullifier_hash UNIQUE (nullifier_hash)
 );
 
 -- ── Votes Indexes ──
@@ -233,8 +249,11 @@ CREATE TRIGGER trg_votes_updated_at
 CREATE OR REPLACE FUNCTION fn_votes_immutable_guard()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
-        RAISE EXCEPTION 'voter_nid_hash is immutable after insertion';
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.constituency_code IS DISTINCT FROM NEW.constituency_code THEN
+        RAISE EXCEPTION 'constituency_code is immutable after insertion';
     END IF;
     IF OLD.encrypted_vote IS DISTINCT FROM NEW.encrypted_vote THEN
         RAISE EXCEPTION 'encrypted_vote is immutable after insertion';
@@ -267,10 +286,18 @@ CREATE TRIGGER trg_votes_immutable
 --     p_encrypted_vote: { c1: '...', c2: '...' },
 --     p_zkp_proof: null
 --   });
+-- ── Atomic vote casting (redesigned for ballot secrecy) ──
+-- p_voter_nid_hash is used ONLY to check eligibility and flip has_voted
+-- on the voters table — it is never written to the votes row itself.
+-- The vote row stores p_nullifier_hash + p_constituency_code instead,
+-- which cannot be traced back to a specific voter without the
+-- server-side NULLIFIER_SECRET.
 CREATE OR REPLACE FUNCTION fn_cast_vote(
-    p_voter_nid_hash CHAR(64),
-    p_encrypted_vote JSONB,
-    p_zkp_proof      JSONB DEFAULT NULL
+    p_voter_nid_hash    CHAR(64),
+    p_nullifier_hash    CHAR(64),
+    p_constituency_code VARCHAR(10),
+    p_encrypted_vote    JSONB,
+    p_zkp_proof         JSONB DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -306,9 +333,10 @@ BEGIN
             USING ERRCODE = 'P0004';
     END IF;
 
-    -- Step 2: Insert the vote record
-    INSERT INTO votes (voter_nid_hash, encrypted_vote, zkp_proof)
-    VALUES (p_voter_nid_hash, p_encrypted_vote, p_zkp_proof)
+    -- Step 2: Insert the vote record — nullifier_hash and
+    -- constituency_code only, never voter_nid_hash
+    INSERT INTO votes (nullifier_hash, constituency_code, encrypted_vote, zkp_proof)
+    VALUES (p_nullifier_hash, p_constituency_code, p_encrypted_vote, p_zkp_proof)
     RETURNING id INTO v_vote_id;
 
     -- Step 3: Flip has_voted (same transaction — atomic)
@@ -323,7 +351,10 @@ $$;
 
 -- =============================================================
 -- Notes for future implementation:
---   • nid_hash = lower(encode(sha256(nid || salt), 'hex'))
+--   • nid_hash = lower(encode(sha256(nid || salt), 'hex'))  (NID_HASH_SALT)
+--   • nullifier_hash = lower(encode(sha256(nid || election_id || secret), 'hex'))
+--     (NULLIFIER_SECRET) — computed server-side only, never client-side,
+--     so it can't be reconstructed by anyone who only knows the NID
 --   • encrypted_vote JSONB shape: { "c1": "...", "c2": "..." }
 --     (ElGamal ciphertext components as base64/hex strings)
 --   • zkp_proof JSONB shape: TBD when ZKP module is built

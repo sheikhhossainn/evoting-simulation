@@ -1,29 +1,51 @@
 /**
  * vote.ts — POST /vote
  *
- * Accepts an encrypted vote (ElGamal ciphertext { c1, c2 }),
- * validates it, and stores it in Supabase using the atomic
+ * Accepts a RAW National ID plus an ElGamal-encrypted ballot, derives
+ * everything else server-side, and stores the vote via the atomic
  * fn_cast_vote stored procedure.
+ *
+ * BALLOT SECRECY REDESIGN:
+ * The vote row no longer stores voter_nid_hash. Previously, votes were
+ * keyed by SHA-256(nid + salt) with a foreign key straight back to the
+ * voters table — meaning anyone who could compute a voter's nid_hash
+ * could look up exactly which ballot was theirs. Now:
+ *
+ *   • nid_hash is used ONLY inside fn_cast_vote, to check eligibility and
+ *     flip has_voted on the voters table. It is never written to `votes`.
+ *   • The vote row is keyed by nullifier_hash — SHA-256(nid + election_id
+ *     + NULLIFIER_SECRET). Because NULLIFIER_SECRET never leaves the
+ *     server, knowing a voter's NID is not enough to find their ballot.
+ *   • constituency_code is stored on the vote row so tallying can group
+ *     results without joining back to `voters` at all. It's shared by
+ *     thousands of voters, so it doesn't identify anyone.
+ *
+ * The client therefore sends the raw NID (over HTTPS, as it already does
+ * to /voter/register) instead of computing hashes itself. A nullifier
+ * computed in the browser could never have included a real secret — a
+ * secret shipped to the browser isn't a secret — which is exactly the
+ * weakness this replaces.
  */
 
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { supabase } from "../supabaseClient";
-import { maybeAutoAnchor } from "../services/anchorBatch";
+import {
+  hashNidWithSalt,
+  computeNullifier,
+  constituencyFromNid,
+} from "../crypto/identity";
 
 const router = Router();
 
 // ── Zod Schema ──
 
 const voteSchema = z.object({
-  nid_hash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/, "nid_hash must be a 64-char hex SHA-256 digest"),
+  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
   encrypted_vote: z.object({
     c1: z.string().min(1, "c1 is required"),
     c2: z.string().min(1, "c2 is required"),
   }),
-  nullifier_hash: z.string().min(1, "nullifier_hash is required"),
   election_id: z.string().min(1, "election_id is required"),
 });
 
@@ -36,8 +58,13 @@ router.post("/vote", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid_hash, encrypted_vote, nullifier_hash, election_id } =
-    parsed.data;
+  const { nid, encrypted_vote, election_id } = parsed.data;
+
+  // ── Derive everything server-side from the raw NID ──
+  // The raw NID is used only here, transiently, and is never persisted.
+  const nidHash = hashNidWithSalt(nid);
+  const nullifierHash = computeNullifier(nid, election_id);
+  const constituencyCode = constituencyFromNid(nid);
 
   try {
     // ── Step 1: Check nullifier hasn't been used ──
@@ -46,7 +73,7 @@ router.post("/vote", async (req: Request, res: Response) => {
         .from("nullifiers")
         .select("id")
         .eq("election_id", election_id)
-        .eq("nullifier_hash", nullifier_hash)
+        .eq("nullifier_hash", nullifierHash)
         .maybeSingle();
 
     if (nullifierCheckError) {
@@ -61,12 +88,15 @@ router.post("/vote", async (req: Request, res: Response) => {
     }
 
     // ── Step 2: Cast vote using atomic stored procedure ──
-    // fn_cast_vote handles: voter lookup, eligibility check,
-    // vote insertion, and has_voted flip — all in one transaction.
+    // fn_cast_vote handles: voter lookup (by nid_hash), eligibility check,
+    // vote insertion (by nullifier_hash + constituency_code — never
+    // nid_hash), and the has_voted flip — all in one transaction.
     const { data: voteId, error: castError } = await supabase.rpc(
       "fn_cast_vote",
       {
-        p_voter_nid_hash: nid_hash,
+        p_voter_nid_hash: nidHash,
+        p_nullifier_hash: nullifierHash,
+        p_constituency_code: constituencyCode,
         p_encrypted_vote: encrypted_vote,
         p_zkp_proof: null,
       }
@@ -90,6 +120,12 @@ router.post("/vote", async (req: Request, res: Response) => {
         res.status(409).json({ error: "You have already voted" });
         return;
       }
+      // Unique violation on votes.nullifier_hash — a concurrent duplicate
+      // submission lost the race. Same user-facing meaning as P0004.
+      if (castError.code === "23505") {
+        res.status(409).json({ error: "You have already voted" });
+        return;
+      }
 
       res.status(500).json({ error: "Internal server error" });
       return;
@@ -100,13 +136,14 @@ router.post("/vote", async (req: Request, res: Response) => {
       .from("nullifiers")
       .insert({
         election_id,
-        nullifier_hash,
+        nullifier_hash: nullifierHash,
       });
 
     if (nullifierInsertError) {
       // Log but don't fail — the vote is already recorded.
       // Nullifier insert failure means a race condition (duplicate),
-      // which is fine because the vote was already committed.
+      // which is fine because the vote was already committed and
+      // votes.nullifier_hash carries its own UNIQUE constraint.
       console.warn(
         "Nullifier insert warning (vote was still recorded):",
         nullifierInsertError
@@ -117,13 +154,6 @@ router.post("/vote", async (req: Request, res: Response) => {
       status: "queued",
       vote_id: voteId,
     });
-
-    // Fire-and-forget: anchors a batch once 50+ votes are waiting.
-    // Never awaited — must not delay or fail the voter's response.
-    // No-ops silently if Amoy anchoring isn't configured yet.
-    maybeAutoAnchor().catch((err) =>
-      console.error("maybeAutoAnchor threw unexpectedly:", err)
-    );
   } catch (err: any) {
     console.error("Error casting vote:", err);
     res.status(500).json({ error: "Internal server error" });
