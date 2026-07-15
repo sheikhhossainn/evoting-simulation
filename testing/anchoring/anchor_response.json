@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "batch_id": "batch-2026-07-15-001",
+  "election_id": "NATIONAL-2026-001",
+  "anchored_at": "2026-07-15T07:00:39.000Z",
+  "vote_count": 16,
+  "merkle_root": "0x7a3fe91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1a3b5c7d9e",
+  "transaction_hash": "0x7a3fe91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1a3b5c7d9e",
+  "network": "polygon-amoy",
+  "block_number": null,
+  "status": "queued",
+  "message": "Batch queued for on-chain anchoring. Transaction hash recorded."
+}

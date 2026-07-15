@@ -1,0 +1,13 @@
+{
+  "vote_id": "24e796e1-cbf1-4d06-a177-e271ee6ca0b7",
+  "election_id": "NATIONAL-2026-001",
+  "verified": true,
+  "anchored": false,
+  "status": "queued_for_anchoring",
+  "cast_at": "2026-07-15T07:00:39.000Z",
+  "transaction_hash": "0x7a3fe91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1a3b5c7d9e",
+  "merkle_root": "0x7a3fe91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1a3b5c7d9e",
+  "merkle_proof": null,
+  "network": "polygon-amoy",
+  "message": "Vote is recorded and queued for blockchain anchoring. On-chain confirmation pending."
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "status": 404,
+    "data": {
+      "error": "Voter not registered"
+    }
+  },
+  {
+    "status": 404,
+    "data": {
+      "error": "Voter not registered"
+    }
+  }
+]
