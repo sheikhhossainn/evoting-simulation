@@ -1,7 +1,6 @@
 /**
  * setup-shamir.ts — Generate and verify Shamir shares for ElGamal private key
  *
- * Run: npx ts-node src/scripts/setup-shamir.ts
  *
  * This script:
  *   1. Reads ELGAMAL_PRIVATE_KEY from .env

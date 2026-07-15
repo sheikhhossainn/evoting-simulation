@@ -7,6 +7,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:amoy": "hardhat run scripts/deploy.ts --network amoy",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
     "anchor:mock": "ts-node scripts/anchorMockBatch.ts"
   },

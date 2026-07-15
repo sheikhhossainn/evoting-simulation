@@ -1,9 +1,16 @@
 /**
- * nullifier.ts — Client-side nullifier generation
+ * nullifier.ts — Election constants & NID hashing helpers
  *
- * Computes SHA-256(NID + election_id) using the Web Crypto API.
- * The NID never leaves the browser in plaintext — only the
- * irreversible hash is sent to the server.
+ * BALLOT SECRECY REDESIGN:
+ * The client-side generateNullifier() function has been REMOVED. Nullifiers
+ * are now computed exclusively server-side as
+ * SHA-256(nid + election_id + NULLIFIER_SECRET) — see
+ * backend/src/crypto/identity.ts. A nullifier computed in the browser could
+ * never include a real secret (any "secret" shipped to the browser isn't a
+ * secret), which meant anyone who knew a voter's NID could reproduce their
+ * nullifier and link them to their vote. The client now sends the raw NID
+ * to the backend (as it already did for /voter/register) and the server
+ * derives everything.
  */
 
 /**
@@ -16,23 +23,13 @@
 export const ELECTION_ID = "NATIONAL-2026-001";
 
 /**
- * Generate a nullifier hash from NID and election ID.
- * Returns a 64-char lowercase hex string.
- */
-export async function generateNullifier(
-  nid: string,
-  electionId: string = ELECTION_ID
-): Promise<string> {
-  const payload = new TextEncoder().encode(nid + electionId);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", payload);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-/**
- * Hash an NID to its SHA-256 hex digest (for nid_hash field).
- * Same algorithm the backend uses — ensures consistency.
+ * Hash an NID to its SHA-256 hex digest.
+ *
+ * NOTE: this is an UNSALTED hash kept only for legacy display purposes
+ * (e.g. showing a shortened voter identifier in the UI). It does NOT match
+ * the server's salted nid_hash and must not be used for any lookup or
+ * submission — the backend derives all real identifiers itself from the
+ * raw NID.
  */
 export async function hashNid(nid: string): Promise<string> {
   const payload = new TextEncoder().encode(nid);

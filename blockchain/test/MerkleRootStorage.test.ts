@@ -10,6 +10,8 @@
 
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import type { Log, LogDescription } from "ethers";
+import type { MerkleRootStorage } from "../typechain-types";
 import {
   buildMerkleTree,
   getProof,
@@ -46,14 +48,14 @@ describe("MerkleRootStorage", () => {
     const receipt = await tx.wait();
 
     const event = receipt!.logs
-      .map((log) => {
+      .map((log: Log) => {
         try {
-          return contract.interface.parseLog(log as any);
+          return contract.interface.parseLog(log);
         } catch {
           return null;
         }
       })
-      .find((parsed) => parsed?.name === "BatchAnchored");
+      .find((parsed: LogDescription | null) => parsed?.name === "BatchAnchored");
 
     expect(event).to.not.be.undefined;
     expect(event!.args.batchId).to.equal(0n);
@@ -117,7 +119,10 @@ describe("MerkleRootStorage", () => {
     const tree = buildMerkleTree(votes.map(hashVoteLeaf));
 
     await expect(
-      contract.connect(stranger).anchorRoot(tree.root, votes.length)
+      (contract.connect(stranger) as MerkleRootStorage).anchorRoot(
+        tree.root,
+        votes.length
+      )
     ).to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount");
   });
 

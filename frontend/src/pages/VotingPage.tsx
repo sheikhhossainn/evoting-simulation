@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { generateNullifier, hashNid, ELECTION_ID } from "../utils/nullifier";
+import { ELECTION_ID } from "../utils/nullifier";
 import {
   checkNullifier,
   submitVote,
@@ -64,7 +64,6 @@ const VotingPage = () => {
   const state = location.state as LocationState | null;
 
   const voterNid = state?.nid ?? "00000000000";
-  const voterNidHash = state?.nidHash ?? "";
   // Fall back to the same deterministic mapping the backend uses, in case
   // a voter lands here without the constituency_code from /voter/register.
   const constituencyCode =
@@ -119,34 +118,27 @@ const VotingPage = () => {
     setVoteError(null);
 
     try {
-      // 1. Compute NID hash (if not passed from login)
-      const nidHash = voterNidHash || (await hashNid(voterNid));
-
-      // 2. Generate nullifier: SHA-256(NID + election_id)
-      const nullifierHash = await generateNullifier(voterNid, ELECTION_ID);
-
-      // 3. Check if nullifier already exists (double-vote prevention)
-      const { exists } = await checkNullifier(nullifierHash, ELECTION_ID);
+      // 1. Check if this voter has already voted (double-vote prevention).
+      // The backend computes the nullifier server-side from the raw NID —
+      // the browser never computes or sees any nullifier.
+      const { exists } = await checkNullifier(voterNid, ELECTION_ID);
       if (exists) {
         setVoteError("You have already voted in this election.");
         setIsSubmitting(false);
         return;
       }
 
-      // 4. Encrypt the selected candidate's real UUID with the election's
+      // 2. Encrypt the selected candidate's real UUID with the election's
       // ElGamal public key — this is the actual ballot content, and it
       // never leaves the browser in plaintext.
       const encryptedVote = encryptCandidateId(selectedCandidate.id, publicKey);
 
-      // 5. Submit vote to backend
-      const result = await submitVote(
-        nidHash,
-        encryptedVote,
-        nullifierHash,
-        ELECTION_ID
-      );
+      // 3. Submit vote to backend. Only the raw NID (for server-side
+      // derivation) and the encrypted ballot are sent — no client-computed
+      // hashes.
+      const result = await submitVote(voterNid, encryptedVote, ELECTION_ID);
 
-      // 6. Success — navigate to confirmation
+      // 4. Success — navigate to confirmation
       navigate("/voter/confirmation", {
         state: {
           nid: voterNid,

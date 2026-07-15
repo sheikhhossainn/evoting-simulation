@@ -3,7 +3,8 @@
  *
  * POST /keyshares/submit  — Key holder submits their Shamir share
  * GET  /keyshares/status  — Public status: how many shares submitted
- *
+ * GET  /keyshares/reconstruct — Diagnostic: are the shares consistent?
+ * POST /keyshares/tally   — Admin: reconstruct key, decrypt, tally
  */
 
 import { Router, Request, Response } from "express";
@@ -84,10 +85,14 @@ router.post("/submit", async (req: Request, res: Response) => {
           keyholder_id,
           share_index,
           share_value,
-          keyholder_role: share_index === 1 ? "Election Commission"
-    : share_index === 2 ? "Judiciary Observer"
-    : share_index === 3 ? "Academic Auditor"
-    : "Civil Society Observer",
+          keyholder_role:
+            share_index === 1
+              ? "Election Commission"
+              : share_index === 2
+              ? "Judiciary Observer"
+              : share_index === 3
+              ? "Academic Auditor"
+              : "Civil Society Observer",
           submitted: true,
           submitted_at: new Date().toISOString(),
         },
@@ -247,149 +252,220 @@ router.get("/reconstruct", async (req: Request, res: Response) => {
 // returns results grouped by constituency and candidate. The private
 // key only ever exists in memory for the duration of this request — it
 // is never logged, persisted, or returned to the caller.
-router.post("/tally", requireAdminSecret, async (req: Request, res: Response) => {
-  const election_id = req.body?.election_id as string | undefined;
+//
+// BALLOT SECRECY NOTE:
+// This route no longer reads the `voters` table at all. Votes now carry
+// their own constituency_code (non-identifying), so tallying never needs
+// to join a ballot back to a voter identity — not even transiently, in
+// memory, inside this handler. The strongest privacy guarantee is the one
+// where the linking data simply isn't there to be joined.
+router.post(
+  "/tally",
+  requireAdminSecret,
+  async (req: Request, res: Response) => {
+    const election_id = req.body?.election_id as string | undefined;
 
-  if (!election_id) {
-    res.status(400).json({ error: "election_id is required" });
-    return;
-  }
-
-  try {
-    const { data: shares, error: sharesError } = await supabase
-      .from("key_shares")
-      .select("share_value, submitted")
-      .eq("election_id", election_id)
-      .eq("submitted", true);
-
-    if (sharesError) {
-      console.error("Supabase error fetching shares for tally:", sharesError);
-      res.status(500).json({ error: "Internal server error" });
+    if (!election_id) {
+      res.status(400).json({ error: "election_id is required" });
       return;
     }
 
-    const shareValues = (shares ?? [])
-      .map((s) => s.share_value)
-      .filter((v): v is string => !!v);
-
-    if (shareValues.length < 3) {
-      res.status(400).json({
-        error: `Threshold not met. Need 3 shares, have ${shareValues.length}`,
-      });
-      return;
-    }
-
-    const p = process.env.ELGAMAL_P;
-    const g = process.env.ELGAMAL_G;
-    if (!p || !g) {
-      res.status(503).json({ error: "ElGamal public parameters not configured" });
-      return;
-    }
-
-    let privateKey: ElGamalPrivateKey;
     try {
-      const x = reconstructKey(shareValues.slice(0, 3));
-      privateKey = { p, g, x };
-    } catch {
-      res.status(400).json({
-        error: "Reconstruction failed — shares may be invalid or mismatched",
-      });
-      return;
-    }
+      const { data: shares, error: sharesError } = await supabase
+        .from("key_shares")
+        .select("share_value, submitted")
+        .eq("election_id", election_id)
+        .eq("submitted", true);
 
-    const [votesRes, votersRes, candidatesRes] = await Promise.all([
-      supabase.from("votes").select("id, encrypted_vote, voter_nid_hash"),
-      supabase.from("voters").select("nid_hash, constituency_code"),
-      supabase.from("candidates").select("id, name, party, constituency_code"),
-    ]);
+      if (sharesError) {
+        console.error("Supabase error fetching shares for tally:", sharesError);
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
 
-    if (votesRes.error) throw votesRes.error;
-    if (votersRes.error) throw votersRes.error;
-    if (candidatesRes.error) throw candidatesRes.error;
+      const shareValues = (shares ?? [])
+        .map((s) => s.share_value)
+        .filter((v): v is string => !!v);
 
-    const constituencyByNidHash = new Map(
-      (votersRes.data ?? []).map((v) => [v.nid_hash, v.constituency_code])
-    );
-    const candidateById = new Map(
-      (candidatesRes.data ?? []).map((c) => [c.id, c])
-    );
+      if (shareValues.length < 3) {
+        res.status(400).json({
+          error: `Threshold not met. Need 3 shares, have ${shareValues.length}`,
+        });
+        return;
+      }
 
-    interface TallyEntry {
-      candidate_id: string;
-      name: string;
-      party: string;
-      votes: number;
-    }
-    const resultsByConstituency = new Map<string, Map<string, TallyEntry>>();
+      const p = process.env.ELGAMAL_P;
+      const g = process.env.ELGAMAL_G;
+      if (!p || !g) {
+        res
+          .status(503)
+          .json({ error: "ElGamal public parameters not configured" });
+        return;
+      }
 
-    let validVotes = 0;
-    let invalidVotes = 0;
-
-    for (const vote of votesRes.data ?? []) {
-      const constituencyCode = constituencyByNidHash.get(vote.voter_nid_hash);
-
-      let candidateId: string;
+      let privateKey: ElGamalPrivateKey;
       try {
-        candidateId = decryptCandidateId(
-          vote.encrypted_vote as { c1: string; c2: string },
-          privateKey
-        );
+        const x = reconstructKey(shareValues.slice(0, 3));
+
+        // ── Round-trip sanity check ──
+        // secrets.js-grempe's combine() may normalise leading zeros differently
+        // from the original ELGAMAL_PRIVATE_KEY. If reconstructed x ≠ stored key,
+        // every decryption produces garbage and ALL votes land in rejectedVotes.
+        // Catch this early and surface it clearly rather than returning a silent
+        // tally of 0 valid votes.
+        const storedX = process.env.ELGAMAL_PRIVATE_KEY;
+        if (storedX && x !== storedX) {
+          console.error(
+            "Tally abort: reconstructed key does not match ELGAMAL_PRIVATE_KEY. " +
+            `reconstructed=${x.slice(0, 12)}… stored=${storedX.slice(0, 12)}… ` +
+            "Shares may be from an older key generation, or secrets.js-grempe " +
+            "is dropping leading zeros."
+          );
+          res.status(422).json({
+            error:
+              "Reconstructed key does not match the stored private key. " +
+              "Re-run setup-shamir.ts if you regenerated ElGamal keys after distributing shares.",
+          });
+          return;
+        }
+
+        privateKey = { p, g, x };
       } catch {
-        invalidVotes++;
-        continue;
+        res.status(400).json({
+          error: "Reconstruction failed — shares may be invalid or mismatched",
+        });
+        return;
       }
 
-      const candidate = candidateById.get(candidateId);
 
-      // Reject ballots that don't decrypt to a real candidate standing in
-      // the voter's own constituency — guards tallying against
-      // malformed/tampered ciphertexts (there is no ZKP of vote validity
-      // yet; see context.md "Not Yet Implemented").
-      if (
-        !candidate ||
-        !constituencyCode ||
-        candidate.constituency_code !== constituencyCode
-      ) {
-        invalidVotes++;
-        continue;
+      // Votes now carry their own constituency_code — no `voters` join.
+      const [votesRes, candidatesRes] = await Promise.all([
+        supabase.from("votes").select("id, encrypted_vote, constituency_code"),
+        supabase.from("candidates").select("id, name, party, constituency_code"),
+      ]);
+
+      if (votesRes.error) throw votesRes.error;
+      if (candidatesRes.error) throw candidatesRes.error;
+
+      const candidateById = new Map(
+        (candidatesRes.data ?? []).map((c) => [c.id, c])
+      );
+
+      interface RejectedVote {
+        vote_id: string;
+        reason:
+          | "decryption_failed"
+          | "candidate_not_found"
+          | "constituency_mismatch"
+          | "duplicate_nullifier"
+          | "invalid_signature";
       }
 
-      validVotes++;
-
-      if (!resultsByConstituency.has(constituencyCode)) {
-        resultsByConstituency.set(constituencyCode, new Map());
+      interface TallyEntry {
+        candidate_id: string;
+        name: string;
+        party: string;
+        votes: number;
       }
-      const constituencyResults = resultsByConstituency.get(constituencyCode)!;
-      const entry = constituencyResults.get(candidateId) ?? {
-        candidate_id: candidateId,
-        name: candidate.name,
-        party: candidate.party,
-        votes: 0,
+
+      const resultsByConstituency = new Map<string, Map<string, TallyEntry>>();
+
+      let validVotes = 0;
+      const rejectedVotes: RejectedVote[] = [];
+
+      for (const vote of votesRes.data ?? []) {
+        const constituencyCode = vote.constituency_code;
+
+        let candidateId: string;
+        try {
+          candidateId = decryptCandidateId(
+            vote.encrypted_vote as { c1: string; c2: string },
+            privateKey
+          );
+        } catch {
+          rejectedVotes.push({ vote_id: vote.id, reason: "decryption_failed" });
+          continue;
+        }
+
+        const candidate = candidateById.get(candidateId);
+
+        if (!candidate) {
+          rejectedVotes.push({
+            vote_id: vote.id,
+            reason: "candidate_not_found",
+          });
+          continue;
+        }
+
+        // Reject ballots whose candidate isn't standing in the constituency
+        // the ballot was cast in — guards tallying against malformed or
+        // tampered ciphertexts (there is no ZKP of vote validity yet).
+        if (
+          !constituencyCode ||
+          candidate.constituency_code !== constituencyCode
+        ) {
+          rejectedVotes.push({
+            vote_id: vote.id,
+            reason: "constituency_mismatch",
+          });
+          continue;
+        }
+
+        validVotes++;
+
+        if (!resultsByConstituency.has(constituencyCode)) {
+          resultsByConstituency.set(constituencyCode, new Map());
+        }
+        const constituencyResults = resultsByConstituency.get(constituencyCode)!;
+        const entry = constituencyResults.get(candidateId) ?? {
+          candidate_id: candidateId,
+          name: candidate.name,
+          party: candidate.party,
+          votes: 0,
+        };
+        entry.votes += 1;
+        constituencyResults.set(candidateId, entry);
+      }
+
+      const results = [...resultsByConstituency.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([constituency_code, candidateMap]) => ({
+          constituency_code,
+          candidates: [...candidateMap.values()].sort((a, b) => b.votes - a.votes),
+        }));
+
+      const tallyRecord = {
+        election_id,
+        tallied_at: new Date().toISOString(),
+        shares_used: shareValues.length,
+        total_votes: (votesRes.data ?? []).length,
+        valid_votes: validVotes,
+        invalid_votes: rejectedVotes.length,
+        rejected_votes: rejectedVotes,
+        results,
       };
-      entry.votes += 1;
-      constituencyResults.set(candidateId, entry);
+
+      // Persist aggregate results (never the key, never raw ballots) so
+      // GET /public/results can serve them without re-running decryption.
+      const { error: persistError } = await supabase
+        .from("tally_results")
+        .upsert(tallyRecord, { onConflict: "election_id" });
+
+      if (persistError) {
+        console.error("Supabase error persisting tally results:", persistError);
+        // The tally itself succeeded — surface the result to the caller
+        // even if persistence failed, but flag it so the admin knows
+        // GET /public/results won't reflect this run.
+        res.json({ ...tallyRecord, persisted: false });
+        return;
+      }
+
+      res.json({ ...tallyRecord, persisted: true });
+    } catch (err) {
+      console.error("Unexpected error in POST /keyshares/tally:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-
-    const results = [...resultsByConstituency.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([constituency_code, candidateMap]) => ({
-        constituency_code,
-        candidates: [...candidateMap.values()].sort((a, b) => b.votes - a.votes),
-      }));
-
-    res.json({
-      election_id,
-      tallied_at: new Date().toISOString(),
-      shares_used: shareValues.length,
-      total_votes: (votesRes.data ?? []).length,
-      valid_votes: validVotes,
-      invalid_votes: invalidVotes,
-      results,
-    });
-  } catch (err) {
-    console.error("Unexpected error in POST /keyshares/tally:", err);
-    res.status(500).json({ error: "Internal server error" });
   }
-});
+);
 
 export default router;
