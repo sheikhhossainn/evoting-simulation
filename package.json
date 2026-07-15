@@ -11,7 +11,8 @@
     "build": "npm run build --prefix frontend",
     "contracts:compile": "npm run compile --prefix blockchain",
     "contracts:test": "npm run test --prefix blockchain",
-    "contracts:deploy:amoy": "npm run deploy:amoy --prefix blockchain"
+    "contracts:deploy:amoy": "npm run deploy:amoy --prefix blockchain",
+    "contracts:deploy:sepolia": "npm run deploy:sepolia --prefix blockchain"
   },
   "keywords": [],
   "author": "",
