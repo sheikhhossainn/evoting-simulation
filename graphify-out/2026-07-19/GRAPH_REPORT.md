@@ -1,16 +1,16 @@
-# Graph Report - evoting-simulation  (2026-07-19)
+# Graph Report - evoting-simulation  (2026-07-16)
 
 ## Corpus Check
-- 77 files · ~47,090 words
+- 73 files · ~43,548 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 564 nodes · 677 edges · 63 communities (33 shown, 30 thin omitted)
+- 529 nodes · 643 edges · 55 communities (26 shown, 29 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 2 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `4d9fb745`
+- Built from commit: `7aef75b9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -33,7 +33,6 @@
 - Root Package & Orchestration
 - Blockchain TypeScript Config
 - Shamir Secret Sharing
-- Tamper-Proof Demo — Live Sepolia Anchoring & Verification
 - Voter Seeding Scripts
 - Schema Migration Scripts
 - Frontend Lint Config
@@ -46,7 +45,6 @@
 - Graphify Knowledge Graph Rules
 - Frontend Vite README
 - E-Voting Simulation — Agent Context
-- KeyShareStatus.tsx
 - React + TypeScript + Vite
 - CLAUDE.md
 - x-admin-secret Header Auth
@@ -64,17 +62,11 @@
 - Vote Encryption Fix (Session)
 - Zero-Knowledge Proof (Planned)
 - Pull Request Workflow (into dev)
-- VotingPage.tsx
 - Double-Vote Prevention Tests
 - Merkle Anchoring Test Plan
 - Testing Guidance Document
 - Tallying & Decryption Test Plan
 - Voter Registration Test Plan
-- TallyingPage.tsx
-- Research Methodology & Goal
-- elgamal.ts
-- VoterLogin.tsx
-- tamper-test.ts
 
 ## God Nodes (most connected - your core abstractions)
 1. `E-Voting Simulation — Agent Context` - 19 edges
@@ -83,10 +75,10 @@
 4. `Testing Guidance` - 15 edges
 5. `compilerOptions` - 14 edges
 6. `Contributing Guide` - 13 edges
-7. `Tamper-Proof Demo — Live Sepolia Anchoring & Verification` - 12 edges
-8. `Left Work — Remaining Tasks & Assignments` - 11 edges
-9. `scripts` - 10 edges
-10. `Research Methodology & Goal` - 10 edges
+7. `Left Work — Remaining Tasks & Assignments` - 11 edges
+8. `scripts` - 10 edges
+9. `compilerOptions` - 9 edges
+10. `buildMerkleTree()` - 8 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `GitHub Actions CI Workflow` --conceptually_related_to--> `Three-Tier Branching Strategy`  [INFERRED]
@@ -95,10 +87,10 @@
   frontend/public/favicon.svg → frontend/index.html
 - `CI Contracts Job (Hardhat tests)` --references--> `Merkle Tree Vote Anchoring`  [EXTRACTED]
   .github/workflows/ci.yml → context.md
-- `VotingPage()` --calls--> `encryptCandidateId()`  [EXTRACTED]
-  frontend/src/pages/VotingPage.tsx → frontend/src/utils/elgamal.ts
 - `runAnchorBatch()` --calls--> `getWritableMerkleContract()`  [EXTRACTED]
   backend/src/services/anchorBatch.ts → backend/src/blockchain/merkleContract.ts
+- `main()` --calls--> `generateKeypair()`  [EXTRACTED]
+  backend/src/scripts/setup-keys.ts → backend/src/crypto/elgamal.ts
 
 ## Import Cycles
 - None detected.
@@ -106,15 +98,15 @@
 ## Hyperedges (group relationships)
 - **CI Pipeline (3 Parallel Jobs)** — github_workflows_ci_frontend_job, github_workflows_ci_backend_job, github_workflows_ci_contracts_job [EXTRACTED 1.00]
 
-## Communities (63 total, 30 thin omitted)
+## Communities (55 total, 29 thin omitted)
 
 ### Community 0 - "Public Watchdog & Tallying UI"
-Cohesion: 0.16
-Nodes (17): defaultPartyColor, PARTY_COLORS, PublicWatchdog(), apiGet(), CandidatesResponse, CheckNullifierResponse, ConstituencyStat, getPublicResults() (+9 more)
+Cohesion: 0.05
+Nodes (47): defaultPartyColor, PARTY_COLORS, PublicWatchdog(), PARTY_ACCENTS, REJECTION_DESCRIPTIONS, REJECTION_LABELS, SummaryTile(), TallyingPage() (+39 more)
 
 ### Community 1 - "React App & Layout Components"
-Cohesion: 0.08
-Nodes (13): App(), Layout(), navLinks, techStack, AdminDashboard(), Candidate, CONSTITUENCIES, PARTIES (+5 more)
+Cohesion: 0.06
+Nodes (18): App(), Layout(), navLinks, techStack, AdminDashboard(), Candidate, CONSTITUENCIES, PARTIES (+10 more)
 
 ### Community 2 - "Keyholder Auth & Passphrase Verification"
 Cohesion: 0.14
@@ -180,10 +172,6 @@ Nodes (10): compilerOptions, esModuleInterop, module, moduleResolution, outDir, 
 Cohesion: 0.17
 Nodes (11): Explicitly NOT doing (agreed scope — don't spend time here), Hard rules (unchanged, from testing_guidance.md), Left Work — Remaining Tasks & Assignments, Status snapshot (what's already done, docs lag behind), Task 1 — Live anchoring + tamper-detection demo on Sepolia, Task 2 — Update stale docs (context.md, testing_guidance.md), Task 3 — Nullifier redesign regression suite, Task 4 — Real 3-of-4 key ceremony + tally (+3 more)
 
-### Community 18 - "Tamper-Proof Demo — Live Sepolia Anchoring & Verification"
-Cohesion: 0.11
-Nodes (18): Bug found & fixed during this run, Environment, Etherscan evidence, Known boundaries (not failures — see `testing_guidance.md` §8), Missing admin secret → **401**, Never-anchored vote id → **404**, Reproduce, Results summary (+10 more)
-
 ### Community 19 - "Voter Seeding Scripts"
 Cohesion: 0.38
 Nodes (6): constituencyFromNid(), main(), MOCK_NIDS, MockVoter, sha256WithSalt(), supabase
@@ -200,53 +188,29 @@ Nodes (5): plugins, rules, react/only-export-components, react/rules-of-hooks, $
 Cohesion: 0.10
 Nodes (19): Architecture, Backend API, Backend `.env` Keys, Backend Source Structure, Blockchain `.env` Keys (blockchain/.env), Blockchain Package (blockchain/), Database (Supabase), Deployed Contract (live) (+11 more)
 
-### Community 34 - "KeyShareStatus.tsx"
-Cohesion: 0.18
-Nodes (6): KeyholderStatus, ROLE_LABELS, StatusData, DEMO_KEYHOLDERS, KeyShareSubmit(), ApiError
-
 ### Community 35 - "React + TypeScript + Vite"
 Cohesion: 0.50
 Nodes (3): Expanding the Oxlint configuration, React Compiler, React + TypeScript + Vite
 
-### Community 52 - "VotingPage.tsx"
-Cohesion: 0.21
-Nodes (10): LocationState, PARTY_THEMES, VotingPage(), Candidate, checkNullifier(), ElGamalPublicKeyResponse, getCandidates(), getElectionPublicKey() (+2 more)
-
-### Community 58 - "TallyingPage.tsx"
-Cohesion: 0.20
-Nodes (9): PARTY_ACCENTS, REJECTION_DESCRIPTIONS, REJECTION_LABELS, SummaryTile(), TallyingPage(), useCountUp(), RejectedVote, runTally() (+1 more)
-
-### Community 59 - "Research Methodology & Goal"
-Cohesion: 0.18
-Nodes (10): Adversary model, Goal, How we prove it, Research Methodology & Goal, Scope boundary, Scope of the tamper-evidence guarantee, Target venue, What we are proving (+2 more)
-
-### Community 60 - "elgamal.ts"
-Cohesion: 0.36
-Nodes (8): bigIntToHex(), ElGamalCiphertext, ElGamalPublicKey, encodeCandidateId(), encryptCandidateId(), hexToBigInt(), modPow(), randomBigIntInRange()
-
-### Community 62 - "tamper-test.ts"
-Cohesion: 0.60
-Nodes (4): flipOneNibble(), main(), supabase, verify()
-
 ## Knowledge Gaps
-- **341 isolated node(s):** `name`, `version`, `description`, `main`, `dev` (+336 more)
+- **317 isolated node(s):** `name`, `version`, `description`, `main`, `dev` (+312 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **30 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **29 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `supabase` connect `Merkle Contract Bindings` to `Keyholder Auth & Passphrase Verification`?**
   _High betweenness centrality (0.003) - this node is a cross-community bridge._
-- **Why does `ApiError` connect `KeyShareStatus.tsx` to `Public Watchdog & Tallying UI`, `TallyingPage.tsx`, `VotingPage.tsx`, `VoterLogin.tsx`?**
+- **Why does `ApiError` connect `Public Watchdog & Tallying UI` to `React App & Layout Components`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `description` to the rest of the system?**
-  _346 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _322 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Public Watchdog & Tallying UI` be split into smaller, more focused modules?**
+  _Cohesion score 0.05222734254992319 - nodes in this community are weakly interconnected._
 - **Should `React App & Layout Components` be split into smaller, more focused modules?**
-  _Cohesion score 0.082010582010582 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06072874493927125 - nodes in this community are weakly interconnected._
 - **Should `Keyholder Auth & Passphrase Verification` be split into smaller, more focused modules?**
   _Cohesion score 0.13852813852813853 - nodes in this community are weakly interconnected._
 - **Should `Blockchain Package Config` be split into smaller, more focused modules?**
   _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
-- **Should `Backend Package Config` be split into smaller, more focused modules?**
-  _Cohesion score 0.06896551724137931 - nodes in this community are weakly interconnected._
