@@ -1310,56 +1310,6 @@
       "norm_label": "main()"
     },
     {
-      "label": "tamper-test.ts",
-      "file_type": "code",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "backend_src_scripts_tamper_test",
-      "community": 62,
-      "norm_label": "tamper-test.ts"
-    },
-    {
-      "label": "supabase",
-      "file_type": "code",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L36",
-      "_origin": "ast",
-      "id": "backend_src_scripts_tamper_test_supabase",
-      "community": 62,
-      "norm_label": "supabase"
-    },
-    {
-      "label": "verify()",
-      "file_type": "code",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L40",
-      "_origin": "ast",
-      "id": "backend_src_scripts_tamper_test_verify",
-      "community": 62,
-      "norm_label": "verify()"
-    },
-    {
-      "label": "flipOneNibble()",
-      "file_type": "code",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L46",
-      "_origin": "ast",
-      "id": "backend_src_scripts_tamper_test_fliponenibble",
-      "community": 62,
-      "norm_label": "fliponenibble()"
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L53",
-      "_origin": "ast",
-      "id": "backend_src_scripts_tamper_test_main",
-      "community": 62,
-      "norm_label": "main()"
-    },
-    {
       "label": "test-merkle-batch.ts",
       "file_type": "code",
       "source_file": "backend/src/scripts/test-merkle-batch.ts",
@@ -1893,7 +1843,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "blockchain/scripts/deploy.ts",
-      "source_location": "L18",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "blockchain_scripts_deploy_main",
       "community": 26,
@@ -2596,7 +2546,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_keyholderlogin",
-      "community": 34,
+      "community": 1,
       "norm_label": "keyholderlogin.tsx"
     },
     {
@@ -2606,7 +2556,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_src_pages_keyholderlogin_keyholderlogin",
-      "community": 34,
+      "community": 1,
       "norm_label": "keyholderlogin()"
     },
     {
@@ -2616,7 +2566,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharestatus",
-      "community": 34,
+      "community": 1,
       "norm_label": "keysharestatus.tsx"
     },
     {
@@ -2626,7 +2576,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharestatus_role_labels",
-      "community": 34,
+      "community": 1,
       "norm_label": "role_labels"
     },
     {
@@ -2636,7 +2586,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharestatus_keyholderstatus",
-      "community": 34,
+      "community": 1,
       "norm_label": "keyholderstatus"
     },
     {
@@ -2646,7 +2596,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharestatus_statusdata",
-      "community": 34,
+      "community": 1,
       "norm_label": "statusdata"
     },
     {
@@ -2656,7 +2606,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharestatus_keysharestatus",
-      "community": 34,
+      "community": 1,
       "norm_label": "keysharestatus()"
     },
     {
@@ -2666,7 +2616,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharesubmit",
-      "community": 34,
+      "community": 1,
       "norm_label": "keysharesubmit.tsx"
     },
     {
@@ -2676,7 +2626,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharesubmit_demo_keyholders",
-      "community": 34,
+      "community": 1,
       "norm_label": "demo_keyholders"
     },
     {
@@ -2686,7 +2636,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_pages_keysharesubmit_keysharesubmit",
-      "community": 34,
+      "community": 1,
       "norm_label": "keysharesubmit()"
     },
     {
@@ -2766,7 +2716,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage",
-      "community": 58,
+      "community": 0,
       "norm_label": "tallyingpage.tsx"
     },
     {
@@ -2776,7 +2726,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_party_accents",
-      "community": 58,
+      "community": 0,
       "norm_label": "party_accents"
     },
     {
@@ -2786,7 +2736,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_rejection_labels",
-      "community": 58,
+      "community": 0,
       "norm_label": "rejection_labels"
     },
     {
@@ -2796,7 +2746,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_rejection_descriptions",
-      "community": 58,
+      "community": 0,
       "norm_label": "rejection_descriptions"
     },
     {
@@ -2806,7 +2756,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_usecountup",
-      "community": 58,
+      "community": 0,
       "norm_label": "usecountup()"
     },
     {
@@ -2816,7 +2766,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_summarytile",
-      "community": 58,
+      "community": 0,
       "norm_label": "summarytile()"
     },
     {
@@ -2826,7 +2776,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_animatedbar",
-      "community": 58,
+      "community": 0,
       "norm_label": "animatedbar()"
     },
     {
@@ -2836,7 +2786,7 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_tallyskeleton",
-      "community": 58,
+      "community": 0,
       "norm_label": "tallyskeleton()"
     },
     {
@@ -2846,7 +2796,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "frontend_src_pages_tallyingpage_tallyingpage",
-      "community": 58,
+      "community": 0,
       "norm_label": "tallyingpage()"
     },
     {
@@ -2856,7 +2806,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_voteconfirmation",
-      "community": 61,
+      "community": 0,
       "norm_label": "voteconfirmation.tsx"
     },
     {
@@ -2866,7 +2816,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_src_pages_voteconfirmation_voteconfirmation",
-      "community": 61,
+      "community": 0,
       "norm_label": "voteconfirmation()"
     },
     {
@@ -2876,7 +2826,7 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "frontend_src_pages_voteconfirmation_receiptrow",
-      "community": 61,
+      "community": 0,
       "norm_label": "receiptrow()"
     },
     {
@@ -2886,7 +2836,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_voterlogin",
-      "community": 61,
+      "community": 0,
       "norm_label": "voterlogin.tsx"
     },
     {
@@ -2896,7 +2846,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_src_pages_voterlogin_voterlogin",
-      "community": 61,
+      "community": 0,
       "norm_label": "voterlogin()"
     },
     {
@@ -2906,7 +2856,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_votingpage",
-      "community": 52,
+      "community": 0,
       "norm_label": "votingpage.tsx"
     },
     {
@@ -2916,7 +2866,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_votingpage_party_themes",
-      "community": 52,
+      "community": 0,
       "norm_label": "party_themes"
     },
     {
@@ -2926,7 +2876,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "frontend_src_pages_votingpage_locationstate",
-      "community": 52,
+      "community": 0,
       "norm_label": "locationstate"
     },
     {
@@ -2936,7 +2886,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "frontend_src_pages_votingpage_votingpage",
-      "community": 52,
+      "community": 0,
       "norm_label": "votingpage()"
     },
     {
@@ -2956,7 +2906,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_routes_keyholderroutes",
-      "community": 34,
+      "community": 1,
       "norm_label": "keyholderroutes.tsx"
     },
     {
@@ -2966,7 +2916,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_routes_voterroutes",
-      "community": 61,
+      "community": 0,
       "norm_label": "voterroutes.tsx"
     },
     {
@@ -2986,7 +2936,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_utils_api_apierror",
-      "community": 34,
+      "community": 0,
       "norm_label": "apierror"
     },
     {
@@ -2996,7 +2946,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_utils_api_apierror_constructor",
-      "community": 34,
+      "community": 0,
       "norm_label": ".constructor()"
     },
     {
@@ -3036,7 +2986,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "frontend_src_utils_api_elgamalpublickeyresponse",
-      "community": 52,
+      "community": 0,
       "norm_label": "elgamalpublickeyresponse"
     },
     {
@@ -3046,7 +2996,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "frontend_src_utils_api_candidate",
-      "community": 52,
+      "community": 0,
       "norm_label": "candidate"
     },
     {
@@ -3086,7 +3036,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "frontend_src_utils_api_registervoter",
-      "community": 61,
+      "community": 0,
       "norm_label": "registervoter()"
     },
     {
@@ -3096,7 +3046,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "frontend_src_utils_api_checknullifier",
-      "community": 52,
+      "community": 0,
       "norm_label": "checknullifier()"
     },
     {
@@ -3106,7 +3056,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "frontend_src_utils_api_submitvote",
-      "community": 52,
+      "community": 0,
       "norm_label": "submitvote()"
     },
     {
@@ -3116,7 +3066,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "frontend_src_utils_api_getelectionpublickey",
-      "community": 52,
+      "community": 0,
       "norm_label": "getelectionpublickey()"
     },
     {
@@ -3126,7 +3076,7 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "frontend_src_utils_api_getcandidates",
-      "community": 52,
+      "community": 0,
       "norm_label": "getcandidates()"
     },
     {
@@ -3206,7 +3156,7 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "frontend_src_utils_api_rejectedvote",
-      "community": 58,
+      "community": 0,
       "norm_label": "rejectedvote"
     },
     {
@@ -3216,7 +3166,7 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "frontend_src_utils_api_tallyresponse",
-      "community": 58,
+      "community": 0,
       "norm_label": "tallyresponse"
     },
     {
@@ -3226,7 +3176,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "frontend_src_utils_api_runtally",
-      "community": 58,
+      "community": 0,
       "norm_label": "runtally()"
     },
     {
@@ -3256,7 +3206,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal",
-      "community": 60,
+      "community": 0,
       "norm_label": "elgamal.ts"
     },
     {
@@ -3266,7 +3216,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_elgamalpublickey",
-      "community": 60,
+      "community": 0,
       "norm_label": "elgamalpublickey"
     },
     {
@@ -3276,7 +3226,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_elgamalciphertext",
-      "community": 60,
+      "community": 0,
       "norm_label": "elgamalciphertext"
     },
     {
@@ -3286,7 +3236,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_hextobigint",
-      "community": 60,
+      "community": 0,
       "norm_label": "hextobigint()"
     },
     {
@@ -3296,7 +3246,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_biginttohex",
-      "community": 60,
+      "community": 0,
       "norm_label": "biginttohex()"
     },
     {
@@ -3306,7 +3256,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_modpow",
-      "community": 60,
+      "community": 0,
       "norm_label": "modpow()"
     },
     {
@@ -3316,7 +3266,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_randombigintinrange",
-      "community": 60,
+      "community": 0,
       "norm_label": "randombigintinrange()"
     },
     {
@@ -3326,7 +3276,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_encodecandidateid",
-      "community": 60,
+      "community": 0,
       "norm_label": "encodecandidateid()"
     },
     {
@@ -3336,7 +3286,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "frontend_src_utils_elgamal_encryptcandidateid",
-      "community": 60,
+      "community": 0,
       "norm_label": "encryptcandidateid()"
     },
     {
@@ -3346,7 +3296,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_utils_nullifier",
-      "community": 52,
+      "community": 0,
       "norm_label": "nullifier.ts"
     },
     {
@@ -3356,7 +3306,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_src_utils_nullifier_hashnid",
-      "community": 52,
+      "community": 0,
       "norm_label": "hashnid()"
     },
     {
@@ -3366,7 +3316,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "frontend_src_utils_nullifier_rationale_28",
-      "community": 52,
+      "community": 0,
       "norm_label": "note: this is an unsalted hash kept only for legacy display purposes"
     },
     {
@@ -4540,116 +4490,6 @@
       "norm_label": "hard rules (unchanged, from testing_guidance.md)"
     },
     {
-      "label": "METHODOLOGY.md",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "methodology",
-      "community": 59,
-      "norm_label": "methodology.md"
-    },
-    {
-      "label": "Research Methodology & Goal",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "methodology_research_methodology_goal",
-      "community": 59,
-      "norm_label": "research methodology & goal"
-    },
-    {
-      "label": "Goal",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "methodology_goal",
-      "community": 59,
-      "norm_label": "goal"
-    },
-    {
-      "label": "Why this angle",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L7",
-      "_origin": "ast",
-      "id": "methodology_why_this_angle",
-      "community": 59,
-      "norm_label": "why this angle"
-    },
-    {
-      "label": "Adversary model",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L11",
-      "_origin": "ast",
-      "id": "methodology_adversary_model",
-      "community": 59,
-      "norm_label": "adversary model"
-    },
-    {
-      "label": "What we are proving",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L27",
-      "_origin": "ast",
-      "id": "methodology_what_we_are_proving",
-      "community": 59,
-      "norm_label": "what we are proving"
-    },
-    {
-      "label": "Scope of the tamper-evidence guarantee",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L35",
-      "_origin": "ast",
-      "id": "methodology_scope_of_the_tamper_evidence_guarantee",
-      "community": 59,
-      "norm_label": "scope of the tamper-evidence guarantee"
-    },
-    {
-      "label": "How we prove it",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L42",
-      "_origin": "ast",
-      "id": "methodology_how_we_prove_it",
-      "community": 59,
-      "norm_label": "how we prove it"
-    },
-    {
-      "label": "Why this is sufficient for publication",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L59",
-      "_origin": "ast",
-      "id": "methodology_why_this_is_sufficient_for_publication",
-      "community": 59,
-      "norm_label": "why this is sufficient for publication"
-    },
-    {
-      "label": "Target venue",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L66",
-      "_origin": "ast",
-      "id": "methodology_target_venue",
-      "community": 59,
-      "norm_label": "target venue"
-    },
-    {
-      "label": "Scope boundary",
-      "file_type": "document",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L70",
-      "_origin": "ast",
-      "id": "methodology_scope_boundary",
-      "community": 59,
-      "norm_label": "scope boundary"
-    },
-    {
       "label": "README.md",
       "file_type": "document",
       "source_file": "README.md",
@@ -4870,196 +4710,6 @@
       "norm_label": "not yet implemented"
     },
     {
-      "label": "tamper-proof-demo.md",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo",
-      "community": 18,
-      "norm_label": "tamper-proof-demo.md"
-    },
-    {
-      "label": "Tamper-Proof Demo \u2014 Live Sepolia Anchoring & Verification",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "community": 18,
-      "norm_label": "tamper-proof demo \u2014 live sepolia anchoring & verification"
-    },
-    {
-      "label": "Environment",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L10",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_environment",
-      "community": 18,
-      "norm_label": "environment"
-    },
-    {
-      "label": "What this demonstrates",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L23",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_what_this_demonstrates",
-      "community": 18,
-      "norm_label": "what this demonstrates"
-    },
-    {
-      "label": "Step 1 \u2014 Seed voters and cast test votes",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L35",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_step_1_seed_voters_and_cast_test_votes",
-      "community": 18,
-      "norm_label": "step 1 \u2014 seed voters and cast test votes"
-    },
-    {
-      "label": "Step 2 \u2014 Anchor the batch (real Sepolia transaction)",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L59",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_step_2_anchor_the_batch_real_sepolia_transaction",
-      "community": 18,
-      "norm_label": "step 2 \u2014 anchor the batch (real sepolia transaction)"
-    },
-    {
-      "label": "Etherscan evidence",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L84",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_etherscan_evidence",
-      "community": 18,
-      "norm_label": "etherscan evidence"
-    },
-    {
-      "label": "Step 3 \u2014 Verify a vote (local + on-chain must agree)",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L98",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_step_3_verify_a_vote_local_on_chain_must_agree",
-      "community": 18,
-      "norm_label": "step 3 \u2014 verify a vote (local + on-chain must agree)"
-    },
-    {
-      "label": "Step 4 \u2014 Tamper test (the core claim)",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L129",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_step_4_tamper_test_the_core_claim",
-      "community": 18,
-      "norm_label": "step 4 \u2014 tamper test (the core claim)"
-    },
-    {
-      "label": "Vector 1 \u2014 edit the anchored root in `merkle_batches` \u2192 **409**",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L134",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_vector_1_edit_the_anchored_root_in_merkle_batches_409",
-      "community": 18,
-      "norm_label": "vector 1 \u2014 edit the anchored root in `merkle_batches` \u2192 **409**"
-    },
-    {
-      "label": "Vector 2 \u2014 edit `votes.encrypted_vote` \u2192 **rejected by DB trigger**",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L153",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_vector_2_edit_votes_encrypted_vote_rejected_by_db_trigger",
-      "community": 18,
-      "norm_label": "vector 2 \u2014 edit `votes.encrypted_vote` \u2192 **rejected by db trigger**"
-    },
-    {
-      "label": "Step 5 \u2014 Edge cases",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L168",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_step_5_edge_cases",
-      "community": 18,
-      "norm_label": "step 5 \u2014 edge cases"
-    },
-    {
-      "label": "Never-anchored vote id \u2192 **404**",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L170",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_never_anchored_vote_id_404",
-      "community": 18,
-      "norm_label": "never-anchored vote id \u2192 **404**"
-    },
-    {
-      "label": "Zero unanchored votes \u2192 **400**",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L181",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_zero_unanchored_votes_400",
-      "community": 18,
-      "norm_label": "zero unanchored votes \u2192 **400**"
-    },
-    {
-      "label": "Missing admin secret \u2192 **401**",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L194",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_missing_admin_secret_401",
-      "community": 18,
-      "norm_label": "missing admin secret \u2192 **401**"
-    },
-    {
-      "label": "Results summary",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L207",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_results_summary",
-      "community": 18,
-      "norm_label": "results summary"
-    },
-    {
-      "label": "Bug found & fixed during this run",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L224",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_bug_found_fixed_during_this_run",
-      "community": 18,
-      "norm_label": "bug found & fixed during this run"
-    },
-    {
-      "label": "Known boundaries (not failures \u2014 see `testing_guidance.md` \u00a78)",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L235",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_known_boundaries_not_failures_see_testing_guidance_md_8",
-      "community": 18,
-      "norm_label": "known boundaries (not failures \u2014 see `testing_guidance.md` \u00a78)"
-    },
-    {
-      "label": "Reproduce",
-      "file_type": "document",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L245",
-      "_origin": "ast",
-      "id": "docs_tamper_proof_demo_reproduce",
-      "community": 18,
-      "norm_label": "reproduce"
-    },
-    {
       "label": "README.md",
       "file_type": "document",
       "source_file": "frontend/README.md",
@@ -5233,7 +4883,7 @@
       "label": "5. Nullifier \u2014 redesigned implementation (secret-salted, vote storage key)",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L146",
+      "source_location": "L145",
       "_origin": "ast",
       "id": "testing_guidance_5_nullifier_redesigned_implementation_secret_salted_vote_storage_key",
       "community": 13,
@@ -5243,7 +4893,7 @@
       "label": "6. Shamir's Secret Sharing / Key Ceremony",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L170",
+      "source_location": "L169",
       "_origin": "ast",
       "id": "testing_guidance_6_shamir_s_secret_sharing_key_ceremony",
       "community": 13,
@@ -5253,7 +4903,7 @@
       "label": "7. Tallying & Decryption \u2014 `POST /keyshares/tally`",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L190",
+      "source_location": "L189",
       "_origin": "ast",
       "id": "testing_guidance_7_tallying_decryption_post_keyshares_tally",
       "community": 13,
@@ -5263,7 +4913,7 @@
       "label": "8. Merkle Anchoring \u2014 `POST /anchor/batch`, `GET /anchor/verify/:voteId`",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L212",
+      "source_location": "L211",
       "_origin": "ast",
       "id": "testing_guidance_8_merkle_anchoring_post_anchor_batch_get_anchor_verify_voteid",
       "community": 13,
@@ -5273,7 +4923,7 @@
       "label": "9. Public Watchdog \u2014 `GET /public/stats`, `/watchdog` page",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L251",
+      "source_location": "L237",
       "_origin": "ast",
       "id": "testing_guidance_9_public_watchdog_get_public_stats_watchdog_page",
       "community": 13,
@@ -5283,7 +4933,7 @@
       "label": "10. Admin Dashboard / Admin Auth",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L267",
+      "source_location": "L253",
       "_origin": "ast",
       "id": "testing_guidance_10_admin_dashboard_admin_auth",
       "community": 13,
@@ -5293,7 +4943,7 @@
       "label": "11. Future Work \u2014 test plans ready for when these get built",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L279",
+      "source_location": "L265",
       "_origin": "ast",
       "id": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
       "community": 13,
@@ -5303,7 +4953,7 @@
       "label": "11a. Digital Signature (integrity)",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L283",
+      "source_location": "L269",
       "_origin": "ast",
       "id": "testing_guidance_11a_digital_signature_integrity",
       "community": 13,
@@ -5313,7 +4963,7 @@
       "label": "11b. Benaloh Challenge (cast-or-audit, voter verifiability)",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L288",
+      "source_location": "L274",
       "_origin": "ast",
       "id": "testing_guidance_11b_benaloh_challenge_cast_or_audit_voter_verifiability",
       "community": 13,
@@ -5323,7 +4973,7 @@
       "label": "11c. Full ZKP (zk-SNARK proof of eligibility/validity)",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L293",
+      "source_location": "L279",
       "_origin": "ast",
       "id": "testing_guidance_11c_full_zkp_zk_snark_proof_of_eligibility_validity",
       "community": 13,
@@ -5333,7 +4983,7 @@
       "label": "11d. MACI",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L298",
+      "source_location": "L284",
       "_origin": "ast",
       "id": "testing_guidance_11d_maci",
       "community": 13,
@@ -5343,7 +4993,7 @@
       "label": "Project-wide \"do not test\"",
       "file_type": "document",
       "source_file": "testing_guidance.md",
-      "source_location": "L303",
+      "source_location": "L289",
       "_origin": "ast",
       "id": "testing_guidance_project_wide_do_not_test",
       "community": 13,
@@ -8233,68 +7883,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L46",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test",
-      "target": "backend_src_scripts_tamper_test_fliponenibble",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L53",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test",
-      "target": "backend_src_scripts_tamper_test_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L36",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test",
-      "target": "backend_src_scripts_tamper_test_supabase",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L40",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test",
-      "target": "backend_src_scripts_tamper_test_verify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L79",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test_main",
-      "target": "backend_src_scripts_tamper_test_verify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/scripts/tamper-test.ts",
-      "source_location": "L91",
-      "weight": 1.0,
-      "source": "backend_src_scripts_tamper_test_main",
-      "target": "backend_src_scripts_tamper_test_fliponenibble",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "backend/src/scripts/test-merkle-batch.ts",
       "source_location": "L34",
       "weight": 1.0,
@@ -8800,7 +8388,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "blockchain/scripts/deploy.ts",
-      "source_location": "L18",
+      "source_location": "L13",
       "weight": 1.0,
       "source": "blockchain_scripts_deploy",
       "target": "blockchain_scripts_deploy_main",
@@ -11926,106 +11514,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "methodology",
-      "target": "methodology_research_methodology_goal",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L11",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_adversary_model",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_goal",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L42",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_how_we_prove_it",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L70",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_scope_boundary",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_scope_of_the_tamper_evidence_guarantee",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L66",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_target_venue",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L27",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_what_we_are_proving",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L7",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_why_this_angle",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "METHODOLOGY.md",
-      "source_location": "L59",
-      "weight": 1.0,
-      "source": "methodology_research_methodology_goal",
-      "target": "methodology_why_this_is_sufficient_for_publication",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "README.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -12226,186 +11714,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo",
-      "target": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L224",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_bug_found_fixed_during_this_run",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L10",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_environment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L235",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_known_boundaries_not_failures_see_testing_guidance_md_8",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L245",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_reproduce",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L207",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_results_summary",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_step_1_seed_voters_and_cast_test_votes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L59",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_step_2_anchor_the_batch_real_sepolia_transaction",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L98",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_step_3_verify_a_vote_local_on_chain_must_agree",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L129",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_step_4_tamper_test_the_core_claim",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L168",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_step_5_edge_cases",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L23",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_tamper_proof_demo_live_sepolia_anchoring_verification",
-      "target": "docs_tamper_proof_demo_what_this_demonstrates",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L84",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_2_anchor_the_batch_real_sepolia_transaction",
-      "target": "docs_tamper_proof_demo_etherscan_evidence",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L134",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_4_tamper_test_the_core_claim",
-      "target": "docs_tamper_proof_demo_vector_1_edit_the_anchored_root_in_merkle_batches_409",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L153",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_4_tamper_test_the_core_claim",
-      "target": "docs_tamper_proof_demo_vector_2_edit_votes_encrypted_vote_rejected_by_db_trigger",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L194",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_5_edge_cases",
-      "target": "docs_tamper_proof_demo_missing_admin_secret_401",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L170",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_5_edge_cases",
-      "target": "docs_tamper_proof_demo_never_anchored_vote_id_404",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/tamper-proof-demo.md",
-      "source_location": "L181",
-      "weight": 1.0,
-      "source": "docs_tamper_proof_demo_step_5_edge_cases",
-      "target": "docs_tamper_proof_demo_zero_unanchored_votes_400",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "frontend/README.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -12447,7 +11755,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L267",
+      "source_location": "L253",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_10_admin_dashboard_admin_auth",
@@ -12457,7 +11765,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L279",
+      "source_location": "L265",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
@@ -12507,7 +11815,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L146",
+      "source_location": "L145",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_5_nullifier_redesigned_implementation_secret_salted_vote_storage_key",
@@ -12517,7 +11825,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L170",
+      "source_location": "L169",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_6_shamir_s_secret_sharing_key_ceremony",
@@ -12527,7 +11835,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L190",
+      "source_location": "L189",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_7_tallying_decryption_post_keyshares_tally",
@@ -12537,7 +11845,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L212",
+      "source_location": "L211",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_8_merkle_anchoring_post_anchor_batch_get_anchor_verify_voteid",
@@ -12547,7 +11855,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L251",
+      "source_location": "L237",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_9_public_watchdog_get_public_stats_watchdog_page",
@@ -12567,7 +11875,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L303",
+      "source_location": "L289",
       "weight": 1.0,
       "source": "testing_guidance_testing_guidance",
       "target": "testing_guidance_project_wide_do_not_test",
@@ -12637,7 +11945,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L283",
+      "source_location": "L269",
       "weight": 1.0,
       "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
       "target": "testing_guidance_11a_digital_signature_integrity",
@@ -12647,7 +11955,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L288",
+      "source_location": "L274",
       "weight": 1.0,
       "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
       "target": "testing_guidance_11b_benaloh_challenge_cast_or_audit_voter_verifiability",
@@ -12657,7 +11965,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L293",
+      "source_location": "L279",
       "weight": 1.0,
       "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
       "target": "testing_guidance_11c_full_zkp_zk_snark_proof_of_eligibility_validity",
@@ -12667,7 +11975,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": "L298",
+      "source_location": "L284",
       "weight": 1.0,
       "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
       "target": "testing_guidance_11d_maci",
@@ -12749,5 +12057,5 @@
       "source_file": ".github/workflows/ci.yml"
     }
   ],
-  "built_at_commit": "4d9fb745d1ffc3fad5e4c03e69449e3e2c3841d5"
+  "built_at_commit": "7aef75b913cadd5f56140e8214f66715a0f223cd"
 }
