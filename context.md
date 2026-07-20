@@ -4,7 +4,7 @@
 
 ## What This Is
 
-Blockchain-based secure e-voting simulation using ZKP (not yet implemented), ElGamal encryption, Shamir's Secret Sharing, and Polygon anchoring. Academic/research project. Monorepo with 4 packages.
+Blockchain-based secure e-voting simulation using ZKP (not yet implemented), ElGamal encryption, Shamir's Secret Sharing, and Ethereum Sepolia anchoring. Academic/research project. Monorepo with 4 packages.
 
 ## Repo & Git
 
@@ -32,7 +32,7 @@ evoting-simulation/
 | **Blockchain** | Hardhat 2, Solidity 0.8.24, OpenZeppelin Contracts 5 (Ownable, MerkleProof) |
 | **Shared** | Plain TypeScript (`shared-interfaces/types.ts`) |
 | **DB** | Supabase (PostgreSQL 15+) |
-| **Target chain** | Polygon Amoy testnet (chainId 80002) |
+| **Target chain** | Ethereum Sepolia testnet (chainId 11155111) — switched from Polygon Amoy because Amoy faucets now require a mainnet ETH balance |
 
 ## How to Run
 
@@ -42,22 +42,34 @@ npm run dev:backend            # Backend (Express :3000)
 npm run install:all            # Install deps in frontend, backend, blockchain
 npm run contracts:compile      # Compile MerkleRootStorage.sol
 npm run contracts:test         # Run Hardhat tests (local network, no funds needed)
-npm run contracts:deploy:amoy  # Deploy to Polygon Amoy (needs blockchain/.env)
+npm run contracts:deploy:sepolia  # Deploy to Ethereum Sepolia (needs blockchain/.env)
 ```
 
 Backend requires `backend/.env` — see `backend/.env.example` for all keys.
-Blockchain package requires `blockchain/.env` for Amoy deployment — see `blockchain/.env.example`.
+Blockchain package requires `blockchain/.env` for Sepolia deployment — see `blockchain/.env.example`.
 
 ## Backend `.env` Keys
 
-`PORT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NID_HASH_SALT`, `ELGAMAL_P`, `ELGAMAL_G`, `ELGAMAL_PUBLIC_KEY`, `ELGAMAL_PRIVATE_KEY`, `KEYHOLDER_PASSPHRASE_SALT`, `ADMIN_SECRET`, `AMOY_RPC_URL`, `MERKLE_CONTRACT_ADDRESS`, `ANCHOR_PRIVATE_KEY`
+`PORT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NID_HASH_SALT`, `NULLIFIER_SECRET`, `ELGAMAL_P`, `ELGAMAL_G`, `ELGAMAL_PUBLIC_KEY`, `ELGAMAL_PRIVATE_KEY`, `KEYHOLDER_PASSPHRASE_SALT`, `ADMIN_SECRET`, `AMOY_RPC_URL` (legacy name — now holds the **Sepolia** RPC URL), `MERKLE_CONTRACT_ADDRESS`, `ANCHOR_PRIVATE_KEY`
+
+> `NULLIFIER_SECRET` (used by `backend/src/crypto/identity.ts` for the salted nullifier) is now documented in `backend/.env.example` (was previously missing).
 
 Generate crypto keys: `npx ts-node src/scripts/setup-keys.ts`
 Generate Shamir shares: `npx ts-node src/scripts/setup-shamir.ts`
 
 ## Blockchain `.env` Keys (blockchain/.env)
 
-`AMOY_RPC_URL` (e.g. from Alchemy/Infura or the public `https://rpc-amoy.polygon.technology`), `DEPLOYER_PRIVATE_KEY` (a **testnet-only** wallet funded via https://faucet.polygon.technology).
+`SEPOLIA_RPC_URL` (default: public `https://ethereum-sepolia-rpc.publicnode.com`), `DEPLOYER_PRIVATE_KEY` (a **testnet-only** wallet — free Sepolia ETH from https://learnweb3.io/faucets/ethereum_sepolia or Google Cloud's faucet).
+
+## Deployed Contract (live)
+
+- **Contract**: `MerkleRootStorage.sol`
+- **Network**: Ethereum Sepolia (testnet, no real money)
+- **Address**: `0x312621075076Eb379fbE81760A76B5a8E56b95a7`
+- **Explorer**: https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7
+- **Deployed**: 2026-07-15 by wallet `0x03A56C16Ce34976a35b22E55b39fE3D1744A04E0`
+- Deploy command: `npm run contracts:deploy:sepolia` (root) / `deploy:sepolia` (blockchain/)
+- Backend anchoring config lives in `backend/.env`: `MERKLE_CONTRACT_ADDRESS`, `AMOY_RPC_URL` (legacy var name, holds the Sepolia RPC URL), `ANCHOR_PRIVATE_KEY`
 
 ## Database (Supabase)
 
@@ -66,13 +78,13 @@ Schema: `backend/src/schema.sql`. Tables:
 | Table | Purpose |
 |-------|---------|
 | `voters` | Registered voters (NID stored as salted SHA-256 hash) |
-| `votes` | Encrypted vote records (ElGamal `{c1,c2}` as JSONB) |
+| `votes` | Encrypted vote records (ElGamal `{c1,c2}` as JSONB). Keyed by `nullifier_hash` + `constituency_code` — **no** `voter_nid_hash` column, so a decrypted vote cannot be joined back to a voter |
 | `candidates` | Candidates per constituency |
 | `nullifiers` | Double-vote prevention hashes |
 | `key_shares` | Shamir's Secret Sharing shares for tallying |
 | `merkle_batches` | Anchored vote batches: on-chain `batch_id`, `root`, `tx_hash`, ordered `vote_ids` (for regenerating proofs) |
 
-Stored proc: `fn_cast_vote(p_voter_nid_hash, p_encrypted_vote, p_zkp_proof)` — atomic vote casting.
+Stored proc: `fn_cast_vote(p_voter_nid_hash, p_nullifier_hash, p_constituency_code, p_encrypted_vote, p_zkp_proof)` — atomic vote casting. `p_voter_nid_hash` is used only to check eligibility and flip `has_voted`; the vote row itself stores only the nullifier + constituency.
 
 ## Backend API
 
@@ -87,7 +99,7 @@ Stored proc: `fn_cast_vote(p_voter_nid_hash, p_encrypted_vote, p_zkp_proof)` —
 | `GET` | `/keyshares/status` | none | ✅ Public: submission counts per keyholder |
 | `GET` | `/keyshares/reconstruct` | none | ✅ Public diagnostic: confirms shares are consistent (never returns key material) |
 | `POST` | `/keyshares/tally` | `x-admin-secret` | ✅ Reconstructs private key **in memory only**, decrypts all votes, returns results grouped by constituency/candidate |
-| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds a Merkle tree from unanchored votes, anchors root on Polygon, flips votes to `confirmed` |
+| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds a Merkle tree from unanchored votes, anchors root on Ethereum Sepolia, flips votes to `confirmed` |
 | `GET` | `/anchor/verify/:voteId` | none | ✅ Public: regenerates + verifies a vote's Merkle inclusion proof, locally and on-chain |
 | `GET` | `/public/stats` | none | ✅ Public Watchdog data: turnout per constituency, key-ceremony progress, anchoring progress |
 | `GET` | `/health` | none | ✅ Health check |
@@ -133,7 +145,7 @@ backend/src/
 blockchain/
 ├── contracts/MerkleRootStorage.sol   ← Ownable; anchorRoot(), verify() via OZ MerkleProof, getBatch()
 ├── test/MerkleRootStorage.test.ts     ← Anchors mock vote batches on local Hardhat network, verifies proofs
-├── scripts/deploy.ts                 ← Deploy to Amoy or local network
+├── scripts/deploy.ts                 ← Deploy to Sepolia or local network
 ├── hardhat.config.ts
 └── .env.example
 ```
@@ -168,6 +180,7 @@ Frontend ElGamal encryption: `frontend/src/utils/elgamal.ts` (mirrors backend's 
 
 - **Module systems**: Frontend = ESM, Backend = CommonJS, Blockchain = CommonJS (ts-node/Hardhat)
 - **NID hashing**: `SHA-256(nid + NID_HASH_SALT)` — salt in `.env`
+- **Nullifier (PR #17 redesign)**: `SHA-256(nid + election_id + NULLIFIER_SECRET)` computed **server-side only** (`backend/src/crypto/identity.ts`) — the secret never reaches the client, so nullifiers can't be recomputed from public info. The nullifier (not the voter's NID hash) is the vote row's identity key.
 - **ElGamal**: 256-bit safe prime (simulation-grade), Node.js `crypto` BigInt. Candidate ids (UUIDs, 128 bits) are encoded by parsing hex digits directly rather than UTF-8 byte encoding, so they always fit under the 256-bit modulus — see `encryptCandidateId`/`decryptCandidateId`.
 - **Vote storage**: ElGamal ciphertext `{c1, c2}` as JSONB in `votes` table
 - **Atomic voting**: `fn_cast_vote` PostgreSQL function (locks row, checks eligibility, inserts vote, flips `has_voted`)
@@ -177,7 +190,7 @@ Frontend ElGamal encryption: `frontend/src/utils/elgamal.ts` (mirrors backend's 
 - **Dev tools**: Backend uses `nodemon` + `ts-node`, Frontend uses `oxlint`, Blockchain uses Hardhat + ts-node
 - **No root node_modules**: Each sub-project independent (frontend/backend/blockchain each have their own)
 
-## Fixes Made This Session
+## Historical Fixes (kept for context — all merged)
 
 1. **Votes were not actually encrypted** — `VotingPage.tsx` built a base64-encoded mock ciphertext (`btoa(...)`) instead of using the ElGamal module that already existed in the backend. Anyone with DB read access could trivially decode exactly who voted for whom. Fixed: frontend now fetches `/election/public-key` and does real client-side ElGamal encryption (`frontend/src/utils/elgamal.ts`).
 2. **Candidate id mismatch** — the ballot used a static `frontend/public/candidates.json` with ids like `"c1-3"`, disconnected from the real `candidates` table (UUIDs). Decrypted votes could never be joined back to real candidate rows for tallying. Fixed: `VotingPage` now calls the real `GET /candidates` endpoint and encrypts the DB's UUID.
@@ -186,22 +199,19 @@ Frontend ElGamal encryption: `frontend/src/utils/elgamal.ts` (mirrors backend's 
 5. **Mismatched election ids** — the voter/nullifier flow used `ELECTION_ID = "election-2026"` while the keyholder flow used `"NATIONAL-2026-001"`. Votes and key shares would have silently belonged to two unrelated "elections," and tallying would never find matching votes. Fixed: unified on `NATIONAL-2026-001`.
 6. **Dead code removed**: `backend/src/db.ts` (an unused local-JSON-file DB from before the Supabase migration) and the stale `db.json` data file it operated on (now git-ignored too).
 
-## Known Limitations (flagged, not fixed this session)
+## Known Limitations
 
-- **Ballot secrecy**: `votes.voter_nid_hash` is a direct FK to the voter, so decrypted tally results (`/keyshares/tally`) can in principle be joined back to a voter's hashed NID (and the `voters.name` display name). The `nullifiers` table was designed to provide unlinkability but isn't actually used as the vote's identity key — this is a pre-existing architectural gap, not something introduced this session. A real fix requires decoupling "prove you're eligible to vote once" from "which row is your ballot," which is a bigger redesign than this session's scope.
+- ~~**Ballot secrecy**: `votes.voter_nid_hash` directly linked votes to voters~~ — **FIXED** (PR #17, nullifier redesign): votes now store only `nullifier_hash = SHA-256(nid + election_id + NULLIFIER_SECRET)` + `constituency_code`. The server-side `NULLIFIER_SECRET` means nobody can recompute a voter's nullifier from public info, and the `votes` table has no voter FK. See `backend/src/crypto/identity.ts` and `backend/src/schema.sql`.
 - **No ZKP of vote validity yet**: a malformed or maliciously-crafted ciphertext can still be submitted. `POST /keyshares/tally` defends against this at decrypt time (rejects any ballot that doesn't decode to a real candidate in the voter's own constituency, counting it as "invalid" rather than crashing or silently miscounting), but there's still no proof at submission time that a ciphertext encodes a valid choice.
 - **Admin/EC login is still a UI mock** (`AdminLogin.tsx` navigates with no real auth). Sensitive admin routes are protected by `ADMIN_SECRET` instead — good enough for a simulation, not for production.
 - **RLS policies**: tables have RLS enabled but no policies yet (all access goes through the backend's service-role key).
 
 ## Not Yet Implemented
 
-- Zero-Knowledge Proofs for vote validity at submission time
-- Session-based EC Admin authentication (currently `x-admin-secret` header + UI-mock login)
-- RLS policies
-- **Live Polygon Amoy deployment** — `blockchain/` is fully set up and tested locally (`npm run contracts:test` passes), but deploying requires a funded Amoy testnet wallet + RPC URL that only the user can provide. Steps to finish:
-  1. Get an Amoy RPC URL (Alchemy/Infura, or use the public one in `blockchain/.env.example`)
-  2. Fund a **testnet-only** wallet via https://faucet.polygon.technology
-  3. Fill in `blockchain/.env` (`AMOY_RPC_URL`, `DEPLOYER_PRIVATE_KEY`)
-  4. `npm run contracts:deploy:amoy`
-  5. Copy the deployed address + RPC URL + deployer key into `backend/.env` (`MERKLE_CONTRACT_ADDRESS`, `AMOY_RPC_URL`, `ANCHOR_PRIVATE_KEY`)
-  6. `POST /anchor/batch` (with `x-admin-secret`) now anchors real batches
+- Zero-Knowledge Proofs for vote validity at submission time (see LEFTWORK.md Task 6 — decision pending: document as limitation vs. build disjunctive Chaum-Pedersen proof)
+- Benaloh challenge (cast-or-audit voter verifiability) — LEFTWORK.md Task 5
+- Session-based EC Admin authentication (currently `x-admin-secret` header + UI-mock login) — intentional, out of scope
+- RLS policies — intentional, out of scope (all access via backend service-role key)
+- ~~Live testnet deployment~~ — **DONE**: contract live on Ethereum Sepolia since 2026-07-15 (see "Deployed Contract" above). What remains is exercising it end-to-end: anchor a real batch, verify on-chain, run the tamper-detection test — LEFTWORK.md Task 1.
+
+See `LEFTWORK.md` for the full remaining-work plan with owners.
