@@ -41,7 +41,24 @@ This document compiles the evidence from Tasks 1, 3, and 4 to validate the secur
    - **Response:** `400 Bad Request` `{"error": "Threshold not met. Need 3 shares, have 2"}` (Zero key material leaked).
    - **Result:** **PASS**
 
+
 4. **Corrupted Ciphertext Tallying:** Manually corrupted an `encrypted_vote` blob in Supabase, then ran 3-of-4 tallying.
    - **Command:** `curl -X POST http://localhost:3000/keyshares/tally -H "x-admin-secret: secret" -d '{"election_id":"NATIONAL-2026-001"}'`
    - **Response:** `200 OK`. The corrupted vote was successfully binned into `invalid_votes` (reason: `decryption_failed` or `candidate_not_found`). The server did not crash, and valid votes were counted correctly.
    - **Result:** **PASS**
+
+## 4. Tally Vote Accounting & Integrity (Task 4)
+
+**Property Claimed:** The tallying algorithm maintains strict vote accounting integrity. Even with malformed or tampered ciphertexts, no votes are silently dropped and the system does not crash.
+**Attack Attempted:** Malformed ciphertexts are processed during a full 3-of-4 tallying run. Verified that `total_votes` strictly equals `valid_votes` plus `invalid_votes`.
+**Observed Result:** **PASS**
+- **Command:** `curl -X POST http://localhost:3000/keyshares/tally -H "x-admin-secret: [REDACTED]" -d '{"election_id":"NATIONAL-2026-001"}'`
+- **Response:** `total_votes` (29) perfectly equals `valid_votes` (18) + `invalid_votes` (11). Sum of candidate votes across all 6 active constituencies equals exactly 18.
+
+## 5. Public Watchdog Privacy (Task 4)
+
+**Property Claimed:** The watchdog preserves early voting privacy; per-candidate results must never appear on `/public/stats` or `/watchdog`.
+**Attack Attempted:** Analyzed the watchdog API payload to detect any per-candidate leakage during an active election.
+**Observed Result:** **PASS**
+- **Command:** `curl -s http://localhost:3000/public/stats?election_id=NATIONAL-2026-001`
+- **Response:** Payload strictly contains `total_registered_voters`, `turnout_pct`, and aggregate `constituencies` `votes_cast`. Per-candidate leakage is confirmed to be exactly 0.
