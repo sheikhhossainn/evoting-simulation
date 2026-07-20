@@ -4,20 +4,6 @@
   "graph": {
     "hyperedges": [
       {
-        "id": "crypto_security_core",
-        "label": "Cryptographic Security Core",
-        "nodes": [
-          "context_elgamal_encryption",
-          "context_shamir_secret_sharing",
-          "context_merkle_tree",
-          "context_zkp_placeholder"
-        ],
-        "relation": "form",
-        "confidence": "EXTRACTED",
-        "confidence_score": 0.95,
-        "source_file": "context.md"
-      },
-      {
         "id": "ci_pipeline_jobs",
         "label": "CI Pipeline (3 Parallel Jobs)",
         "nodes": [
@@ -29,20 +15,6 @@
         "confidence": "EXTRACTED",
         "confidence_score": 1.0,
         "source_file": ".github/workflows/ci.yml"
-      },
-      {
-        "id": "key_ceremony_flow",
-        "label": "Key Ceremony & Tally Flow",
-        "nodes": [
-          "context_key_ceremony",
-          "context_shamir_secret_sharing",
-          "context_elgamal_encryption",
-          "context_admin_auth"
-        ],
-        "relation": "participate_in",
-        "confidence": "EXTRACTED",
-        "confidence_score": 0.95,
-        "source_file": "context.md"
       }
     ]
   },
@@ -174,7 +146,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_package_dependencies",
-      "community": 13,
+      "community": 4,
       "norm_label": "dependencies"
     },
     {
@@ -184,17 +156,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_package_dependencies_supabase_supabase_js",
-      "community": 13,
-      "norm_label": "@supabase/supabase-js"
-    },
-    {
-      "label": "@supabase/supabase-js",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L15",
-      "_origin": "ast",
-      "id": "supabase_supabase_js",
-      "community": 13,
+      "community": 4,
       "norm_label": "@supabase/supabase-js"
     },
     {
@@ -204,17 +166,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_package_dependencies_cors",
-      "community": 13,
-      "norm_label": "cors"
-    },
-    {
-      "label": "cors",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L16",
-      "_origin": "ast",
-      "id": "cors",
-      "community": 13,
+      "community": 4,
       "norm_label": "cors"
     },
     {
@@ -224,17 +176,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_package_dependencies_dotenv",
-      "community": 13,
-      "norm_label": "dotenv"
-    },
-    {
-      "label": "dotenv",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L17",
-      "_origin": "ast",
-      "id": "backend_package_json_dotenv",
-      "community": 13,
+      "community": 4,
       "norm_label": "dotenv"
     },
     {
@@ -244,17 +186,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "backend_package_dependencies_ethers",
-      "community": 13,
-      "norm_label": "ethers"
-    },
-    {
-      "label": "ethers",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "ethers",
-      "community": 13,
+      "community": 4,
       "norm_label": "ethers"
     },
     {
@@ -264,17 +196,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_package_dependencies_express",
-      "community": 13,
-      "norm_label": "express"
-    },
-    {
-      "label": "express",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L19",
-      "_origin": "ast",
-      "id": "express",
-      "community": 13,
+      "community": 4,
       "norm_label": "express"
     },
     {
@@ -284,17 +206,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_package_dependencies_secrets_js_grempe",
-      "community": 13,
-      "norm_label": "secrets.js-grempe"
-    },
-    {
-      "label": "secrets.js-grempe",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L20",
-      "_origin": "ast",
-      "id": "secrets_js_grempe",
-      "community": 13,
+      "community": 4,
       "norm_label": "secrets.js-grempe"
     },
     {
@@ -304,17 +216,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_package_dependencies_uuid",
-      "community": 13,
-      "norm_label": "uuid"
-    },
-    {
-      "label": "uuid",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L21",
-      "_origin": "ast",
-      "id": "uuid",
-      "community": 13,
+      "community": 4,
       "norm_label": "uuid"
     },
     {
@@ -324,17 +226,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "backend_package_dependencies_zod",
-      "community": 13,
-      "norm_label": "zod"
-    },
-    {
-      "label": "zod",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "zod",
-      "community": 13,
+      "community": 4,
       "norm_label": "zod"
     },
     {
@@ -358,32 +250,12 @@
       "norm_label": "@types/cors"
     },
     {
-      "label": "@types/cors",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L25",
-      "_origin": "ast",
-      "id": "types_cors",
-      "community": 4,
-      "norm_label": "@types/cors"
-    },
-    {
       "label": "@types/express",
       "file_type": "code",
       "source_file": "backend/package.json",
       "source_location": "L26",
       "_origin": "ast",
       "id": "backend_package_devdependencies_types_express",
-      "community": 4,
-      "norm_label": "@types/express"
-    },
-    {
-      "label": "@types/express",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L26",
-      "_origin": "ast",
-      "id": "types_express",
       "community": 4,
       "norm_label": "@types/express"
     },
@@ -398,32 +270,12 @@
       "norm_label": "@types/node"
     },
     {
-      "label": "@types/node",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L27",
-      "_origin": "ast",
-      "id": "backend_package_json_types_node",
-      "community": 4,
-      "norm_label": "@types/node"
-    },
-    {
       "label": "@types/uuid",
       "file_type": "code",
       "source_file": "backend/package.json",
       "source_location": "L28",
       "_origin": "ast",
       "id": "backend_package_devdependencies_types_uuid",
-      "community": 4,
-      "norm_label": "@types/uuid"
-    },
-    {
-      "label": "@types/uuid",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L28",
-      "_origin": "ast",
-      "id": "types_uuid",
       "community": 4,
       "norm_label": "@types/uuid"
     },
@@ -438,16 +290,6 @@
       "norm_label": "nodemon"
     },
     {
-      "label": "nodemon",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L29",
-      "_origin": "ast",
-      "id": "nodemon",
-      "community": 4,
-      "norm_label": "nodemon"
-    },
-    {
       "label": "ts-node",
       "file_type": "code",
       "source_file": "backend/package.json",
@@ -458,32 +300,12 @@
       "norm_label": "ts-node"
     },
     {
-      "label": "ts-node",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L30",
-      "_origin": "ast",
-      "id": "backend_package_json_ts_node",
-      "community": 4,
-      "norm_label": "ts-node"
-    },
-    {
       "label": "typescript",
       "file_type": "code",
       "source_file": "backend/package.json",
       "source_location": "L31",
       "_origin": "ast",
       "id": "backend_package_devdependencies_typescript",
-      "community": 4,
-      "norm_label": "typescript"
-    },
-    {
-      "label": "typescript",
-      "file_type": "concept",
-      "source_file": "backend/package.json",
-      "source_location": "L31",
-      "_origin": "ast",
-      "id": "backend_package_json_typescript",
       "community": 4,
       "norm_label": "typescript"
     },
@@ -1081,7 +903,7 @@
       "label": "TallyEntry",
       "file_type": "code",
       "source_file": "backend/src/routes/keyshares.ts",
-      "source_location": "L317",
+      "source_location": "L341",
       "_origin": "ast",
       "id": "backend_src_routes_keyshares_tallyentry",
       "community": 2,
@@ -1598,16 +1420,6 @@
       "norm_label": "lib"
     },
     {
-      "label": "ES2020",
-      "file_type": "concept",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "ref_es2020",
-      "community": 10,
-      "norm_label": "es2020"
-    },
-    {
       "label": "outDir",
       "file_type": "code",
       "source_file": "backend/tsconfig.json",
@@ -1718,16 +1530,6 @@
       "norm_label": "include"
     },
     {
-      "label": "src/**/*",
-      "file_type": "concept",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L17",
-      "_origin": "ast",
-      "id": "backend_tsconfig_json_ref_src",
-      "community": 10,
-      "norm_label": "src/**/*"
-    },
-    {
       "label": "exclude",
       "file_type": "code",
       "source_file": "backend/tsconfig.json",
@@ -1736,26 +1538,6 @@
       "id": "backend_tsconfig_exclude",
       "community": 10,
       "norm_label": "exclude"
-    },
-    {
-      "label": "node_modules",
-      "file_type": "concept",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "ref_node_modules",
-      "community": 10,
-      "norm_label": "node_modules"
-    },
-    {
-      "label": "dist",
-      "file_type": "concept",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "ref_dist",
-      "community": 10,
-      "norm_label": "dist"
     },
     {
       "label": "hardhat.config.ts",
@@ -1938,32 +1720,12 @@
       "norm_label": "@nomicfoundation/hardhat-toolbox"
     },
     {
-      "label": "@nomicfoundation/hardhat-toolbox",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L17",
-      "_origin": "ast",
-      "id": "nomicfoundation_hardhat_toolbox",
-      "community": 3,
-      "norm_label": "@nomicfoundation/hardhat-toolbox"
-    },
-    {
       "label": "@openzeppelin/contracts",
       "file_type": "code",
       "source_file": "blockchain/package.json",
       "source_location": "L18",
       "_origin": "ast",
       "id": "blockchain_package_devdependencies_openzeppelin_contracts",
-      "community": 3,
-      "norm_label": "@openzeppelin/contracts"
-    },
-    {
-      "label": "@openzeppelin/contracts",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "openzeppelin_contracts",
       "community": 3,
       "norm_label": "@openzeppelin/contracts"
     },
@@ -1978,32 +1740,12 @@
       "norm_label": "@types/node"
     },
     {
-      "label": "@types/node",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L19",
-      "_origin": "ast",
-      "id": "blockchain_package_json_types_node",
-      "community": 3,
-      "norm_label": "@types/node"
-    },
-    {
       "label": "dotenv",
       "file_type": "code",
       "source_file": "blockchain/package.json",
       "source_location": "L20",
       "_origin": "ast",
       "id": "blockchain_package_devdependencies_dotenv",
-      "community": 3,
-      "norm_label": "dotenv"
-    },
-    {
-      "label": "dotenv",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L20",
-      "_origin": "ast",
-      "id": "blockchain_package_json_dotenv",
       "community": 3,
       "norm_label": "dotenv"
     },
@@ -2018,16 +1760,6 @@
       "norm_label": "hardhat"
     },
     {
-      "label": "hardhat",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L21",
-      "_origin": "ast",
-      "id": "hardhat",
-      "community": 3,
-      "norm_label": "hardhat"
-    },
-    {
       "label": "ts-node",
       "file_type": "code",
       "source_file": "blockchain/package.json",
@@ -2038,32 +1770,12 @@
       "norm_label": "ts-node"
     },
     {
-      "label": "ts-node",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "blockchain_package_json_ts_node",
-      "community": 3,
-      "norm_label": "ts-node"
-    },
-    {
       "label": "typescript",
       "file_type": "code",
       "source_file": "blockchain/package.json",
       "source_location": "L23",
       "_origin": "ast",
       "id": "blockchain_package_devdependencies_typescript",
-      "community": 3,
-      "norm_label": "typescript"
-    },
-    {
-      "label": "typescript",
-      "file_type": "concept",
-      "source_file": "blockchain/package.json",
-      "source_location": "L23",
-      "_origin": "ast",
-      "id": "blockchain_package_json_typescript",
       "community": 3,
       "norm_label": "typescript"
     },
@@ -2218,46 +1930,6 @@
       "norm_label": "include"
     },
     {
-      "label": "./scripts",
-      "file_type": "concept",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "ref_scripts",
-      "community": 16,
-      "norm_label": "./scripts"
-    },
-    {
-      "label": "./test",
-      "file_type": "concept",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "ref_test",
-      "community": 16,
-      "norm_label": "./test"
-    },
-    {
-      "label": "./hardhat.config.ts",
-      "file_type": "concept",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "ref_hardhat_config_ts",
-      "community": 16,
-      "norm_label": "./hardhat.config.ts"
-    },
-    {
-      "label": "../backend/src/merkle",
-      "file_type": "concept",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "ref_backend_src_merkle",
-      "community": 16,
-      "norm_label": "../backend/src/merkle"
-    },
-    {
       "label": ".oxlintrc.json",
       "file_type": "code",
       "source_file": "frontend/.oxlintrc.json",
@@ -2284,38 +1956,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_oxlintrc_plugins",
-      "community": 1,
+      "community": 21,
       "norm_label": "plugins"
-    },
-    {
-      "label": "react",
-      "file_type": "concept",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "ref_react",
-      "community": 1,
-      "norm_label": "react"
-    },
-    {
-      "label": "typescript",
-      "file_type": "concept",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "ref_typescript",
-      "community": 1,
-      "norm_label": "typescript"
-    },
-    {
-      "label": "oxc",
-      "file_type": "concept",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "ref_oxc",
-      "community": 1,
-      "norm_label": "oxc"
     },
     {
       "label": "rules",
@@ -2346,16 +1988,6 @@
       "id": "frontend_oxlintrc_rules_react_only_export_components",
       "community": 21,
       "norm_label": "react/only-export-components"
-    },
-    {
-      "label": "warn",
-      "file_type": "concept",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L6",
-      "_origin": "ast",
-      "id": "ref_warn",
-      "community": 21,
-      "norm_label": "warn"
     },
     {
       "label": "package.json",
@@ -2478,32 +2110,12 @@
       "norm_label": "react"
     },
     {
-      "label": "react",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L13",
-      "_origin": "ast",
-      "id": "react",
-      "community": 14,
-      "norm_label": "react"
-    },
-    {
       "label": "react-dom",
       "file_type": "code",
       "source_file": "frontend/package.json",
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_package_dependencies_react_dom",
-      "community": 14,
-      "norm_label": "react-dom"
-    },
-    {
-      "label": "react-dom",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L14",
-      "_origin": "ast",
-      "id": "react_dom",
       "community": 14,
       "norm_label": "react-dom"
     },
@@ -2518,23 +2130,13 @@
       "norm_label": "react-router-dom"
     },
     {
-      "label": "react-router-dom",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L15",
-      "_origin": "ast",
-      "id": "react_router_dom",
-      "community": 14,
-      "norm_label": "react-router-dom"
-    },
-    {
       "label": "devDependencies",
       "file_type": "code",
       "source_file": "frontend/package.json",
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_package_devdependencies",
-      "community": 9,
+      "community": 14,
       "norm_label": "devdependencies"
     },
     {
@@ -2544,17 +2146,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_types_node",
-      "community": 9,
-      "norm_label": "@types/node"
-    },
-    {
-      "label": "@types/node",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "frontend_package_json_types_node",
-      "community": 9,
+      "community": 14,
       "norm_label": "@types/node"
     },
     {
@@ -2564,17 +2156,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_types_react",
-      "community": 9,
-      "norm_label": "@types/react"
-    },
-    {
-      "label": "@types/react",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L19",
-      "_origin": "ast",
-      "id": "types_react",
-      "community": 9,
+      "community": 14,
       "norm_label": "@types/react"
     },
     {
@@ -2584,17 +2166,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_types_react_dom",
-      "community": 9,
-      "norm_label": "@types/react-dom"
-    },
-    {
-      "label": "@types/react-dom",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L20",
-      "_origin": "ast",
-      "id": "types_react_dom",
-      "community": 9,
+      "community": 14,
       "norm_label": "@types/react-dom"
     },
     {
@@ -2604,17 +2176,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_vitejs_plugin_react",
-      "community": 9,
-      "norm_label": "@vitejs/plugin-react"
-    },
-    {
-      "label": "@vitejs/plugin-react",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L21",
-      "_origin": "ast",
-      "id": "vitejs_plugin_react",
-      "community": 9,
+      "community": 14,
       "norm_label": "@vitejs/plugin-react"
     },
     {
@@ -2624,17 +2186,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_autoprefixer",
-      "community": 9,
-      "norm_label": "autoprefixer"
-    },
-    {
-      "label": "autoprefixer",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "autoprefixer",
-      "community": 9,
+      "community": 14,
       "norm_label": "autoprefixer"
     },
     {
@@ -2644,17 +2196,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_oxlint",
-      "community": 9,
-      "norm_label": "oxlint"
-    },
-    {
-      "label": "oxlint",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L23",
-      "_origin": "ast",
-      "id": "oxlint",
-      "community": 9,
+      "community": 14,
       "norm_label": "oxlint"
     },
     {
@@ -2664,17 +2206,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_postcss",
-      "community": 9,
-      "norm_label": "postcss"
-    },
-    {
-      "label": "postcss",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L24",
-      "_origin": "ast",
-      "id": "postcss",
-      "community": 9,
+      "community": 14,
       "norm_label": "postcss"
     },
     {
@@ -2684,17 +2216,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_tailwindcss",
-      "community": 9,
-      "norm_label": "tailwindcss"
-    },
-    {
-      "label": "tailwindcss",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L25",
-      "_origin": "ast",
-      "id": "tailwindcss",
-      "community": 9,
+      "community": 14,
       "norm_label": "tailwindcss"
     },
     {
@@ -2704,17 +2226,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_typescript",
-      "community": 9,
-      "norm_label": "typescript"
-    },
-    {
-      "label": "typescript",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L26",
-      "_origin": "ast",
-      "id": "frontend_package_json_typescript",
-      "community": 9,
+      "community": 14,
       "norm_label": "typescript"
     },
     {
@@ -2724,17 +2236,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_package_devdependencies_vite",
-      "community": 9,
-      "norm_label": "vite"
-    },
-    {
-      "label": "vite",
-      "file_type": "concept",
-      "source_file": "frontend/package.json",
-      "source_location": "L27",
-      "_origin": "ast",
-      "id": "vite",
-      "community": 9,
+      "community": 14,
       "norm_label": "vite"
     },
     {
@@ -3681,7 +3183,7 @@
       "label": "generateNullifier()",
       "file_type": "code",
       "source_file": "frontend/src/utils/nullifier.ts",
-      "source_location": "L22",
+      "source_location": "L37",
       "_origin": "ast",
       "id": "frontend_src_utils_nullifier_generatenullifier",
       "community": 0,
@@ -3691,7 +3193,7 @@
       "label": "hashNid()",
       "file_type": "code",
       "source_file": "frontend/src/utils/nullifier.ts",
-      "source_location": "L37",
+      "source_location": "L61",
       "_origin": "ast",
       "id": "frontend_src_utils_nullifier_hashnid",
       "community": 0,
@@ -3768,26 +3270,6 @@
       "norm_label": "lib"
     },
     {
-      "label": "ES2023",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "frontend_tsconfig_app_json_ref_es2023",
-      "community": 8,
-      "norm_label": "es2023"
-    },
-    {
-      "label": "DOM",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "ref_dom",
-      "community": 8,
-      "norm_label": "dom"
-    },
-    {
       "label": "module",
       "file_type": "code",
       "source_file": "frontend/tsconfig.app.json",
@@ -3806,16 +3288,6 @@
       "id": "frontend_tsconfig_app_compileroptions_types",
       "community": 8,
       "norm_label": "types"
-    },
-    {
-      "label": "vite/client",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L7",
-      "_origin": "ast",
-      "id": "ref_vite_client",
-      "community": 8,
-      "norm_label": "vite/client"
     },
     {
       "label": "skipLibCheck",
@@ -3938,16 +3410,6 @@
       "norm_label": "include"
     },
     {
-      "label": "src",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L24",
-      "_origin": "ast",
-      "id": "frontend_tsconfig_app_json_ref_src",
-      "community": 8,
-      "norm_label": "src"
-    },
-    {
       "label": "tsconfig.json",
       "file_type": "code",
       "source_file": "frontend/tsconfig.json",
@@ -4028,16 +3490,6 @@
       "norm_label": "lib"
     },
     {
-      "label": "ES2023",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "frontend_tsconfig_node_json_ref_es2023",
-      "community": 11,
-      "norm_label": "es2023"
-    },
-    {
       "label": "types",
       "file_type": "code",
       "source_file": "frontend/tsconfig.node.json",
@@ -4046,16 +3498,6 @@
       "id": "frontend_tsconfig_node_compileroptions_types",
       "community": 11,
       "norm_label": "types"
-    },
-    {
-      "label": "node",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L6",
-      "_origin": "ast",
-      "id": "ref_node",
-      "community": 11,
-      "norm_label": "node"
     },
     {
       "label": "skipLibCheck",
@@ -4166,16 +3608,6 @@
       "id": "frontend_tsconfig_node_include",
       "community": 11,
       "norm_label": "include"
-    },
-    {
-      "label": "vite.config.ts",
-      "file_type": "concept",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "ref_vite_config_ts",
-      "community": 11,
-      "norm_label": "vite.config.ts"
     },
     {
       "label": "vite.config.ts",
@@ -4538,17 +3970,824 @@
       "norm_label": "adminloginresponse"
     },
     {
-      "label": "E-Voting Simulation Project",
+      "label": "CLAUDE.md",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "claude",
+      "community": 36,
+      "norm_label": "claude.md"
+    },
+    {
+      "label": "graphify",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "claude_graphify",
+      "community": 36,
+      "norm_label": "graphify"
+    },
+    {
+      "label": "CONTRIBUTING.md",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "contributing",
+      "community": 9,
+      "norm_label": "contributing.md"
+    },
+    {
+      "label": "Contributing Guide",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "contributing_contributing_guide",
+      "community": 9,
+      "norm_label": "contributing guide"
+    },
+    {
+      "label": "Branching Strategy Overview",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "contributing_branching_strategy_overview",
+      "community": 9,
+      "norm_label": "branching strategy overview"
+    },
+    {
+      "label": "Branch Naming Convention",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "contributing_branch_naming_convention",
+      "community": 9,
+      "norm_label": "branch naming convention"
+    },
+    {
+      "label": "Getting Started",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L33",
+      "_origin": "ast",
+      "id": "contributing_getting_started",
+      "community": 9,
+      "norm_label": "getting started"
+    },
+    {
+      "label": "1. Clone the Repository",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "contributing_1_clone_the_repository",
+      "community": 9,
+      "norm_label": "1. clone the repository"
+    },
+    {
+      "label": "2. Create a Local Feature Branch (Always from `dev`, NOT from `main`)",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L42",
+      "_origin": "ast",
+      "id": "contributing_2_create_a_local_feature_branch_always_from_dev_not_from_main",
+      "community": 9,
+      "norm_label": "2. create a local feature branch (always from `dev`, not from `main`)"
+    },
+    {
+      "label": "3. Push Your Feature Branch to Remote",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L61",
+      "_origin": "ast",
+      "id": "contributing_3_push_your_feature_branch_to_remote",
+      "community": 9,
+      "norm_label": "3. push your feature branch to remote"
+    },
+    {
+      "label": "Making and Committing Changes",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L69",
+      "_origin": "ast",
+      "id": "contributing_making_and_committing_changes",
+      "community": 9,
+      "norm_label": "making and committing changes"
+    },
+    {
+      "label": "1. Stage Your Changes",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L73",
+      "_origin": "ast",
+      "id": "contributing_1_stage_your_changes",
+      "community": 9,
+      "norm_label": "1. stage your changes"
+    },
+    {
+      "label": "2. Commit Your Changes",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L85",
+      "_origin": "ast",
+      "id": "contributing_2_commit_your_changes",
+      "community": 9,
+      "norm_label": "2. commit your changes"
+    },
+    {
+      "label": "3. Push to Remote",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L97",
+      "_origin": "ast",
+      "id": "contributing_3_push_to_remote",
+      "community": 9,
+      "norm_label": "3. push to remote"
+    },
+    {
+      "label": "Syncing `dev` into Your Feature Branch During Development",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L105",
+      "_origin": "ast",
+      "id": "contributing_syncing_dev_into_your_feature_branch_during_development",
+      "community": 9,
+      "norm_label": "syncing `dev` into your feature branch during development"
+    },
+    {
+      "label": "Creating a Pull Request (Merge into `dev`, NOT `main`)",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L124",
+      "_origin": "ast",
+      "id": "contributing_creating_a_pull_request_merge_into_dev_not_main",
+      "community": 9,
+      "norm_label": "creating a pull request (merge into `dev`, not `main`)"
+    },
+    {
+      "label": "Deleting Your Branch After Merge",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L140",
+      "_origin": "ast",
+      "id": "contributing_deleting_your_branch_after_merge",
+      "community": 9,
+      "norm_label": "deleting your branch after merge"
+    },
+    {
+      "label": "Important: You Cannot Delete the Branch You're Currently On",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L144",
+      "_origin": "ast",
+      "id": "contributing_important_you_cannot_delete_the_branch_you_re_currently_on",
+      "community": 9,
+      "norm_label": "important: you cannot delete the branch you're currently on"
+    },
+    {
+      "label": "1. Switch Away from Your Feature Branch",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L148",
+      "_origin": "ast",
+      "id": "contributing_1_switch_away_from_your_feature_branch",
+      "community": 9,
+      "norm_label": "1. switch away from your feature branch"
+    },
+    {
+      "label": "2. Delete Local Branch",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L158",
+      "_origin": "ast",
+      "id": "contributing_2_delete_local_branch",
+      "community": 9,
+      "norm_label": "2. delete local branch"
+    },
+    {
+      "label": "3. Delete Remote Branch",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L174",
+      "_origin": "ast",
+      "id": "contributing_3_delete_remote_branch",
+      "community": 9,
+      "norm_label": "3. delete remote branch"
+    },
+    {
+      "label": "4. Update Your Local `dev`",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L180",
+      "_origin": "ast",
+      "id": "contributing_4_update_your_local_dev",
+      "community": 9,
+      "norm_label": "4. update your local `dev`"
+    },
+    {
+      "label": "Contribution Rules",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L188",
+      "_origin": "ast",
+      "id": "contributing_contribution_rules",
+      "community": 9,
+      "norm_label": "contribution rules"
+    },
+    {
+      "label": "Full Example: Complete Workflow",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L198",
+      "_origin": "ast",
+      "id": "contributing_full_example_complete_workflow",
+      "community": 9,
+      "norm_label": "full example: complete workflow"
+    },
+    {
+      "label": "Daily Workflow",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L254",
+      "_origin": "ast",
+      "id": "contributing_daily_workflow",
+      "community": 9,
+      "norm_label": "daily workflow"
+    },
+    {
+      "label": "What Happens to `main`?",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L278",
+      "_origin": "ast",
+      "id": "contributing_what_happens_to_main",
+      "community": 9,
+      "norm_label": "what happens to `main`?"
+    },
+    {
+      "label": "Need Help?",
+      "file_type": "document",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L285",
+      "_origin": "ast",
+      "id": "contributing_need_help",
+      "community": 9,
+      "norm_label": "need help?"
+    },
+    {
+      "label": "README.md",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "readme",
+      "community": 9,
+      "norm_label": "readme.md"
+    },
+    {
+      "label": "evoting-simulation",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "_origin": "ast",
       "id": "readme_evoting_simulation",
-      "community": 5,
-      "norm_label": "e-voting simulation project"
+      "community": 9,
+      "norm_label": "evoting-simulation"
+    },
+    {
+      "label": "context.md",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "context",
+      "community": 33,
+      "norm_label": "context.md"
+    },
+    {
+      "label": "E-Voting Simulation \u2014 Agent Context",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "context_e_voting_simulation_agent_context",
+      "community": 33,
+      "norm_label": "e-voting simulation \u2014 agent context"
+    },
+    {
+      "label": "What This Is",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "context_what_this_is",
+      "community": 33,
+      "norm_label": "what this is"
+    },
+    {
+      "label": "Repo & Git",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "context_repo_git",
+      "community": 33,
+      "norm_label": "repo & git"
+    },
+    {
+      "label": "Architecture",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "context_architecture",
+      "community": 33,
+      "norm_label": "architecture"
+    },
+    {
+      "label": "Tech Stack",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "context_tech_stack",
+      "community": 33,
+      "norm_label": "tech stack"
+    },
+    {
+      "label": "How to Run",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L37",
+      "_origin": "ast",
+      "id": "context_how_to_run",
+      "community": 33,
+      "norm_label": "how to run"
+    },
+    {
+      "label": "Backend `.env` Keys",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L51",
+      "_origin": "ast",
+      "id": "context_backend_env_keys",
+      "community": 33,
+      "norm_label": "backend `.env` keys"
+    },
+    {
+      "label": "Blockchain `.env` Keys (blockchain/.env)",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L58",
+      "_origin": "ast",
+      "id": "context_blockchain_env_keys_blockchain_env",
+      "community": 33,
+      "norm_label": "blockchain `.env` keys (blockchain/.env)"
+    },
+    {
+      "label": "Database (Supabase)",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L62",
+      "_origin": "ast",
+      "id": "context_database_supabase",
+      "community": 33,
+      "norm_label": "database (supabase)"
+    },
+    {
+      "label": "Backend API",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L77",
+      "_origin": "ast",
+      "id": "context_backend_api",
+      "community": 33,
+      "norm_label": "backend api"
+    },
+    {
+      "label": "Backend Source Structure",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L95",
+      "_origin": "ast",
+      "id": "context_backend_source_structure",
+      "community": 33,
+      "norm_label": "backend source structure"
+    },
+    {
+      "label": "Blockchain Package (blockchain/)",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L130",
+      "_origin": "ast",
+      "id": "context_blockchain_package_blockchain",
+      "community": 33,
+      "norm_label": "blockchain package (blockchain/)"
+    },
+    {
+      "label": "Frontend Routes",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L143",
+      "_origin": "ast",
+      "id": "context_frontend_routes",
+      "community": 33,
+      "norm_label": "frontend routes"
+    },
+    {
+      "label": "Seeded Data",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L161",
+      "_origin": "ast",
+      "id": "context_seeded_data",
+      "community": 33,
+      "norm_label": "seeded data"
+    },
+    {
+      "label": "Key Decisions",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L167",
+      "_origin": "ast",
+      "id": "context_key_decisions",
+      "community": 33,
+      "norm_label": "key decisions"
+    },
+    {
+      "label": "Fixes Made This Session",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L180",
+      "_origin": "ast",
+      "id": "context_fixes_made_this_session",
+      "community": 33,
+      "norm_label": "fixes made this session"
+    },
+    {
+      "label": "Known Limitations (flagged, not fixed this session)",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L189",
+      "_origin": "ast",
+      "id": "context_known_limitations_flagged_not_fixed_this_session",
+      "community": 33,
+      "norm_label": "known limitations (flagged, not fixed this session)"
+    },
+    {
+      "label": "Not Yet Implemented",
+      "file_type": "document",
+      "source_file": "context.md",
+      "source_location": "L196",
+      "_origin": "ast",
+      "id": "context_not_yet_implemented",
+      "community": 33,
+      "norm_label": "not yet implemented"
+    },
+    {
+      "label": "design_guide.md",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "design_guide",
+      "community": 34,
+      "norm_label": "design_guide.md"
+    },
+    {
+      "label": "Design Guide \u2014 SecureVote BD",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "design_guide_design_guide_securevote_bd",
+      "community": 34,
+      "norm_label": "design guide \u2014 securevote bd"
+    },
+    {
+      "label": "Colors",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "design_guide_colors",
+      "community": 34,
+      "norm_label": "colors"
+    },
+    {
+      "label": "Typography",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L18",
+      "_origin": "ast",
+      "id": "design_guide_typography",
+      "community": 34,
+      "norm_label": "typography"
+    },
+    {
+      "label": "CSS Classes",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "design_guide_css_classes",
+      "community": 34,
+      "norm_label": "css classes"
+    },
+    {
+      "label": "Page Layout Rules",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L36",
+      "_origin": "ast",
+      "id": "design_guide_page_layout_rules",
+      "community": 34,
+      "norm_label": "page layout rules"
+    },
+    {
+      "label": "Card Header Pattern",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "design_guide_card_header_pattern",
+      "community": 34,
+      "norm_label": "card header pattern"
+    },
+    {
+      "label": "Demo Credentials Box",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L59",
+      "_origin": "ast",
+      "id": "design_guide_demo_credentials_box",
+      "community": 34,
+      "norm_label": "demo credentials box"
+    },
+    {
+      "label": "Do / Don't",
+      "file_type": "document",
+      "source_file": "design_guide.md",
+      "source_location": "L68",
+      "_origin": "ast",
+      "id": "design_guide_do_don_t",
+      "community": 34,
+      "norm_label": "do / don't"
+    },
+    {
+      "label": "README.md",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "frontend_readme",
+      "community": 35,
+      "norm_label": "readme.md"
+    },
+    {
+      "label": "React + TypeScript + Vite",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "frontend_readme_react_typescript_vite",
+      "community": 35,
+      "norm_label": "react + typescript + vite"
+    },
+    {
+      "label": "React Compiler",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "frontend_readme_react_compiler",
+      "community": 35,
+      "norm_label": "react compiler"
+    },
+    {
+      "label": "Expanding the Oxlint configuration",
+      "file_type": "document",
+      "source_file": "frontend/README.md",
+      "source_location": "L14",
+      "_origin": "ast",
+      "id": "frontend_readme_expanding_the_oxlint_configuration",
+      "community": 35,
+      "norm_label": "expanding the oxlint configuration"
+    },
+    {
+      "label": "testing_guidance.md",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "testing_guidance",
+      "community": 13,
+      "norm_label": "testing_guidance.md"
+    },
+    {
+      "label": "Testing Guidance",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "testing_guidance_testing_guidance",
+      "community": 13,
+      "norm_label": "testing guidance"
+    },
+    {
+      "label": "How to use this document",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "testing_guidance_how_to_use_this_document",
+      "community": 13,
+      "norm_label": "how to use this document"
+    },
+    {
+      "label": "1. Voter Registration \u2014 `POST /voter/register`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "testing_guidance_1_voter_registration_post_voter_register",
+      "community": 13,
+      "norm_label": "1. voter registration \u2014 `post /voter/register`"
+    },
+    {
+      "label": "2. Candidates \u2014 `GET /candidates?constituency=CON-XX`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L48",
+      "_origin": "ast",
+      "id": "testing_guidance_2_candidates_get_candidates_constituency_con_xx",
+      "community": 13,
+      "norm_label": "2. candidates \u2014 `get /candidates?constituency=con-xx`"
+    },
+    {
+      "label": "3. Client-Side ElGamal Encryption \u2014 `frontend/src/utils/elgamal.ts`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L66",
+      "_origin": "ast",
+      "id": "testing_guidance_3_client_side_elgamal_encryption_frontend_src_utils_elgamal_ts",
+      "community": 13,
+      "norm_label": "3. client-side elgamal encryption \u2014 `frontend/src/utils/elgamal.ts`"
+    },
+    {
+      "label": "4. Vote Casting \u2014 `POST /vote`, `fn_cast_vote`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L84",
+      "_origin": "ast",
+      "id": "testing_guidance_4_vote_casting_post_vote_fn_cast_vote",
+      "community": 13,
+      "norm_label": "4. vote casting \u2014 `post /vote`, `fn_cast_vote`"
+    },
+    {
+      "label": "5. Nullifier \u2014 current implementation AND Nabiha's redesign",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L105",
+      "_origin": "ast",
+      "id": "testing_guidance_5_nullifier_current_implementation_and_nabiha_s_redesign",
+      "community": 13,
+      "norm_label": "5. nullifier \u2014 current implementation and nabiha's redesign"
+    },
+    {
+      "label": "5a. Current implementation",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L107",
+      "_origin": "ast",
+      "id": "testing_guidance_5a_current_implementation",
+      "community": 13,
+      "norm_label": "5a. current implementation"
+    },
+    {
+      "label": "5b. After Nabiha's redesign (secret-salted nullifier used as the vote's storage key)",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L116",
+      "_origin": "ast",
+      "id": "testing_guidance_5b_after_nabiha_s_redesign_secret_salted_nullifier_used_as_the_vote_s_storage_key",
+      "community": 13,
+      "norm_label": "5b. after nabiha's redesign (secret-salted nullifier used as the vote's storage key)"
+    },
+    {
+      "label": "6. Shamir's Secret Sharing / Key Ceremony",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L133",
+      "_origin": "ast",
+      "id": "testing_guidance_6_shamir_s_secret_sharing_key_ceremony",
+      "community": 13,
+      "norm_label": "6. shamir's secret sharing / key ceremony"
+    },
+    {
+      "label": "7. Tallying & Decryption \u2014 `POST /keyshares/tally`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L153",
+      "_origin": "ast",
+      "id": "testing_guidance_7_tallying_decryption_post_keyshares_tally",
+      "community": 13,
+      "norm_label": "7. tallying & decryption \u2014 `post /keyshares/tally`"
+    },
+    {
+      "label": "8. Merkle Anchoring \u2014 `POST /anchor/batch`, `GET /anchor/verify/:voteId`",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L175",
+      "_origin": "ast",
+      "id": "testing_guidance_8_merkle_anchoring_post_anchor_batch_get_anchor_verify_voteid",
+      "community": 13,
+      "norm_label": "8. merkle anchoring \u2014 `post /anchor/batch`, `get /anchor/verify/:voteid`"
+    },
+    {
+      "label": "9. Public Watchdog \u2014 `GET /public/stats`, `/watchdog` page",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L198",
+      "_origin": "ast",
+      "id": "testing_guidance_9_public_watchdog_get_public_stats_watchdog_page",
+      "community": 13,
+      "norm_label": "9. public watchdog \u2014 `get /public/stats`, `/watchdog` page"
+    },
+    {
+      "label": "10. Admin Dashboard / Admin Auth",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L214",
+      "_origin": "ast",
+      "id": "testing_guidance_10_admin_dashboard_admin_auth",
+      "community": 13,
+      "norm_label": "10. admin dashboard / admin auth"
+    },
+    {
+      "label": "11. Future Work \u2014 test plans ready for when these get built",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L226",
+      "_origin": "ast",
+      "id": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "community": 13,
+      "norm_label": "11. future work \u2014 test plans ready for when these get built"
+    },
+    {
+      "label": "11a. Digital Signature (integrity)",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L230",
+      "_origin": "ast",
+      "id": "testing_guidance_11a_digital_signature_integrity",
+      "community": 13,
+      "norm_label": "11a. digital signature (integrity)"
+    },
+    {
+      "label": "11b. Benaloh Challenge (cast-or-audit, voter verifiability)",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L235",
+      "_origin": "ast",
+      "id": "testing_guidance_11b_benaloh_challenge_cast_or_audit_voter_verifiability",
+      "community": 13,
+      "norm_label": "11b. benaloh challenge (cast-or-audit, voter verifiability)"
+    },
+    {
+      "label": "11c. Full ZKP (zk-SNARK proof of eligibility/validity)",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L240",
+      "_origin": "ast",
+      "id": "testing_guidance_11c_full_zkp_zk_snark_proof_of_eligibility_validity",
+      "community": 13,
+      "norm_label": "11c. full zkp (zk-snark proof of eligibility/validity)"
+    },
+    {
+      "label": "11d. MACI",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L245",
+      "_origin": "ast",
+      "id": "testing_guidance_11d_maci",
+      "community": 13,
+      "norm_label": "11d. maci"
+    },
+    {
+      "label": "Project-wide \"do not test\"",
+      "file_type": "document",
+      "source_file": "testing_guidance.md",
+      "source_location": "L250",
+      "_origin": "ast",
+      "id": "testing_guidance_project_wide_do_not_test",
+      "community": 13,
+      "norm_label": "project-wide \"do not test\""
     },
     {
       "label": "E-Voting System Architecture",
@@ -4559,9 +4798,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_evoting_system",
-      "community": 5,
-      "norm_label": "e-voting system architecture"
+      "community": 40,
+      "norm_label": "e-voting system architecture",
+      "id": "context_evoting_system"
     },
     {
       "label": "ElGamal Encryption Scheme",
@@ -4572,9 +4811,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_elgamal_encryption",
-      "community": 5,
-      "norm_label": "elgamal encryption scheme"
+      "community": 39,
+      "norm_label": "elgamal encryption scheme",
+      "id": "context_elgamal_encryption"
     },
     {
       "label": "Shamir's Secret Sharing (3-of-4)",
@@ -4585,9 +4824,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_shamir_secret_sharing",
-      "community": 5,
-      "norm_label": "shamir's secret sharing (3-of-4)"
+      "community": 47,
+      "norm_label": "shamir's secret sharing (3-of-4)",
+      "id": "context_shamir_secret_sharing"
     },
     {
       "label": "Zero-Knowledge Proof (Planned)",
@@ -4598,9 +4837,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_zkp_placeholder",
-      "community": 5,
-      "norm_label": "zero-knowledge proof (planned)"
+      "community": 50,
+      "norm_label": "zero-knowledge proof (planned)",
+      "id": "context_zkp_placeholder"
     },
     {
       "label": "Polygon Amoy Blockchain Anchoring",
@@ -4611,9 +4850,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_polygon_anchoring",
-      "community": 5,
-      "norm_label": "polygon amoy blockchain anchoring"
+      "community": 45,
+      "norm_label": "polygon amoy blockchain anchoring",
+      "id": "context_polygon_anchoring"
     },
     {
       "label": "Merkle Tree Vote Anchoring",
@@ -4624,9 +4863,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_merkle_tree",
       "community": 5,
-      "norm_label": "merkle tree vote anchoring"
+      "norm_label": "merkle tree vote anchoring",
+      "id": "context_merkle_tree"
     },
     {
       "label": "Supabase PostgreSQL Database",
@@ -4637,9 +4876,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_supabase_db",
-      "community": 5,
-      "norm_label": "supabase postgresql database"
+      "community": 48,
+      "norm_label": "supabase postgresql database",
+      "id": "context_supabase_db"
     },
     {
       "label": "fn_cast_vote Stored Procedure",
@@ -4650,9 +4889,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_fn_cast_vote",
-      "community": 5,
-      "norm_label": "fn_cast_vote stored procedure"
+      "community": 41,
+      "norm_label": "fn_cast_vote stored procedure",
+      "id": "context_fn_cast_vote"
     },
     {
       "label": "NID SHA-256 Hashing",
@@ -4663,9 +4902,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_nid_hashing",
-      "community": 5,
-      "norm_label": "nid sha-256 hashing"
+      "community": 44,
+      "norm_label": "nid sha-256 hashing",
+      "id": "context_nid_hashing"
     },
     {
       "label": "Monorepo Architecture (4 packages)",
@@ -4676,9 +4915,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_monorepo_arch",
-      "community": 5,
-      "norm_label": "monorepo architecture (4 packages)"
+      "community": 43,
+      "norm_label": "monorepo architecture (4 packages)",
+      "id": "context_monorepo_arch"
     },
     {
       "label": "x-admin-secret Header Auth",
@@ -4689,9 +4928,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_admin_auth",
-      "community": 5,
-      "norm_label": "x-admin-secret header auth"
+      "community": 37,
+      "norm_label": "x-admin-secret header auth",
+      "id": "context_admin_auth"
     },
     {
       "label": "Key Ceremony (3-of-4 Threshold)",
@@ -4702,9 +4941,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_key_ceremony",
-      "community": 5,
-      "norm_label": "key ceremony (3-of-4 threshold)"
+      "community": 42,
+      "norm_label": "key ceremony (3-of-4 threshold)",
+      "id": "context_key_ceremony"
     },
     {
       "label": "Ballot Secrecy Architectural Gap",
@@ -4715,9 +4954,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_ballot_secrecy_gap",
-      "community": 5,
-      "norm_label": "ballot secrecy architectural gap"
+      "community": 38,
+      "norm_label": "ballot secrecy architectural gap",
+      "id": "context_ballot_secrecy_gap"
     },
     {
       "label": "Vote Encryption Fix (Session)",
@@ -4728,9 +4967,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_vote_encryption_fix",
-      "community": 5,
-      "norm_label": "vote encryption fix (session)"
+      "community": 49,
+      "norm_label": "vote encryption fix (session)",
+      "id": "context_vote_encryption_fix"
     },
     {
       "label": "Public Watchdog Dashboard",
@@ -4741,9 +4980,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "context_public_watchdog",
-      "community": 5,
-      "norm_label": "public watchdog dashboard"
+      "community": 46,
+      "norm_label": "public watchdog dashboard",
+      "id": "context_public_watchdog"
     },
     {
       "label": "Three-Tier Branching Strategy",
@@ -4754,9 +4993,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "contributing_branching_strategy",
       "community": 5,
-      "norm_label": "three-tier branching strategy"
+      "norm_label": "three-tier branching strategy",
+      "id": "contributing_branching_strategy"
     },
     {
       "label": "Pull Request Workflow (into dev)",
@@ -4767,9 +5006,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "contributing_pr_workflow",
-      "community": 5,
-      "norm_label": "pull request workflow (into dev)"
+      "community": 51,
+      "norm_label": "pull request workflow (into dev)",
+      "id": "contributing_pr_workflow"
     },
     {
       "label": "SecureVote BD Color Palette",
@@ -4780,9 +5019,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "design_guide_color_palette",
-      "community": 23,
-      "norm_label": "securevote bd color palette"
+      "community": 52,
+      "norm_label": "securevote bd color palette",
+      "id": "design_guide_color_palette"
     },
     {
       "label": "UI CSS Component Classes",
@@ -4793,22 +5032,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "design_guide_css_components",
       "community": 23,
-      "norm_label": "ui css component classes"
-    },
-    {
-      "label": "Page Layout Rules",
-      "file_type": "concept",
-      "source_file": "design_guide.md",
-      "source_location": null,
-      "source_url": null,
-      "captured_at": null,
-      "author": null,
-      "contributor": null,
-      "id": "design_guide_layout_rules",
-      "community": 23,
-      "norm_label": "page layout rules"
+      "norm_label": "ui css component classes",
+      "id": "design_guide_css_components"
     },
     {
       "label": "Testing Guidance Document",
@@ -4819,9 +5045,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "testing_guidance_overview",
-      "community": 5,
-      "norm_label": "testing guidance document"
+      "community": 55,
+      "norm_label": "testing guidance document",
+      "id": "testing_guidance_overview"
     },
     {
       "label": "Voter Registration Test Plan",
@@ -4832,9 +5058,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "testing_guidance_voter_reg",
-      "community": 5,
-      "norm_label": "voter registration test plan"
+      "community": 57,
+      "norm_label": "voter registration test plan",
+      "id": "testing_guidance_voter_reg"
     },
     {
       "label": "Double-Vote Prevention Tests",
@@ -4845,9 +5071,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "testing_guidance_double_vote",
-      "community": 5,
-      "norm_label": "double-vote prevention tests"
+      "community": 53,
+      "norm_label": "double-vote prevention tests",
+      "id": "testing_guidance_double_vote"
     },
     {
       "label": "Tallying & Decryption Test Plan",
@@ -4858,9 +5084,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "testing_guidance_tally",
-      "community": 5,
-      "norm_label": "tallying & decryption test plan"
+      "community": 56,
+      "norm_label": "tallying & decryption test plan",
+      "id": "testing_guidance_tally"
     },
     {
       "label": "Merkle Anchoring Test Plan",
@@ -4871,9 +5097,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "testing_guidance_merkle_anchor",
-      "community": 5,
-      "norm_label": "merkle anchoring test plan"
+      "community": 54,
+      "norm_label": "merkle anchoring test plan",
+      "id": "testing_guidance_merkle_anchor"
     },
     {
       "label": "GitHub Actions CI Workflow",
@@ -4884,9 +5110,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "github_workflows_ci_workflow",
       "community": 5,
-      "norm_label": "github actions ci workflow"
+      "norm_label": "github actions ci workflow",
+      "id": "github_workflows_ci_workflow"
     },
     {
       "label": "CI Frontend Job (lint + build)",
@@ -4897,9 +5123,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "github_workflows_ci_frontend_job",
       "community": 5,
-      "norm_label": "ci frontend job (lint + build)"
+      "norm_label": "ci frontend job (lint + build)",
+      "id": "github_workflows_ci_frontend_job"
     },
     {
       "label": "CI Backend Job (tsc + merkle test)",
@@ -4910,9 +5136,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "github_workflows_ci_backend_job",
       "community": 5,
-      "norm_label": "ci backend job (tsc + merkle test)"
+      "norm_label": "ci backend job (tsc + merkle test)",
+      "id": "github_workflows_ci_backend_job"
     },
     {
       "label": "CI Contracts Job (Hardhat tests)",
@@ -4923,9 +5149,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "github_workflows_ci_contracts_job",
       "community": 5,
-      "norm_label": "ci contracts job (hardhat tests)"
+      "norm_label": "ci contracts job (hardhat tests)",
+      "id": "github_workflows_ci_contracts_job"
     },
     {
       "label": "Frontend Vite + React Template",
@@ -4936,9 +5162,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "frontend_readme_vite_react",
       "community": 31,
-      "norm_label": "frontend vite + react template"
+      "norm_label": "frontend vite + react template",
+      "id": "frontend_readme_vite_react"
     },
     {
       "label": "Frontend HTML Entry Point",
@@ -4949,9 +5175,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "frontend_index_html_entry",
       "community": 27,
-      "norm_label": "frontend html entry point"
+      "norm_label": "frontend html entry point",
+      "id": "frontend_index_html_entry"
     },
     {
       "label": "Graphify Knowledge Graph Rules",
@@ -4962,9 +5188,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "claude_md_graphify",
       "community": 29,
-      "norm_label": "graphify knowledge graph rules"
+      "norm_label": "graphify knowledge graph rules",
+      "id": "claude_md_graphify"
     },
     {
       "label": "SecureVote BD Favicon",
@@ -4975,9 +5201,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "frontend_public_favicon_svg",
       "community": 27,
-      "norm_label": "securevote bd favicon"
+      "norm_label": "securevote bd favicon",
+      "id": "frontend_public_favicon_svg"
     },
     {
       "label": "SecureVote BD UI Icon Set",
@@ -4988,9 +5214,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "frontend_public_icons_svg",
       "community": 23,
-      "norm_label": "securevote bd ui icon set"
+      "norm_label": "securevote bd ui icon set",
+      "id": "frontend_public_icons_svg"
     }
   ],
   "links": [
@@ -5205,94 +5431,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L15",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_supabase_supabase_js",
-      "target": "supabase_supabase_js",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L16",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_cors",
-      "target": "cors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L17",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_dotenv",
-      "target": "backend_package_json_dotenv",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L18",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_ethers",
-      "target": "ethers",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L19",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_express",
-      "target": "express",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L20",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_secrets_js_grempe",
-      "target": "secrets_js_grempe",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L21",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_uuid",
-      "target": "uuid",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L22",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_dependencies_zod",
-      "target": "zod",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/package.json",
@@ -5360,83 +5498,6 @@
       "weight": 1.0,
       "source": "backend_package_devdependencies",
       "target": "backend_package_devdependencies_typescript",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L25",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_types_cors",
-      "target": "types_cors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L26",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_types_express",
-      "target": "types_express",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L27",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_types_node",
-      "target": "backend_package_json_types_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L28",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_types_uuid",
-      "target": "types_uuid",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L29",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_nodemon",
-      "target": "nodemon",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L30",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_ts_node",
-      "target": "backend_package_json_ts_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/package.json",
-      "source_location": "L31",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_package_devdependencies_typescript",
-      "target": "backend_package_json_typescript",
       "confidence_score": 1.0
     },
     {
@@ -7066,7 +7127,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/src/routes/keyshares.ts",
-      "source_location": "L317",
+      "source_location": "L341",
       "weight": 1.0,
       "source": "backend_src_routes_keyshares",
       "target": "backend_src_routes_keyshares_tallyentry",
@@ -7814,50 +7875,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L5",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_tsconfig_compileroptions_lib",
-      "target": "ref_es2020",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L17",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_tsconfig_include",
-      "target": "backend_tsconfig_json_ref_src",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L18",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_tsconfig_exclude",
-      "target": "ref_dist",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/tsconfig.json",
-      "source_location": "L18",
-      "weight": 1.0,
-      "context": "import",
-      "source": "backend_tsconfig_exclude",
-      "target": "ref_node_modules",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "blockchain/hardhat.config.ts",
@@ -8078,83 +8095,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L17",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_nomicfoundation_hardhat_toolbox",
-      "target": "nomicfoundation_hardhat_toolbox",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L18",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_openzeppelin_contracts",
-      "target": "openzeppelin_contracts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L19",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_types_node",
-      "target": "blockchain_package_json_types_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L20",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_dotenv",
-      "target": "blockchain_package_json_dotenv",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L21",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_hardhat",
-      "target": "hardhat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L22",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_ts_node",
-      "target": "blockchain_package_json_ts_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/package.json",
-      "source_location": "L23",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_package_devdependencies_typescript",
-      "target": "blockchain_package_json_typescript",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "blockchain/scripts/deploy.ts",
@@ -8275,50 +8215,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_tsconfig_include",
-      "target": "ref_backend_src_merkle",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_tsconfig_include",
-      "target": "ref_hardhat_config_ts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_tsconfig_include",
-      "target": "ref_scripts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "blockchain/tsconfig.json",
-      "source_location": "L12",
-      "weight": 1.0,
-      "context": "import",
-      "source": "blockchain_tsconfig_include",
-      "target": "ref_test",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/.oxlintrc.json",
@@ -8349,160 +8245,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_oxlintrc_plugins",
-      "target": "ref_oxc",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_oxlintrc_plugins",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L3",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_oxlintrc_plugins",
-      "target": "ref_typescript",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/components/Navbar.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_components_navbar",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/main.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_main",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/AdminDashboard.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_pages_admindashboard",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/AdminLogin.tsx",
-      "source_location": "L9",
-      "weight": 1.0,
-      "source": "frontend_src_pages_adminlogin",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/KeyHolderLogin.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_pages_keyholderlogin",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/KeyShareStatus.tsx",
-      "source_location": "L9",
-      "weight": 1.0,
-      "source": "frontend_src_pages_keysharestatus",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/KeyShareSubmit.tsx",
-      "source_location": "L9",
-      "weight": 1.0,
-      "source": "frontend_src_pages_keysharesubmit",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/PublicWatchdog.tsx",
-      "source_location": "L18",
-      "weight": 1.0,
-      "source": "frontend_src_pages_publicwatchdog",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/TallyingPage.tsx",
-      "source_location": "L14",
-      "weight": 1.0,
-      "source": "frontend_src_pages_tallyingpage",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/VoterLogin.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_pages_voterlogin",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "frontend_src_pages_votingpage",
-      "target": "ref_react",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/.oxlintrc.json",
@@ -8520,17 +8262,6 @@
       "weight": 1.0,
       "source": "frontend_oxlintrc_rules",
       "target": "frontend_oxlintrc_rules_react_rules_of_hooks",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/.oxlintrc.json",
-      "source_location": "L6",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_oxlintrc_rules_react_only_export_components",
-      "target": "ref_warn",
       "confidence_score": 1.0
     },
     {
@@ -8674,39 +8405,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L13",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_dependencies_react",
-      "target": "react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L14",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_dependencies_react_dom",
-      "target": "react_dom",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L15",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_dependencies_react_router_dom",
-      "target": "react_router_dom",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/package.json",
@@ -8804,116 +8502,6 @@
       "weight": 1.0,
       "source": "frontend_package_devdependencies",
       "target": "frontend_package_devdependencies_vitejs_plugin_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L18",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_types_node",
-      "target": "frontend_package_json_types_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L19",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_types_react",
-      "target": "types_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L20",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_types_react_dom",
-      "target": "types_react_dom",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L21",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_vitejs_plugin_react",
-      "target": "vitejs_plugin_react",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L22",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_autoprefixer",
-      "target": "autoprefixer",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L23",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_oxlint",
-      "target": "oxlint",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L24",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_postcss",
-      "target": "postcss",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L25",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_tailwindcss",
-      "target": "tailwindcss",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L26",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_typescript",
-      "target": "frontend_package_json_typescript",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/package.json",
-      "source_location": "L27",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_package_devdependencies_vite",
-      "target": "vite",
       "confidence_score": 1.0
     },
     {
@@ -9970,17 +9558,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "frontend_src_pages_votingpage",
-      "target": "frontend_src_utils_nullifier_hashnid",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -9997,7 +9574,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L129",
+      "source_location": "L137",
       "weight": 1.0,
       "source": "frontend_src_pages_votingpage_votingpage",
       "target": "frontend_src_utils_api_checknullifier"
@@ -10030,7 +9607,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L142",
+      "source_location": "L150",
       "weight": 1.0,
       "source": "frontend_src_pages_votingpage_votingpage",
       "target": "frontend_src_utils_api_submitvote"
@@ -10041,7 +9618,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L139",
+      "source_location": "L147",
       "weight": 1.0,
       "source": "frontend_src_pages_votingpage_votingpage",
       "target": "frontend_src_utils_elgamal_encryptcandidateid"
@@ -10052,21 +9629,10 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L126",
+      "source_location": "L134",
       "weight": 1.0,
       "source": "frontend_src_pages_votingpage_votingpage",
       "target": "frontend_src_utils_nullifier_generatenullifier"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/src/pages/VotingPage.tsx",
-      "source_location": "L123",
-      "weight": 1.0,
-      "source": "frontend_src_pages_votingpage_votingpage",
-      "target": "frontend_src_utils_nullifier_hashnid"
     },
     {
       "relation": "contains",
@@ -10489,7 +10055,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/utils/nullifier.ts",
-      "source_location": "L22",
+      "source_location": "L37",
       "weight": 1.0,
       "source": "frontend_src_utils_nullifier",
       "target": "frontend_src_utils_nullifier_generatenullifier",
@@ -10499,7 +10065,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/utils/nullifier.ts",
-      "source_location": "L37",
+      "source_location": "L61",
       "weight": 1.0,
       "source": "frontend_src_utils_nullifier",
       "target": "frontend_src_utils_nullifier_hashnid",
@@ -10696,50 +10262,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L5",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_app_compileroptions_lib",
-      "target": "frontend_tsconfig_app_json_ref_es2023",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L5",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_app_compileroptions_lib",
-      "target": "ref_dom",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L7",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_app_compileroptions_types",
-      "target": "ref_vite_client",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.app.json",
-      "source_location": "L24",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_app_include",
-      "target": "frontend_tsconfig_app_json_ref_src",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/tsconfig.json",
@@ -10917,39 +10439,6 @@
       "weight": 1.0,
       "source": "frontend_tsconfig_node_compileroptions",
       "target": "frontend_tsconfig_node_compileroptions_verbatimmodulesyntax",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L5",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_node_compileroptions_lib",
-      "target": "frontend_tsconfig_node_json_ref_es2023",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L6",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_node_compileroptions_types",
-      "target": "ref_node",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "extends",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/tsconfig.node.json",
-      "source_location": "L22",
-      "weight": 1.0,
-      "context": "import",
-      "source": "frontend_tsconfig_node_include",
-      "target": "ref_vite_config_ts",
       "confidence_score": 1.0
     },
     {
@@ -11283,274 +10772,764 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CLAUDE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "claude",
+      "target": "claude_graphify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "contributing",
+      "target": "contributing_contributing_guide",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "references",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L289",
+      "weight": 1.0,
+      "source": "contributing",
+      "target": "readme",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_branch_naming_convention",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_branching_strategy_overview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L188",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_contribution_rules",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L124",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_creating_a_pull_request_merge_into_dev_not_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L254",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_daily_workflow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L140",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_deleting_your_branch_after_merge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L198",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_full_example_complete_workflow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_getting_started",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L69",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_making_and_committing_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L285",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_need_help",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L105",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_syncing_dev_into_your_feature_branch_during_development",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L278",
+      "weight": 1.0,
+      "source": "contributing_contributing_guide",
+      "target": "contributing_what_happens_to_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "contributing_getting_started",
+      "target": "contributing_1_clone_the_repository",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L42",
+      "weight": 1.0,
+      "source": "contributing_getting_started",
+      "target": "contributing_2_create_a_local_feature_branch_always_from_dev_not_from_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "contributing_getting_started",
+      "target": "contributing_3_push_your_feature_branch_to_remote",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "contributing_making_and_committing_changes",
+      "target": "contributing_1_stage_your_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L85",
+      "weight": 1.0,
+      "source": "contributing_making_and_committing_changes",
+      "target": "contributing_2_commit_your_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L97",
+      "weight": 1.0,
+      "source": "contributing_making_and_committing_changes",
+      "target": "contributing_3_push_to_remote",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L148",
+      "weight": 1.0,
+      "source": "contributing_deleting_your_branch_after_merge",
+      "target": "contributing_1_switch_away_from_your_feature_branch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L158",
+      "weight": 1.0,
+      "source": "contributing_deleting_your_branch_after_merge",
+      "target": "contributing_2_delete_local_branch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L174",
+      "weight": 1.0,
+      "source": "contributing_deleting_your_branch_after_merge",
+      "target": "contributing_3_delete_remote_branch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L180",
+      "weight": 1.0,
+      "source": "contributing_deleting_your_branch_after_merge",
+      "target": "contributing_4_update_your_local_dev",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "CONTRIBUTING.md",
+      "source_location": "L144",
+      "weight": 1.0,
+      "source": "contributing_deleting_your_branch_after_merge",
+      "target": "contributing_important_you_cannot_delete_the_branch_you_re_currently_on",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": null,
+      "source_location": "L1",
       "weight": 1.0,
-      "source": "readme_evoting_simulation",
-      "target": "context_elgamal_encryption"
+      "source": "readme",
+      "target": "readme_evoting_simulation",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "readme_evoting_simulation",
-      "target": "context_polygon_anchoring"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "readme_evoting_simulation",
-      "target": "context_shamir_secret_sharing"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "readme_evoting_simulation",
-      "target": "context_zkp_placeholder"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L1",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_admin_auth"
+      "source": "context",
+      "target": "context_e_voting_simulation_agent_context",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L15",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_ballot_secrecy_gap"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_architecture",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L77",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_elgamal_encryption"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_backend_api",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L51",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_fn_cast_vote"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_backend_env_keys",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L95",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_key_ceremony"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_backend_source_structure",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L58",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_merkle_tree"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_blockchain_env_keys_blockchain_env",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L130",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_monorepo_arch"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_blockchain_package_blockchain",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L62",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_nid_hashing"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_database_supabase",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L180",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_polygon_anchoring"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_fixes_made_this_session",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L143",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_public_watchdog"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_frontend_routes",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L37",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_shamir_secret_sharing"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_how_to_run",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L167",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_supabase_db"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_key_decisions",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L189",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "context_zkp_placeholder"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_known_limitations_flagged_not_fixed_this_session",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "context.md",
-      "source_location": null,
+      "source_location": "L196",
       "weight": 1.0,
-      "source": "context_evoting_system",
-      "target": "contributing_branching_strategy"
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_not_yet_implemented",
+      "confidence_score": 1.0
     },
     {
-      "relation": "references",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
+      "source_file": "context.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_repo_git",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "context.md",
+      "source_location": "L161",
+      "weight": 1.0,
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_seeded_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "context.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_tech_stack",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "context.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "context_e_voting_simulation_agent_context",
+      "target": "context_what_this_is",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "design_guide",
+      "target": "design_guide_design_guide_securevote_bd",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_card_header_pattern",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_colors",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_css_classes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_demo_credentials_box",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L68",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_do_don_t",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_page_layout_rules",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "design_guide.md",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "design_guide_design_guide_securevote_bd",
+      "target": "design_guide_typography",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "frontend_readme",
+      "target": "frontend_readme_react_typescript_vite",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "frontend_readme_react_typescript_vite",
+      "target": "frontend_readme_expanding_the_oxlint_configuration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/README.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "frontend_readme_react_typescript_vite",
+      "target": "frontend_readme_react_compiler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "testing_guidance.md",
-      "source_location": null,
+      "source_location": "L1",
       "weight": 1.0,
-      "source": "testing_guidance_overview",
-      "target": "context_evoting_system"
+      "source": "testing_guidance",
+      "target": "testing_guidance_testing_guidance",
+      "confidence_score": 1.0
     },
     {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_elgamal_encryption",
-      "target": "context_shamir_secret_sharing"
-    },
-    {
-      "relation": "conceptually_related_to",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_key_ceremony",
-      "target": "context_elgamal_encryption"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_vote_encryption_fix",
-      "target": "context_elgamal_encryption"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "testing_guidance.md",
-      "source_location": null,
+      "source_location": "L214",
       "weight": 1.0,
-      "source": "testing_guidance_tally",
-      "target": "context_elgamal_encryption"
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_10_admin_dashboard_admin_auth",
+      "confidence_score": 1.0
     },
     {
-      "relation": "implements",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_key_ceremony",
-      "target": "context_shamir_secret_sharing"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "testing_guidance.md",
-      "source_location": null,
+      "source_location": "L226",
       "weight": 1.0,
-      "source": "testing_guidance_tally",
-      "target": "context_shamir_secret_sharing"
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "confidence_score": 1.0
     },
     {
-      "relation": "conceptually_related_to",
+      "relation": "contains",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_merkle_tree",
-      "target": "context_polygon_anchoring"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "testing_guidance.md",
-      "source_location": null,
+      "source_location": "L25",
       "weight": 1.0,
-      "source": "testing_guidance_merkle_anchor",
-      "target": "context_polygon_anchoring"
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_1_voter_registration_post_voter_register",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_2_candidates_get_candidates_constituency_con_xx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L66",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_3_client_side_elgamal_encryption_frontend_src_utils_elgamal_ts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L84",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_4_vote_casting_post_vote_fn_cast_vote",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L105",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_5_nullifier_current_implementation_and_nabiha_s_redesign",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L133",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_6_shamir_s_secret_sharing_key_ceremony",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L153",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_7_tallying_decryption_post_keyshares_tally",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L175",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_8_merkle_anchoring_post_anchor_batch_get_anchor_verify_voteid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L198",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_9_public_watchdog_get_public_stats_watchdog_page",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_how_to_use_this_document",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L250",
+      "weight": 1.0,
+      "source": "testing_guidance_testing_guidance",
+      "target": "testing_guidance_project_wide_do_not_test",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L107",
+      "weight": 1.0,
+      "source": "testing_guidance_5_nullifier_current_implementation_and_nabiha_s_redesign",
+      "target": "testing_guidance_5a_current_implementation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L116",
+      "weight": 1.0,
+      "source": "testing_guidance_5_nullifier_current_implementation_and_nabiha_s_redesign",
+      "target": "testing_guidance_5b_after_nabiha_s_redesign_secret_salted_nullifier_used_as_the_vote_s_storage_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L230",
+      "weight": 1.0,
+      "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "target": "testing_guidance_11a_digital_signature_integrity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L235",
+      "weight": 1.0,
+      "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "target": "testing_guidance_11b_benaloh_challenge_cast_or_audit_voter_verifiability",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L240",
+      "weight": 1.0,
+      "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "target": "testing_guidance_11c_full_zkp_zk_snark_proof_of_eligibility_validity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "testing_guidance.md",
+      "source_location": "L245",
+      "weight": 1.0,
+      "source": "testing_guidance_11_future_work_test_plans_ready_for_when_these_get_built",
+      "target": "testing_guidance_11d_maci",
+      "confidence_score": 1.0
     },
     {
       "relation": "references",
@@ -11563,56 +11542,6 @@
       "target": "context_merkle_tree"
     },
     {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_merkle_anchor",
-      "target": "context_merkle_tree"
-    },
-    {
-      "relation": "shares_data_with",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_fn_cast_vote",
-      "target": "context_supabase_db"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_double_vote",
-      "target": "context_fn_cast_vote"
-    },
-    {
-      "relation": "conceptually_related_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "context.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "context_ballot_secrecy_gap",
-      "target": "context_nid_hashing"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "CONTRIBUTING.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "contributing_branching_strategy",
-      "target": "contributing_pr_workflow"
-    },
-    {
       "relation": "conceptually_related_to",
       "confidence": "INFERRED",
       "confidence_score": 0.75,
@@ -11623,26 +11552,6 @@
       "target": "contributing_branching_strategy"
     },
     {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "design_guide.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "design_guide_color_palette",
-      "target": "design_guide_css_components"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "design_guide.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "design_guide_color_palette",
-      "target": "design_guide_layout_rules"
-    },
-    {
       "relation": "conceptually_related_to",
       "confidence": "INFERRED",
       "confidence_score": 0.75,
@@ -11651,46 +11560,6 @@
       "weight": 1.0,
       "source": "frontend_public_icons_svg",
       "target": "design_guide_css_components"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_overview",
-      "target": "testing_guidance_double_vote"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_overview",
-      "target": "testing_guidance_merkle_anchor"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_overview",
-      "target": "testing_guidance_tally"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "testing_guidance.md",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "testing_guidance_overview",
-      "target": "testing_guidance_voter_reg"
     },
     {
       "relation": "references",
@@ -11735,20 +11604,6 @@
   ],
   "hyperedges": [
     {
-      "id": "crypto_security_core",
-      "label": "Cryptographic Security Core",
-      "nodes": [
-        "context_elgamal_encryption",
-        "context_shamir_secret_sharing",
-        "context_merkle_tree",
-        "context_zkp_placeholder"
-      ],
-      "relation": "form",
-      "confidence": "EXTRACTED",
-      "confidence_score": 0.95,
-      "source_file": "context.md"
-    },
-    {
       "id": "ci_pipeline_jobs",
       "label": "CI Pipeline (3 Parallel Jobs)",
       "nodes": [
@@ -11760,20 +11615,6 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": ".github/workflows/ci.yml"
-    },
-    {
-      "id": "key_ceremony_flow",
-      "label": "Key Ceremony & Tally Flow",
-      "nodes": [
-        "context_key_ceremony",
-        "context_shamir_secret_sharing",
-        "context_elgamal_encryption",
-        "context_admin_auth"
-      ],
-      "relation": "participate_in",
-      "confidence": "EXTRACTED",
-      "confidence_score": 0.95,
-      "source_file": "context.md"
     }
   ],
   "built_at_commit": "f11c65f24b0ba9917c5ec8a6614fb4742d02bee3"
