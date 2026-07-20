@@ -55,9 +55,9 @@
     "semantic_hash": "91f8a147a17411fd6c7cf4e79e2cac74"
   },
   "backend/src/routes/keyshares.ts": {
-    "mtime": 1783523839.482105,
-    "ast_hash": "457095a4fb8f96b1e3d9a9588ca46e30",
-    "semantic_hash": "457095a4fb8f96b1e3d9a9588ca46e30"
+    "mtime": 1784042229.3247292,
+    "ast_hash": "a3a91dfacfe6de2602017cd6dd883f47",
+    "semantic_hash": ""
   },
   "backend/src/routes/public.ts": {
     "mtime": 1783523839.4826496,
@@ -250,9 +250,9 @@
     "semantic_hash": "22c02317c7f95b275983ddd6d181fda7"
   },
   "frontend/src/pages/VotingPage.tsx": {
-    "mtime": 1783278425.336761,
-    "ast_hash": "4d6769c5c4b872b0500718b0414a3263",
-    "semantic_hash": "4d6769c5c4b872b0500718b0414a3263"
+    "mtime": 1784042205.9561212,
+    "ast_hash": "1cbbfb8df36731bd8a47859fd105b2bc",
+    "semantic_hash": ""
   },
   "frontend/src/routes/AdminRoutes.tsx": {
     "mtime": 1782702901.2107632,
@@ -280,9 +280,9 @@
     "semantic_hash": "539be48c37ba25247e61db540da9d06b"
   },
   "frontend/src/utils/nullifier.ts": {
-    "mtime": 1783278425.337761,
-    "ast_hash": "61541cd0b2fb0f4bfe4cbba22fadb29c",
-    "semantic_hash": "61541cd0b2fb0f4bfe4cbba22fadb29c"
+    "mtime": 1784042189.867267,
+    "ast_hash": "2f865ae8aab9017f0776d46ccaabedb9",
+    "semantic_hash": ""
   },
   "frontend/tailwind.config.ts": {
     "mtime": 1782702901.2127767,
@@ -373,5 +373,10 @@
     "mtime": 1782480848.2846494,
     "ast_hash": "3b4fcfcf393eca4d264dca4a4663bc37",
     "semantic_hash": "3b4fcfcf393eca4d264dca4a4663bc37"
+  },
+  ".vscode/settings.json": {
+    "mtime": 1782702901.2001138,
+    "ast_hash": "b9b42fe84478d19c7a5a63ebfae5f8d4",
+    "semantic_hash": ""
   }
 }
