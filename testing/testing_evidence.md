@@ -149,8 +149,8 @@ curl -s -X POST http://localhost:3000/vote \
 Test voter `NID: 10001000002` was registered, set eligible (`is_eligible = true`, `has_voted = false`), and any existing nullifier/vote rows for this voter were deleted. Two simultaneous `POST /vote` requests were then fired via `Promise.all([p1, p2])`. The `votes` table was queried immediately after to confirm the row count.
 
 ```
-Race 1 Actual: 409 - {"error":"You have already voted"}
-Race 2 Actual: 201 - {"status":"queued","vote_id":"f995ce85-1a25-4aa8-bc9f-fc0752788de1"}
+Race 1 Actual: 201 - {"status":"queued","vote_id":"a89ed31b-99f2-44d2-8656-19594c628070"}
+Race 2 Actual: 409 - {"error":"You have already voted"}
 ```
 
 > Note: which race wins is non-deterministic. The important result is that exactly one received `201` and exactly one received `409`.
@@ -163,9 +163,9 @@ voteCount.count → 1
 
 | Check | Result |
 |---|---|
-| Race 1 HTTP status | `409 Conflict` |
-| Race 2 HTTP status | `201 Created` |
-| `vote_id` created | `f995ce85-1a25-4aa8-bc9f-fc0752788de1` |
+| Race 1 HTTP status | `201 Created` |
+| Race 2 HTTP status | `409 Conflict` |
+| `vote_id` created | `a89ed31b-99f2-44d2-8656-19594c628070` |
 | Vote rows in DB | `1` (never 0 or 2) |
 
 ✅ **PostgreSQL row-level locking inside `fn_cast_vote` and UNIQUE constraint on `votes.nullifier_hash` together guarantee exactly-once semantics under concurrent load. The DB row count of `1` is the definitive proof — neither race produced 0 or 2 rows.** **TC-VOTE-004: PASS**
@@ -268,13 +268,13 @@ Two simultaneous `POST /vote` requests were fired for the same voter (`NID: 1000
 ```
 
 **Actual response:**
-- Race 1 Actual: `409 - {"error":"You have already voted"}`
-- Race 2 Actual: `201 - {"status":"queued","vote_id":"f995ce85-1a25-4aa8-bc9f-fc0752788de1"}`
+- Race 1 Actual: `201 - {"status":"queued","vote_id":"a89ed31b-99f2-44d2-8656-19594c628070"}`
+- Race 2 Actual: `409 - {"error":"You have already voted"}`
 
 | Check | Result |
 |---|---|
-| Race 1 HTTP status | `409 Conflict` |
-| Race 2 HTTP status | `201 Created` |
+| Race 1 HTTP status | `201 Created` |
+| Race 2 HTTP status | `409 Conflict` |
 | Vote rows in DB | `1` (never 0 or 2) |
 
 ✅ **Database transaction locks and unique constraints are perfectly functional, blocking double voting under concurrent conditions.** **TC-NULL-003: PASS**
