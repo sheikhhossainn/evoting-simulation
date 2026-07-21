@@ -10,7 +10,11 @@ import {
   type Candidate,
   type ElGamalPublicKeyResponse,
 } from "../utils/api";
-import { encryptCandidateId } from "../utils/elgamal";
+import {
+  encryptCandidateId,
+  encryptCandidateIdForAudit,
+  verifyEncryptedCandidateId,
+} from "../utils/elgamal";
 
 const PARTY_THEMES: Record<string, { color: string, ring: string, bg: string, accent: string }> = {
   "Progressive Alliance": {
@@ -77,6 +81,14 @@ const VotingPage = () => {
   const [voteError, setVoteError] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<ElGamalPublicKeyResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [auditState, setAuditState] = useState<{
+    candidateId: string;
+    randomness: string;
+    ciphertext: { c1: string; c2: string };
+    verified: boolean;
+  } | null>(null);
+  const [auditMessage, setAuditMessage] = useState<string | null>(null);
+  const [isAuditing, setIsAuditing] = useState(false);
 
   // Load the real candidate roster (DB UUIDs) and the election's ElGamal
   // public key so the ballot can be genuinely encrypted client-side.
@@ -100,10 +112,52 @@ const VotingPage = () => {
 
   const selectedCandidate = candidates.find((c) => c.id === selectedId);
 
+  const resetAuditState = () => {
+    setAuditState(null);
+    setAuditMessage(null);
+    setIsAuditing(false);
+  };
+
   const handleCastVote = () => {
     if (!selectedCandidate) return;
+    resetAuditState();
     setVoteError(null);
     setShowModal(true);
+  };
+
+  const handleAuditBallot = () => {
+    if (!selectedCandidate || !publicKey) return;
+
+    setAuditMessage(null);
+    setAuditState(null);
+    setIsAuditing(true);
+
+    try {
+      const ballot = encryptCandidateIdForAudit(selectedCandidate.id, publicKey);
+      const verified = verifyEncryptedCandidateId(
+        selectedCandidate.id,
+        ballot.randomness,
+        publicKey,
+        ballot.ciphertext
+      );
+
+      setAuditState({
+        candidateId: selectedCandidate.id,
+        randomness: ballot.randomness,
+        ciphertext: ballot.ciphertext,
+        verified,
+      });
+      setAuditMessage(
+        verified
+          ? "Verified ✓ The ciphertext recomputes correctly from the revealed randomness."
+          : "Mismatch ✗ The ciphertext does not recompute from the revealed randomness."
+      );
+    } catch (err) {
+      console.error("Audit failed", err);
+      setAuditMessage("Unable to audit this ballot right now.");
+    } finally {
+      setIsAuditing(false);
+    }
   };
 
   const handleConfirm = async () => {
@@ -112,6 +166,12 @@ const VotingPage = () => {
     if (!publicKey) {
       setVoteError("Encryption key not loaded yet. Please try again in a moment.");
       return;
+    }
+
+    if (auditState) {
+      // Audited ciphertext is for verification only. Clear it so the ballot
+      // is re-encrypted fresh before submitting.
+      resetAuditState();
     }
 
     setIsSubmitting(true);
@@ -239,7 +299,12 @@ const VotingPage = () => {
             return (
               <button
                 key={candidate.id}
-                onClick={() => setSelectedId(candidate.id)}
+                onClick={() => {
+                  if (selectedId !== candidate.id) {
+                    setSelectedId(candidate.id);
+                    resetAuditState();
+                  }
+                }}
                 className={`group relative glass-card p-6 text-left transition-all duration-300 cursor-pointer
                   opacity-0-init
                   ${isSelected ? `ring-2 ${theme.ring} scale-[1.02]` : "hover:scale-[1.01]"}
@@ -346,139 +411,205 @@ const VotingPage = () => {
 
       {/* ── Confirmation Modal ── */}
       {showModal && selectedCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center px-4 py-8 overflow-y-auto bg-slate-900/40">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => {
-              if (!isSubmitting) setShowModal(false);
+              if (!isSubmitting) {
+                resetAuditState();
+                setShowModal(false);
+              }
             }}
           />
 
           {/* Modal card */}
-          <div className="relative glass-card overflow-hidden max-w-sm w-full animate-scale-in">
-             <div
-                className="flex items-center justify-center py-4"
+          <div className="relative glass-card overflow-hidden max-w-2xl w-full h-full animate-scale-in"
+               style={{ maxHeight: 'calc(100vh - 4rem)' }}>
+            <div className="h-full max-h-[calc(100vh-9rem)] overflow-y-auto">
+              <div
+                className="flex items-center justify-center py-4 sticky top-0 z-10"
                 style={{ background: "#0A2540" }}
               >
                 <h3 className="text-base font-semibold text-white">
                   Confirm Your Vote
                 </h3>
               </div>
-            <div className="p-8">
-              {/* Warning icon */}
-              <div className="flex justify-center mb-5">
-                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
-                  <svg
-                    className="w-7 h-7 text-amber-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                    />
-                  </svg>
+              <div className="p-8">
+                {/* Warning icon */}
+                <div className="flex justify-center mb-5">
+                  <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+                    <svg
+                      className="w-7 h-7 text-amber-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                  </div>
                 </div>
-              </div>
 
-              <p className="text-sm text-center mb-6" style={{ color: "#627d98" }}>
-                This action is irreversible. Please verify your selection:
-              </p>
+                <p className="text-sm text-center mb-6" style={{ color: "#627d98" }}>
+                  This action is irreversible. Please verify your selection:
+                </p>
 
-              {/* Selected candidate card */}
-              {(() => {
-                const theme = PARTY_THEMES[selectedCandidate.party] || PARTY_THEMES["Progressive Alliance"];
-                return (
+                {/* Selected candidate card */}
+                {(() => {
+                  const theme = PARTY_THEMES[selectedCandidate.party] || PARTY_THEMES["Progressive Alliance"];
+                  return (
+                    <div
+                      className={`rounded-xl p-4 mb-6 ${theme.bg} border border-slate-200`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{selectedCandidate.symbol}</span>
+                        <div>
+                          <p className="font-semibold" style={{ color: "#0A2540" }}>
+                            {selectedCandidate.name}
+                          </p>
+                          <p className={`text-xs ${theme.accent}`}>
+                            {selectedCandidate.party}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Error message in modal */}
+                {voteError && (
                   <div
-                    className={`rounded-xl p-4 mb-6 ${theme.bg} border border-slate-200`}
+                    className="flex items-start gap-2 rounded-lg border px-4 py-3 text-sm mb-4"
+                    style={{
+                      borderColor: "rgba(244, 42, 65, 0.25)",
+                      background: "rgba(244, 42, 65, 0.04)",
+                      color: "#F42A41",
+                    }}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{selectedCandidate.symbol}</span>
+                    <svg
+                      className="mt-0.5 h-4 w-4 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <span>{voteError}</span>
+                  </div>
+                )}
+
+                <p className="text-xs mb-4" style={{ color: "#627d98" }}>
+                  Audit reveals the randomness used for this ballot. Casting always uses a fresh encryption and never submits the revealed randomness.
+                </p>
+
+                <button
+                  onClick={handleAuditBallot}
+                  disabled={isSubmitting || isAuditing || !publicKey}
+                  className="btn-ghost w-full text-sm py-2.5 mb-4"
+                >
+                  {isAuditing ? "Auditing…" : auditState ? "Re-audit this ballot" : "Audit this ballot"}
+                </button>
+
+                {auditMessage && auditState && (
+                  <div
+                    className={`rounded-lg border px-4 py-3 text-sm mb-4 ${
+                      auditState.verified
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-rose-200 bg-rose-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          auditState.verified ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
+                      />
+                      <span
+                        className={`font-semibold ${
+                          auditState.verified ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {auditState.verified ? "Verified ✓" : "Mismatch ✗"}
+                      </span>
+                    </div>
+                    <p
+                      className={auditState.verified ? "text-emerald-700" : "text-rose-700"}
+                    >
+                      {auditMessage}
+                    </p>
+                    <div className="mt-3 space-y-2 font-mono text-xs break-all">
                       <div>
-                        <p className="font-semibold" style={{ color: "#0A2540" }}>
-                          {selectedCandidate.name}
-                        </p>
-                        <p className={`text-xs ${theme.accent}`}>
-                          {selectedCandidate.party}
-                        </p>
+                        <p className="uppercase tracking-wide text-slate-500">Candidate ID</p>
+                        <p>{auditState.candidateId}</p>
+                      </div>
+                      <div>
+                        <p className="uppercase tracking-wide text-slate-500">Randomness (r)</p>
+                        <p>{auditState.randomness}</p>
+                      </div>
+                      <div>
+                        <p className="uppercase tracking-wide text-slate-500">Ciphertext</p>
+                        <p>c1: {auditState.ciphertext.c1}</p>
+                        <p>c2: {auditState.ciphertext.c2}</p>
                       </div>
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
-              {/* Error message in modal */}
-              {voteError && (
-                <div
-                  className="flex items-start gap-2 rounded-lg border px-4 py-3 text-sm mb-4"
-                  style={{
-                    borderColor: "rgba(244, 42, 65, 0.25)",
-                    background: "rgba(244, 42, 65, 0.04)",
-                    color: "#F42A41",
-                  }}
-                >
-                  <svg
-                    className="mt-0.5 h-4 w-4 flex-shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      resetAuditState();
+                      setShowModal(false);
+                    }}
+                    disabled={isSubmitting}
+                    className="btn-ghost flex-1 text-sm py-2.5"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-                    />
-                  </svg>
-                  <span>{voteError}</span>
+                    Go Back
+                  </button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={isSubmitting}
+                    className="btn-primary flex-1 text-sm py-2.5"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center">
+                        <svg
+                          className="mr-2 h-4 w-4 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Submitting…
+                      </span>
+                    ) : (
+                      "Confirm Vote"
+                    )}
+                  </button>
                 </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowModal(false)}
-                  disabled={isSubmitting}
-                  className="btn-ghost flex-1 text-sm py-2.5"
-                >
-                  Go Back
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={isSubmitting}
-                  className="btn-primary flex-1 text-sm py-2.5"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="mr-2 h-4 w-4 animate-spin"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                      Submitting…
-                    </span>
-                  ) : (
-                    "Confirm Vote"
-                  )}
-                </button>
               </div>
             </div>
           </div>
