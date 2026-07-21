@@ -4,7 +4,7 @@
 
 ## What This Is
 
-Blockchain-based secure e-voting simulation using ZKP (not yet implemented), ElGamal encryption, Shamir's Secret Sharing, and Polygon anchoring. Academic/research project. Monorepo with 4 packages.
+Blockchain-based secure e-voting simulation using ZKP (not yet implemented), ElGamal encryption, Shamir's Secret Sharing, and Ethereum Sepolia anchoring. Academic/research project. Monorepo with 4 packages.
 
 ## Repo & Git
 
@@ -42,17 +42,17 @@ npm run dev:backend            # Backend (Express :3000)
 npm run install:all            # Install deps in frontend, backend, blockchain
 npm run contracts:compile      # Compile MerkleRootStorage.sol
 npm run contracts:test         # Run Hardhat tests (local network, no funds needed)
-npm run contracts:deploy:amoy  # Deploy to Polygon Amoy (needs blockchain/.env)
+npm run contracts:deploy:sepolia  # Deploy to Ethereum Sepolia (needs blockchain/.env)
 ```
 
 Backend requires `backend/.env` — see `backend/.env.example` for all keys.
-Blockchain package requires `blockchain/.env` for Amoy deployment — see `blockchain/.env.example`.
+Blockchain package requires `blockchain/.env` for Sepolia deployment — see `blockchain/.env.example`.
 
 ## Backend `.env` Keys
 
 `PORT`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NID_HASH_SALT`, `NULLIFIER_SECRET`, `ELGAMAL_P`, `ELGAMAL_G`, `ELGAMAL_PUBLIC_KEY`, `ELGAMAL_PRIVATE_KEY`, `KEYHOLDER_PASSPHRASE_SALT`, `ADMIN_SECRET`, `AMOY_RPC_URL` (legacy name — now holds the **Sepolia** RPC URL), `MERKLE_CONTRACT_ADDRESS`, `ANCHOR_PRIVATE_KEY`
 
-> ⚠️ `NULLIFIER_SECRET` (used by `backend/src/crypto/identity.ts` for the salted nullifier) is **missing from `backend/.env.example`** — add it there when touching env files.
+> `NULLIFIER_SECRET` (used by `backend/src/crypto/identity.ts` for the salted nullifier) is now documented in `backend/.env.example` (was previously missing).
 
 Generate crypto keys: `npx ts-node src/scripts/setup-keys.ts`
 Generate Shamir shares: `npx ts-node src/scripts/setup-shamir.ts`
@@ -99,7 +99,7 @@ Stored proc: `fn_cast_vote(p_voter_nid_hash, p_nullifier_hash, p_constituency_co
 | `GET` | `/keyshares/status` | none | ✅ Public: submission counts per keyholder |
 | `GET` | `/keyshares/reconstruct` | none | ✅ Public diagnostic: confirms shares are consistent (never returns key material) |
 | `POST` | `/keyshares/tally` | `x-admin-secret` | ✅ Reconstructs private key **in memory only**, decrypts all votes, returns results grouped by constituency/candidate |
-| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds a Merkle tree from unanchored votes, anchors root on Polygon, flips votes to `confirmed` |
+| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds a Merkle tree from unanchored votes, anchors root on Ethereum Sepolia, flips votes to `confirmed` |
 | `GET` | `/anchor/verify/:voteId` | none | ✅ Public: regenerates + verifies a vote's Merkle inclusion proof, locally and on-chain |
 | `GET` | `/public/stats` | none | ✅ Public Watchdog data: turnout per constituency, key-ceremony progress, anchoring progress |
 | `GET` | `/health` | none | ✅ Health check |
@@ -145,7 +145,7 @@ backend/src/
 blockchain/
 ├── contracts/MerkleRootStorage.sol   ← Ownable; anchorRoot(), verify() via OZ MerkleProof, getBatch()
 ├── test/MerkleRootStorage.test.ts     ← Anchors mock vote batches on local Hardhat network, verifies proofs
-├── scripts/deploy.ts                 ← Deploy to Amoy or local network
+├── scripts/deploy.ts                 ← Deploy to Sepolia or local network
 ├── hardhat.config.ts
 └── .env.example
 ```

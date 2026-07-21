@@ -2,7 +2,7 @@
  * anchor.ts — Merkle batch anchoring for confirmed votes
  *
  * POST /anchor/batch        — (admin) build a Merkle tree from unanchored
- *                              votes and anchor the root on Polygon Amoy
+ *                              votes and anchor the root on Ethereum Sepolia
  * GET  /anchor/verify/:id   — (public) regenerate and verify a single
  *                              vote's Merkle inclusion proof, both locally
  *                              and against the on-chain contract
@@ -58,10 +58,14 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
   const voteId = String(req.params.voteId);
 
   try {
+    // vote_ids is a JSONB column. supabase-js's .contains() serializes a JS
+    // array into Postgres array-literal syntax ({...}), which Postgres then
+    // fails to parse as JSON (the UUID's first hyphen trips the JSON lexer).
+    // Pass a JSON string so the containment check runs as jsonb @> jsonb.
     const { data: batch, error: batchError } = await supabase
       .from("merkle_batches")
       .select("batch_id, root, tx_hash, vote_ids")
-      .contains("vote_ids", [voteId])
+      .contains("vote_ids", JSON.stringify([voteId]))
       .maybeSingle();
 
     if (batchError) {
