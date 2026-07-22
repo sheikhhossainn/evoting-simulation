@@ -1,0 +1,21 @@
+{
+  "test": "concurrent_double_cast",
+  "ran_at": "2026-07-22T10:13:18.134Z",
+  "voter_nid": "10001000002",
+  "nullifier_hash": "953013a6416ef35230b6ed5674868dd587132070bd6b705fe4ee30d77c011f69",
+  "race_1": {
+    "status": 201,
+    "body": {
+      "status": "queued",
+      "vote_id": "7326ef0d-8766-426b-9a63-aef07b64e1b2"
+    }
+  },
+  "race_2": {
+    "status": 409,
+    "body": {
+      "error": "You have already voted"
+    }
+  },
+  "db_vote_row_count": 1,
+  "result": "PASS"
+}

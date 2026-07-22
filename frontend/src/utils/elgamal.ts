@@ -7,6 +7,11 @@
  * Candidate ids are UUIDs (128 bits) encoded by parsing their hex digits
  * directly, not via UTF-8 byte encoding — this keeps the plaintext safely
  * under the 256-bit prime modulus.
+ *
+ * Benaloh cast-or-audit (Task 5):
+ *   • encryptCandidateIdForAudit() — returns ciphertext + revealed randomness r
+ *   • verifyEncryptedCandidateId() — recompute ciphertext from (id, r, pubkey)
+ *   • encryptCandidateId() — cast path only; fresh r, never returned
  */
 
 export interface ElGamalPublicKey {
@@ -18,6 +23,13 @@ export interface ElGamalPublicKey {
 export interface ElGamalCiphertext {
   c1: string; // g^k mod p (hex)
   c2: string; // m * y^k mod p (hex)
+}
+
+/** Result of an audit-path encryption — randomness must never be submitted as a vote. */
+export interface EncryptedBallot {
+  ciphertext: ElGamalCiphertext;
+  /** ElGamal ephemeral exponent k (hex). Docs call this r in the Benaloh challenge. */
+  randomness: string;
 }
 
 function hexToBigInt(hex: string): bigint {
@@ -66,15 +78,11 @@ function encodeCandidateId(id: string): bigint {
   return BigInt("0x" + hex);
 }
 
-/**
- * Encrypt a candidate's UUID for ballot submission.
- *
- * @param candidateId - The candidate's UUID (from GET /candidates)
- * @param pubKey      - The ElGamal public key { p, g, y } (from GET /election/public-key)
- */
-export function encryptCandidateId(
+/** Core ElGamal encrypt with a caller-supplied ephemeral exponent k. */
+function encryptCandidateIdWithK(
   candidateId: string,
-  pubKey: ElGamalPublicKey
+  pubKey: ElGamalPublicKey,
+  k: bigint
 ): ElGamalCiphertext {
   const p = hexToBigInt(pubKey.p);
   const g = hexToBigInt(pubKey.g);
@@ -85,9 +93,62 @@ export function encryptCandidateId(
     throw new Error("Encoded candidate id too large for the prime modulus");
   }
 
-  const k = randomBigIntInRange(p);
   const c1 = modPow(g, k, p);
   const c2 = (m * modPow(y, k, p)) % p;
 
   return { c1: bigIntToHex(c1), c2: bigIntToHex(c2) };
+}
+
+/**
+ * Encrypt a candidate's UUID for ballot submission (cast path).
+ * Uses fresh randomness; k is never returned to the caller.
+ *
+ * @param candidateId - The candidate's UUID (from GET /candidates)
+ * @param pubKey      - The ElGamal public key { p, g, y } (from GET /election/public-key)
+ */
+export function encryptCandidateId(
+  candidateId: string,
+  pubKey: ElGamalPublicKey
+): ElGamalCiphertext {
+  const p = hexToBigInt(pubKey.p);
+  const k = randomBigIntInRange(p);
+  return encryptCandidateIdWithK(candidateId, pubKey, k);
+}
+
+/**
+ * Encrypt for the Benaloh audit path — reveals randomness so the voter
+ * can independently verify the ciphertext matches their chosen candidate.
+ * The returned ciphertext must never be submitted; always re-encrypt on cast.
+ */
+export function encryptCandidateIdForAudit(
+  candidateId: string,
+  pubKey: ElGamalPublicKey
+): EncryptedBallot {
+  const p = hexToBigInt(pubKey.p);
+  const k = randomBigIntInRange(p);
+  return {
+    ciphertext: encryptCandidateIdWithK(candidateId, pubKey, k),
+    randomness: bigIntToHex(k),
+  };
+}
+
+/**
+ * Benaloh verification: recompute ciphertext from (candidate_id, r, public_key)
+ * and check it matches the audited ciphertext exactly.
+ */
+export function verifyEncryptedCandidateId(
+  candidateId: string,
+  randomness: string,
+  pubKey: ElGamalPublicKey,
+  ciphertext: ElGamalCiphertext
+): boolean {
+  try {
+    const k = hexToBigInt(randomness);
+    const recomputed = encryptCandidateIdWithK(candidateId, pubKey, k);
+    return (
+      recomputed.c1 === ciphertext.c1 && recomputed.c2 === ciphertext.c2
+    );
+  } catch {
+    return false;
+  }
 }
