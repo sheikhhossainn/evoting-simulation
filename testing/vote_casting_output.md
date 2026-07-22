@@ -1,6 +1,6 @@
 # Section 4 & 5 Adversarial Test Report
 
-Run at: 2026-07-22T04:53:44.131Z
+Run at: 2026-07-22T10:13:14.046Z
 
 Env loaded from: E:\final\evoting-simulation\backend\.env
 
@@ -29,8 +29,8 @@ Env loaded from: E:\final\evoting-simulation\backend\.env
 > Cleaned up: deleted any existing vote/nullifier rows for nullifier_hash=953013a6416ef352...
 ### Concurrent Double-Cast
 - **Expected**: Exactly one success (201), exactly one rejection (409/403)
-- **Race 1 Actual**: 409 - `{"error":"You have already voted"}`
-- **Race 2 Actual**: 201 - `{"status":"queued","vote_id":"9886e82e-398e-40f7-9595-85a07ad82bd7"}`
+- **Race 1 Actual**: 201 - `{"status":"queued","vote_id":"7326ef0d-8766-426b-9a63-aef07b64e1b2"}`
+- **Race 2 Actual**: 409 - `{"error":"You have already voted"}`
 - **Vote Row Count**: 1 (Expected exactly 1)
 - **Status**: ✅ PASS
 

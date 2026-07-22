@@ -148,13 +148,13 @@ curl -s -X POST http://localhost:3000/vote \
 
 Test voter `NID: 10001000002` was registered, set eligible (`is_eligible = true`, `has_voted = false`), and any existing nullifier/vote rows for this voter were deleted. **Seeding was verified** — a follow-up query confirmed `is_eligible=true, has_voted=false` before firing the race. Two simultaneous `POST /vote` requests were then fired via `Promise.all([p1, p2])`. The `votes` table was queried immediately after to confirm the row count.
 
-**Actual output from test run (2026-07-22T04:53:44Z):**
+**Actual output from test run (2026-07-22T10:13:14Z):**
 
 ```
 > Verified: voter 10001000002 is_eligible=true, has_voted=false (seeding confirmed)
 > Cleaned up: deleted any existing vote/nullifier rows for nullifier_hash=953013a6416ef352...
-Race 1 Actual: 409 - {"error":"You have already voted"}
-Race 2 Actual: 201 - {"status":"queued","vote_id":"9886e82e-398e-40f7-9595-85a07ad82bd7"}
+Race 1 Actual: 201 - {"status":"queued","vote_id":"7326ef0d-8766-426b-9a63-aef07b64e1b2"}
+Race 2 Actual: 409 - {"error":"You have already voted"}
 Vote Row Count: 1 (Expected exactly 1)
 ```
 
@@ -168,9 +168,9 @@ voteCount.count → 1
 
 | Check | Result |
 |---|---|
-| Race 1 HTTP status | `409 Conflict` |
-| Race 2 HTTP status | `201 Created` |
-| `vote_id` created | `9886e82e-398e-40f7-9595-85a07ad82bd7` |
+| Race 1 HTTP status | `201 Created` |
+| Race 2 HTTP status | `409 Conflict` |
+| `vote_id` created | `7326ef0d-8766-426b-9a63-aef07b64e1b2` |
 | Vote rows in DB | `1` (never 0 or 2) |
 | Seeding verified? | Yes — voter state confirmed before race |
 
@@ -529,11 +529,11 @@ Each constituency object has **exactly 4 keys**: `constituency_code`, `registere
 | TC-VOTE-001 | §4 | Unregistered voter rejected | 404 | ✅ 404 "Voter not registered" |
 | TC-VOTE-002 | §4 | Ineligible voter rejected | 403 | ✅ 403 "not eligible to vote" |
 | TC-VOTE-003 | §4 | Malformed payload rejected | 400 | ✅ 400, Zod error for missing c2 |
-| TC-VOTE-004 | §4 | Concurrent double-cast: one wins | 201 + 409, DB count = 1 | ✅ Race 1: 409, Race 2: 201, DB row = 1 (voter seeded + verified, [evidence](file:///e:/final/evoting-simulation/testing/race_condition_response.json)) |
+| TC-VOTE-004 | §4 | Concurrent double-cast: one wins | 201 + 409, DB count = 1 | ✅ Race 1: 201, Race 2: 409, DB row = 1 (voter seeded + verified, [evidence](file:///e:/final/evoting-simulation/testing/race_condition_response.json)) |
 | TC-VOTE-005 | §4 | SQL UPDATE blocked by trigger | DB trigger exception | ✅ "encrypted_vote is immutable after insertion" ([output](file:///e:/final/evoting-simulation/testing/vote_casting_output.md)) |
 | TC-NULL-001 | §5 | Successful vote cast, identity decoupled | 201 + ballot secrecy | ✅ 201, voter_nid_hash removed |
 | TC-NULL-002 | §5 | Double voting blocked after redesign | 409 | ✅ 409 "You have already voted" |
-| TC-NULL-003 | §5 | Concurrent race condition double voting blocked | 201 + 409, DB count = 1 | ✅ Race 1: 409, Race 2: 201, DB row = 1 (voter seeded + verified, [evidence](file:///e:/final/evoting-simulation/testing/race_condition_response.json)) |
+| TC-NULL-003 | §5 | Concurrent race condition double voting blocked | 201 + 409, DB count = 1 | ✅ Race 1: 201, Race 2: 409, DB row = 1 (voter seeded + verified, [evidence](file:///e:/final/evoting-simulation/testing/race_condition_response.json)) |
 | TC-NULL-FORM-001 | §5 | Old formula does not match new | Hashes differ | ✅ Hashes are different |
 | TC-NULL-SCHEMA-001 | §5 | No nid_hash column in votes table | Column absent | ✅ Column not present |
 | TC-KEY-001 | §6 | Duplicate share submission rejected | 409 | ✅ 409 "Share already submitted" |
