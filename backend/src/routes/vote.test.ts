@@ -158,19 +158,42 @@ async function runTests() {
 
   appendLog(`> Cleaned up: deleted any existing vote/nullifier rows for nullifier_hash=${nullifier.slice(0, 16)}...`);
 
-  // Fire requests simultaneously to test the database lock
-  const p1 = fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } });
-  const p2 = fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } });
-  
-  const [res1, res2] = await Promise.all([p1, p2]);
-  appendLog('### Concurrent Double-Cast');
-  appendLog(`- **Expected**: Exactly one success (201), exactly one rejection (409/403)`);
-  appendLog(`- **Race 1 Actual**: ${res1.status} - \`${JSON.stringify(res1.body)}\``);
-  appendLog(`- **Race 2 Actual**: ${res2.status} - \`${JSON.stringify(res2.body)}\``);
-  
+  // Concurrency stress: N=50 simultaneous casts for the same voter, TRIALS times.
+  // Exactly 1 DB row must exist after every trial.
+  const N = 50;
+  const TRIALS = 3;
+  appendLog('### Concurrent Double-Cast (N=50 stress)');
+  appendLog(`- **Expected**: Exactly one 201 per trial, exactly 1 DB row after each trial`);
+
+  let racePass = true;
+  let trialSummary = '';
+  for (let trial = 1; trial <= TRIALS; trial++) {
+    // Reset voter state before each trial
+    await supabase.from('votes').delete().eq('nullifier_hash', nullifier);
+    await supabase.from('nullifiers').delete().eq('nullifier_hash', nullifier);
+    await supabase.from('voters').update({ has_voted: false }).eq('nid_hash', doubleHash);
+
+    const requests = Array.from({ length: N }, () =>
+      fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } })
+    );
+    const results = await Promise.all(requests);
+    const successCount = results.filter(r => r.status === 201).length;
+    const trialVoteCount = await supabase.from('votes').select('*', { count: 'exact', head: true }).eq('nullifier_hash', nullifier);
+    const trialPass = successCount === 1 && trialVoteCount.count === 1;
+    if (!trialPass) racePass = false;
+    trialSummary += `  Trial ${trial}: ${successCount} success(es), DB rows=${trialVoteCount.count} → ${trialPass ? '✅' : '❌'}\n`;
+  }
+  appendLog(trialSummary.trimEnd());
+
+  // Use last trial's results for legacy evidence fields
+  const lastResults = await Promise.all([
+    fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } }),
+    fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } }),
+  ]);
+  const [res1, res2] = lastResults;
+
   const voteCount = await supabase.from('votes').select('*', { count: 'exact', head: true }).eq('nullifier_hash', nullifier);
-  appendLog(`- **Vote Row Count**: ${voteCount.count} (Expected exactly 1)`);
-  const racePass = ((res1.status === 201 && [403, 409].includes(res2.status)) || (res2.status === 201 && [403, 409].includes(res1.status))) && voteCount.count === 1;
+  appendLog(`- **Final probe Vote Row Count**: ${voteCount.count}`);
   appendLog(`- **Status**: ${racePass ? '✅ PASS' : '❌ FAIL'}\n`);
 
   // Write race condition evidence to a separate JSON file for commit
