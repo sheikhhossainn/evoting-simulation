@@ -24,13 +24,14 @@ Command: `npx vitest run src/crypto/shamir.test.ts`
 ## 2. Concurrency Stress (`backend/src/routes/vote.test.ts`)
 
 Deepened the double-cast test from 2 racing requests to **N=50 simultaneous
-casts** for the same voter, repeated over **3 trials**. Each trial asserts:
+casts** for the same voter, repeated over **10 trials**. Each trial asserts:
 - exactly `1` request returns 201 (success),
 - exactly `N-1` (49) requests are rejected with 403/409,
 - exactly `1` DB row exists for the nullifier.
 
-Per-trial evidence is written to `testing/concurrency_stress_output.json` when the
-suite runs against a live server + Supabase.
+Ran against a live backend (`localhost:3000`) + Supabase: **10/10 trials
+passed — successCount=1 and dbRows=1 every trial**. Per-trial evidence is
+committed at `testing/concurrency_stress_output.json`.
 
 ## 3. TC-KEY-002 Fix (`backend/src/routes/keyshares.ts`)
 

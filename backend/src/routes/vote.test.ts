@@ -82,7 +82,7 @@ describe('Vote Casting Adversarial Tests', () => {
     // casts for the same voter simultaneously, repeated over several trials.
     // The DB lock must let exactly ONE through each time — never 0, never 2+.
     const N = 50;
-    const TRIALS = 3;
+    const TRIALS = 10;
     const doubleNid = '10001000002';
     await fetchPost('/voter/register', { nid: doubleNid });
     const doubleHash = crypto.createHash('sha256').update(doubleNid + process.env.NID_HASH_SALT!).digest('hex');

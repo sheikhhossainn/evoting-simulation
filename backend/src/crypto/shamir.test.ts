@@ -20,9 +20,6 @@ describe("shamir 3-of-4 threshold matrix", () => {
   const hexKey = secrets.random(256) as string;
   const shares = splitPrivateKey(hexKey);
   const shareArr = [shares.share1, shares.share2, shares.share3, shares.share4];
-  // 1-based labels so failure messages name the actual shares involved.
-  const label = (subset: string[]) =>
-    subset.map((s) => shareArr.indexOf(s) + 1).join(",");
 
   // ── 1. Full combinatorial: all C(4,3)=4 triples reconstruct the SAME secret ──
   describe("all C(4,3)=4 valid triples reconstruct the same secret", () => {
