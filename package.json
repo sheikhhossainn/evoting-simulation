@@ -8,6 +8,8 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
     "install:all": "npm install --prefix frontend && npm install --prefix backend && npm install --prefix blockchain",
+    "test": "npm run test --prefix backend",
+    "test:ci": "npm run test --prefix backend",
     "build": "npm run build --prefix frontend",
     "contracts:compile": "npm run compile --prefix blockchain",
     "contracts:test": "npm run test --prefix blockchain",
