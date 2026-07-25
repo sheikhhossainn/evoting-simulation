@@ -135,32 +135,63 @@ describe("elgamal property-based tests", () => {
     });
   });
 
-  describe("malformed/out-of-group ciphertext robustness", () => {
-    it("never hangs or throws an unhandled crash on arbitrary garbage ciphertext strings", () => {
+  describe("malformed/out-of-group ciphertext rejection", () => {
+    it("rejects non-hex garbage in c1 or c2 (10k random string pairs)", () => {
       fc.assert(
-        fc.property(fc.string(), fc.string(), (c1, c2) => {
-          let threw = false;
-          let result: string | undefined;
-          try {
-            result = decryptCandidateId({ c1, c2 }, privateKey);
-          } catch {
-            threw = true;
+        fc.property(
+          fc.string({ minLength: 1 }).filter((s) => !/^[0-9a-fA-F]+$/.test(s)),
+          fc.string(),
+          (badC1, c2) => {
+            expect(() =>
+              decryptCandidateId({ c1: badC1, c2 }, privateKey)
+            ).toThrow(/Invalid ciphertext/);
           }
-          expect(threw || typeof result === "string").toBe(true);
-        }),
+        ),
         { numRuns: 10000 }
       );
     });
 
-    it("handles c1 ≡ 0 mod p without throwing (documented degenerate behavior — no group-membership check exists)", () => {
-      const ct: ElGamalCiphertext = { c1: "0", c2: "0" };
-      expect(() => decryptCandidateId(ct, privateKey)).not.toThrow();
+    it("rejects c1 ≡ 0 (not in Z*_p)", () => {
+      const ct: ElGamalCiphertext = { c1: "0", c2: "1" };
+      expect(() => decryptCandidateId(ct, privateKey)).toThrow(
+        /c1 out of range/
+      );
     });
 
-    it("handles an out-of-range c2 (> p) without throwing (no range check exists)", () => {
+    it("rejects out-of-range c2 (≥ p)", () => {
+      // Use a valid c1 from a real encryption so it passes hex + range + subgroup checks
+      const realCt = encryptCandidateId(
+        "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        publicKey
+      );
       const oversizedC2 = (p * 3n + 7n).toString(16);
-      const ct: ElGamalCiphertext = { c1: "2", c2: oversizedC2 };
-      expect(() => decryptCandidateId(ct, privateKey)).not.toThrow();
+      const ct: ElGamalCiphertext = { c1: realCt.c1, c2: oversizedC2 };
+      expect(() => decryptCandidateId(ct, privateKey)).toThrow(
+        /c2 out of range/
+      );
+    });
+
+    it("rejects non-quadratic-residue c1 (not in prime-order subgroup)", () => {
+      // Find a non-QR: for a safe prime p = 2q+1, a value v where v^q ≢ 1 mod p
+      const q = (p - 1n) / 2n;
+      let nonQR = 2n;
+      while (modPow(nonQR, q, p) === 1n) {
+        nonQR += 1n;
+      }
+      const ct: ElGamalCiphertext = {
+        c1: nonQR.toString(16),
+        c2: "1",
+      };
+      expect(() => decryptCandidateId(ct, privateKey)).toThrow(
+        /non-quadratic residue/
+      );
+    });
+
+    it("rejects empty string c1", () => {
+      const ct: ElGamalCiphertext = { c1: "", c2: "1" };
+      expect(() => decryptCandidateId(ct, privateKey)).toThrow(
+        /Invalid ciphertext/
+      );
     });
   });
 });
