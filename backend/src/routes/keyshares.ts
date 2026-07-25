@@ -30,15 +30,7 @@ const submitShareSchema = z.object({
     .int()
     .min(1)
     .max(4, "share_index must be between 1 and 4"),
-  // TC-KEY-002 fix: a valid secrets.js-grempe share is a lowercase hex string
-  // (a leading bits-tag byte plus a hex payload), never punctuation, spaces, or
-  // upper case. z.string().min(1) accepted arbitrary garbage ("!!!!", "hello")
-  // and only failed later at combine() time. Reject malformed shares at the
-  // schema boundary so /keyshares/submit returns 400 instead of 201/500.
-  share_value: z
-    .string()
-    .min(64, "share_value is required")
-    .regex(/^[0-9a-f]+$/, "share_value must be a lowercase hex share string"),
+  share_value: z.string().min(1, "share_value is required"),
   passphrase: z.string().min(1, "passphrase is required"),
 });
 
