@@ -136,4 +136,97 @@ describe("MerkleRootStorage", () => {
       "MerkleRootStorage: root cannot be zero"
     );
   });
+
+  // ── On-chain binding: the Solidity-stored root must equal the TS-computed
+  // root, and OpenZeppelin's MerkleProof.verify (on-chain) must accept exactly
+  // the proofs merkleTree.ts (off-chain) generates. This is what proves the
+  // Hardhat contract and the backend module cannot silently drift apart. ──
+  describe("on-chain / off-chain binding", () => {
+    // 1 (single leaf), 2 (perfect), 3 (odd → duplicate-node path), 50 (odd
+    // intermediate layers), 1000 (large, mixed parity through the layers).
+    for (const size of [1, 2, 3, 50, 1000]) {
+      it(`size ${size}: stored root == TS root and every leaf verifies on-chain`, async () => {
+        const [owner] = await ethers.getSigners();
+        const factory = await ethers.getContractFactory("MerkleRootStorage");
+        const contract = await factory.deploy(owner.address);
+        await contract.waitForDeployment();
+
+        const votes = mockVoteBatch(size);
+        const leaves = votes.map(hashVoteLeaf);
+        const tree = buildMerkleTree(leaves);
+
+        await (await contract.anchorRoot(tree.root, size)).wait();
+
+        // The root Solidity stored is byte-for-byte the TS-computed root.
+        const [storedRoot] = await contract.getBatch(0);
+        expect(storedRoot).to.equal(tree.root);
+
+        // Every off-chain proof verifies against the on-chain OZ verifier.
+        for (let i = 0; i < leaves.length; i++) {
+          const proof = getProof(tree, i);
+          expect(verifyProof(leaves[i], proof, tree.root)).to.equal(true);
+          expect(await contract.verify(0, leaves[i], proof)).to.equal(true);
+        }
+      });
+    }
+
+    it("single-leaf batch: root == leaf and verifies on-chain with an empty proof", async () => {
+      const [owner] = await ethers.getSigners();
+      const factory = await ethers.getContractFactory("MerkleRootStorage");
+      const contract = await factory.deploy(owner.address);
+      await contract.waitForDeployment();
+
+      const leaf = hashVoteLeaf(mockVoteBatch(1)[0]);
+      const tree = buildMerkleTree([leaf]);
+      expect(tree.root).to.equal(leaf); // single-leaf root is the leaf itself
+
+      await (await contract.anchorRoot(tree.root, 1)).wait();
+      const [storedRoot] = await contract.getBatch(0);
+      expect(storedRoot).to.equal(leaf);
+      // OZ MerkleProof.verify with an empty proof reduces to leaf == root.
+      expect(await contract.verify(0, leaf, [])).to.equal(true);
+    });
+  });
+
+  // ── Forged-proof rejection on-chain: the on-chain verifier must reject the
+  // same forgeries the off-chain unit tests reject (flipped sibling, wrong
+  // leaf index, proof from a different tree). ──
+  describe("on-chain forged-proof rejection", () => {
+    function corrupt(hash: string): string {
+      const last = hash.slice(-1);
+      const flipped = last === "0" ? "1" : "0";
+      return hash.slice(0, -1) + flipped;
+    }
+
+    it("rejects flipped-sibling, wrong-index, and cross-tree proofs on-chain", async () => {
+      const [owner] = await ethers.getSigners();
+      const factory = await ethers.getContractFactory("MerkleRootStorage");
+      const contract = await factory.deploy(owner.address);
+      await contract.waitForDeployment();
+
+      const leaves = mockVoteBatch(50).map(hashVoteLeaf);
+      const tree = buildMerkleTree(leaves);
+      await (await contract.anchorRoot(tree.root, 50)).wait();
+
+      const target = 17;
+      const validProof = getProof(tree, target);
+      expect(await contract.verify(0, leaves[target], validProof)).to.equal(
+        true
+      );
+
+      // Flipped sibling hash.
+      const flipped = [...validProof];
+      flipped[0] = corrupt(flipped[0]);
+      expect(await contract.verify(0, leaves[target], flipped)).to.equal(false);
+
+      // Valid proof, wrong leaf.
+      expect(await contract.verify(0, leaves[4], validProof)).to.equal(false);
+
+      // Proof from a different tree.
+      const otherTree = buildMerkleTree(mockVoteBatch(50).map(hashVoteLeaf));
+      expect(
+        await contract.verify(0, leaves[target], getProof(otherTree, target))
+      ).to.equal(false);
+    });
+  });
 });
