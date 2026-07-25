@@ -53,11 +53,13 @@ This document compiles the evidence from Tasks 1, 3, 4, 8A, 8B, and 8C to valida
 ## 6. Benaloh Voter Verifiability
 
 **Property Claimed:** A voter can independently verify their ciphertext matches their chosen candidate without trusting the system.
-**Mechanism:** 
+**Status:** **DESIGN — not yet implemented or test-backed.**
+**Mechanism (proposed):**
 - "Audit" reveals the ephemeral randomness `k`.
 - Anyone can recompute the ciphertext from `(candidateId, k, pubKey)` and check it matches exactly.
-- Enforced by fast-check property test: `∀ candidateId, ∀ k: verify(id, k, pubKey, encryptWithK(id, pubKey, k)) === true`.
 - To prevent coercion, audited ciphertexts are discarded; actual submission uses a fresh `k` which is never revealed.
+
+> **Note:** The current codebase exposes no audit/reveal-`k` endpoint and there is no `encryptWithK`/`verify` implementation, so no property test enforces this yet. The intended enforcing test would be `∀ candidateId, ∀ k: verify(id, k, pubKey, encryptWithK(id, pubKey, k)) === true`. Listed here as future work, not as validated evidence.
 
 ## 7. ElGamal Encryption Properties
 

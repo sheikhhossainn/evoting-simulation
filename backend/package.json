@@ -7,6 +7,7 @@
     "dev": "nodemon",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ci": "vitest run src/crypto/elgamal.test.ts src/crypto/identity.test.ts src/merkle/merkleTree.test.ts",
     "test:merkle": "ts-node src/merkle/merkleTree.test.ts"
   },
   "keywords": [],

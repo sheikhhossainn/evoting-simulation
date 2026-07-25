@@ -40,6 +40,11 @@ jobs:
       # Crypto/Merkle smoke test — pure logic, no DB/chain required.
       - run: npx ts-node src/scripts/test-merkle-batch.ts
         working-directory: backend
+      # Property-based suite (vitest + fast-check): ElGamal, identity/nullifier,
+      # Merkle. DB/server-dependent tests (vote.test.ts) are excluded — they need
+      # a live backend + Supabase, which CI does not provision.
+      - run: npm run test:ci
+        working-directory: backend
 
   contracts:
     runs-on: ubuntu-latest
