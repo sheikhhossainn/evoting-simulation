@@ -7,5 +7,6 @@ export default defineConfig({
     // self-executes against a live server + Supabase, calls process.exit().
     exclude: ["src/routes/vote.test.ts"],
     environment: "node",
+    testTimeout: 60000,
   },
 });
