@@ -50,7 +50,7 @@ The frontend can display something different from what it actually sent.
 
 ### 4. The chain (Sepolia Etherscan)
 On-chain state is the independent witness — never trust only the backend's word about it.
-- **How**: every anchored batch has a `tx_hash` in the `merkle_batches` table. Look it up at https://sepolia.etherscan.io and confirm the transaction exists, targets `0x312621075076Eb379fbE81760A76B5a8E56b95a7`, and succeeded.
+- **How**: every anchored batch has a `tx_hash` in the `merkle_batches` table. Look it up at https://sepolia.etherscan.io and confirm the transaction exists, targets `0x7f228912a2a709010F9419582d021485B5F4d928`, and succeeded.
 - **The core tamper test**: change data in Supabase (a vote's `encrypted_vote`, or a `merkle_batches.vote_ids` entry), then `GET /anchor/verify/:voteId` → must flag tampering (`409`), because the recomputed root no longer matches the on-chain one. If verification still passes after a DB edit, that's the worst possible finding in this entire project — report immediately.
 - **Where the code lives**: `backend/src/merkle/merkleTree.ts` (tree/proof logic — single source of truth, also used by the Hardhat tests), `backend/src/blockchain/merkleContract.ts` (chain reads/writes), `backend/src/routes/anchor.ts` (endpoints), `blockchain/contracts/MerkleRootStorage.sol` (the contract itself).
 
@@ -212,7 +212,7 @@ On-chain state is the independent witness — never trust only the backend's wor
 ## 8. Merkle Anchoring — `POST /anchor/batch`, `GET /anchor/verify/:voteId`
 **Status: built; contract DEPLOYED to Ethereum Sepolia on 2026-07-15 (chain switched from Amoy — see context.md "Deployed Contract"). Live tests unblocked — this section can be tested end-to-end now.**
 
-Contract: `0x312621075076Eb379fbE81760A76B5a8E56b95a7` — https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7
+Contract: `0x7f228912a2a709010F9419582d021485B5F4d928` — https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928
 
 **What to test (local baseline)**
 - `npm test` inside `blockchain/` → must stay 4/4 passing on every PR. This is the baseline regression check — run it locally if CI doesn't cover a change you're reviewing.

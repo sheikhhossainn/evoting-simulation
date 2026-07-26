@@ -9,3 +9,9 @@ typechain-types
 
 # Generated knowledge graph — regenerate locally with `graphify update .` (AST-only, no API cost)
 graphify-out/
+
+# Test env with secrets — never commit
+backend/.env.test
+.env.test
+.env.*
+!.env.example
