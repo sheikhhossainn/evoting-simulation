@@ -6,3 +6,6 @@ db.json
 artifacts
 cache
 typechain-types
+
+# Generated knowledge graph — regenerate locally with `graphify update .` (AST-only, no API cost)
+graphify-out/

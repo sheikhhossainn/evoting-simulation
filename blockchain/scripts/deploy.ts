@@ -4,7 +4,12 @@
  * Local (in-memory Hardhat network):
  *   npm run deploy:local --workspace blockchain
  *
- * Polygon Amoy testnet (requires blockchain/.env — see .env.example):
+ * Ethereum Sepolia testnet (current target chain — requires blockchain/.env,
+ * see .env.example):
+ *   npm run deploy:sepolia --workspace blockchain
+ *
+ * Polygon Amoy testnet (legacy; the amoy network config is retained but the
+ * project switched to Sepolia — see context.md):
  *   npm run deploy:amoy --workspace blockchain
  */
 

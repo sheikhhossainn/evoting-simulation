@@ -1,0 +1,58 @@
+{
+  "test": "concurrent_double_cast_stress",
+  "N": 50,
+  "trials": 10,
+  "voter_nid": "10001000002",
+  "results": [
+    {
+      "trial": 1,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 2,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 3,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 4,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 5,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 6,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 7,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 8,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 9,
+      "successCount": 1,
+      "dbRows": 1
+    },
+    {
+      "trial": 10,
+      "successCount": 1,
+      "dbRows": 1
+    }
+  ]
+}

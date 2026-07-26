@@ -22,6 +22,46 @@ Anything you find that fails an adversarial test is a real finding for the Evalu
 
 ---
 
+## Where to look for issues, and how to look
+
+Bugs in this system hide in four places. For every component you test, check all four — a passing API response alone proves nothing if the DB row underneath is wrong.
+
+### 1. The API surface (curl / Postman)
+Every endpoint is listed in `context.md` → "Backend API". Backend runs on `http://localhost:3000` (`npm run dev:backend`).
+- **How**: send both valid and malformed payloads with `curl`. Always check the HTTP status code, not just the body — a `500` where a `400` belongs is a bug even if "nothing broke."
+- **Where the handlers live**: `backend/src/routes/` — one file per area (`voter.ts`, `vote.ts`, `keyshares.ts`, `anchor.ts`, `public.ts`, `candidates.ts`). When a response looks wrong, open the matching route file and read the validation (Zod schemas at the top) before filing — the bug is usually a missing check there, and citing the file/line makes the report actionable.
+- **Auth checks**: anything sensitive goes through `backend/src/middleware/adminAuth.ts` (`x-admin-secret`) or `backend/src/config/keyholders.ts` (passphrases). Test every protected route once *without* credentials.
+
+### 2. The database (Supabase dashboard → Table Editor / SQL Editor)
+The API can lie; the tables can't. After every write operation, verify the row directly.
+- **Schema of record**: `backend/src/schema.sql` — table shapes, constraints, triggers, and `fn_cast_vote` all live here. If observed DB behavior contradicts this file, one of them is the bug.
+- **Key checks**:
+  - `votes` must contain `nullifier_hash` + `constituency_code` and **no** voter-identifying column — if you can join `votes` to `voters` with any SQL, that's a critical ballot-secrecy finding.
+  - Immutability: `UPDATE votes SET encrypted_vote = '{}' WHERE id = '...'` in the SQL Editor (test env) must raise an exception from the trigger, not succeed.
+  - Counts: after any flow, `SELECT count(*)` the affected table and compare with what the API/UI claims.
+- **How to look**: use the SQL Editor for adversarial writes (they bypass the API on purpose — that's the test), the Table Editor for eyeballing rows.
+
+### 3. The browser (devtools Network + Console tabs)
+The frontend can display something different from what it actually sent.
+- **How**: open devtools *before* starting a flow. On `/voter/vote`, confirm the request body of `POST /vote` contains an ElGamal `{c1,c2}` ciphertext — never a readable candidate UUID or base64 of one. Confirm the page fetched `/election/public-key` and `/candidates` (real UUIDs).
+- **Console attacks**: the crypto helpers are importable — try calling `encryptCandidateId("not-a-uuid", pubkey)` from the console; invalid input must throw client-side (`frontend/src/utils/elgamal.ts`).
+- **Watchdog leak check**: on `/watchdog`, search the Network responses for any candidate name/count — per-candidate results appearing there is a high-priority privacy finding (§9).
+- **Where the client code lives**: `frontend/src/utils/api.ts` (all API calls), `frontend/src/utils/elgamal.ts` (encryption), `frontend/src/pages/` (per-page logic).
+
+### 4. The chain (Sepolia Etherscan)
+On-chain state is the independent witness — never trust only the backend's word about it.
+- **How**: every anchored batch has a `tx_hash` in the `merkle_batches` table. Look it up at https://sepolia.etherscan.io and confirm the transaction exists, targets `0x312621075076Eb379fbE81760A76B5a8E56b95a7`, and succeeded.
+- **The core tamper test**: change data in Supabase (a vote's `encrypted_vote`, or a `merkle_batches.vote_ids` entry), then `GET /anchor/verify/:voteId` → must flag tampering (`409`), because the recomputed root no longer matches the on-chain one. If verification still passes after a DB edit, that's the worst possible finding in this entire project — report immediately.
+- **Where the code lives**: `backend/src/merkle/merkleTree.ts` (tree/proof logic — single source of truth, also used by the Hardhat tests), `backend/src/blockchain/merkleContract.ts` (chain reads/writes), `backend/src/routes/anchor.ts` (endpoints), `blockchain/contracts/MerkleRootStorage.sol` (the contract itself).
+
+### Cross-cutting habits
+- **Reproduce twice before filing.** Flaky ≠ fine, but "did X, got Y, twice, here's the payload" is a report someone can fix.
+- **Check `context.md` "Known Limitations" and "Not Yet Implemented" first** — if it's listed there, it's tracked, not a new bug.
+- **Grep is your friend for leak-hunting**: search backend responses/logs for fragments of `ELGAMAL_PRIVATE_KEY`, `NULLIFIER_SECRET`, or a raw NID. None of these strings may ever appear in any HTTP response or the frontend bundle.
+- **Env drift**: `NULLIFIER_SECRET` is required by `backend/src/crypto/identity.ts` but missing from `backend/.env.example`; `AMOY_RPC_URL` actually holds the Sepolia URL. If a fresh setup fails mysteriously, look at env vars first.
+
+---
+
 ## 1. Voter Registration — `POST /voter/register`
 **Status: built**
 
@@ -94,6 +134,7 @@ Anything you find that fails an adversarial test is a real finding for the Evalu
 - Cast a vote for an ineligible voter (`is_eligible: false` — you'll need to set this directly in Supabase for a test row) → `403`
 - Submit malformed `encrypted_vote` (missing `c1`/`c2`, wrong types, extra fields) → `400`
 - Directly try to `UPDATE` a vote's `encrypted_vote` or `voter_nid_hash` via SQL in Supabase (test env only) → must be rejected by the immutability trigger
+  - **Framing note (important for the paper)**: this trigger is **defense-in-depth**, not the real tamper-evidence guarantee. Our adversary model assumes an attacker with full DB access who *can drop the trigger*. So "trigger blocked the UPDATE" = pass for defense-in-depth, but the *actual* immutability claim is proven on-chain (section 8), not here. If you can drop the trigger and then edit a vote, that is **expected** under our model — the point is that section 8's on-chain verify still catches it. Don't file "I dropped the trigger and edited a vote" as a system-breaking bug; file it only if section 8 then *fails* to detect that edit.
 
 **What NOT to test**
 - Whether the server can validate the vote's *content* is a valid candidate choice at submission time — it can't, there's no ZKP yet. This is a documented, known gap, not a new bug.
@@ -102,22 +143,18 @@ Anything you find that fails an adversarial test is a real finding for the Evalu
 
 ---
 
-## 5. Nullifier — current implementation AND Nabiha's redesign
+## 5. Nullifier — redesigned implementation (secret-salted, vote storage key)
 
-### 5a. Current implementation
-**Status: built (pre-redesign)**
+> **Update 2026-07-16**: Nabiha's redesign is **merged** (PR #17). The old §5a (unsalted nullifier, `voter_nid_hash` as storage key) no longer exists in the code — test the redesign below, now, against `dev`.
 
-**What to test**
-- Same NID + same election ID → same nullifier hash, every time
+**Status: built — test now.** Nullifier is `SHA-256(nid + election_id + NULLIFIER_SECRET)` computed server-side only (`backend/src/crypto/identity.ts`); vote rows store `nullifier_hash` + `constituency_code`, never `voter_nid_hash`.
+
+**What to test (basics still apply)**
+- Same NID + same election ID → same nullifier hash, every time (determinism survives the redesign)
 - `POST /voter/check-nullifier` correctly reports `exists: false` before voting, `exists: true` after
 
-**Known limitation — don't file as a new bug**: the nullifier currently has no secret salt (just `SHA-256(nid + election_id)`), and `votes.voter_nid_hash` (not the nullifier) is the actual storage key. This is what Nabiha is fixing.
-
-### 5b. After Nabiha's redesign (secret-salted nullifier used as the vote's storage key)
-**Status: not built yet — test plan ready for when it lands**
-
-**What to test**
-- The nullifier can no longer be reproduced by anyone without the server-side secret salt — try computing it yourself client-side-only (old formula) and confirm it no longer matches what the server actually uses/stores
+**What to test (redesign-specific)**
+- The nullifier can no longer be reproduced by anyone without the server-side secret salt — try computing it yourself client-side-only (old formula, `SHA-256(nid + election_id)`) and confirm it no longer matches what the server actually uses/stores
 - Votes can no longer be joined straight back to `voters` via a raw `nid_hash` column — check the schema/query path actually goes through the new nullifier-based indirection
 - Double-voting is **still** blocked after the redesign (this must not regress — retest all of section 4's adversarial cases against the new code)
 - Tallying (`POST /keyshares/tally`) still correctly groups results by constituency (confirm the new indirection layer still resolves constituency correctly — this is the trickiest part of the redesign to get right)
@@ -173,25 +210,41 @@ Anything you find that fails an adversarial test is a real finding for the Evalu
 ---
 
 ## 8. Merkle Anchoring — `POST /anchor/batch`, `GET /anchor/verify/:voteId`
-**Status: code built and tested locally; not yet deployed to Amoy**
+**Status: built; contract DEPLOYED to Ethereum Sepolia on 2026-07-15 (chain switched from Amoy — see context.md "Deployed Contract"). Live tests unblocked — this section can be tested end-to-end now.**
 
-**What to test (available now, no Amoy needed)**
+Contract: `0x312621075076Eb379fbE81760A76B5a8E56b95a7` — https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7
+
+**What to test (local baseline)**
 - `npm test` inside `blockchain/` → must stay 4/4 passing on every PR. This is the baseline regression check — run it locally if CI doesn't cover a change you're reviewing.
 
-**What to test (once deployed to Amoy — Sheikh's task)**
+**What to test (live, on Sepolia — Sheikh runs first per LEFTWORK.md Task 1; anchoring is irreversible, seeded data only)**
 - Anchor a real batch, then call `/anchor/verify/:voteId` for a vote in that batch → both `included_locally` and `included_on_chain` must be `true`
+- Cross-check the returned `tx_hash` on Sepolia Etherscan — the anchored root visible on a public chain is the whole point
 - Verify a `vote_id` that was never anchored → `404`
 
-**Adversarial**
+**Adversarial — edit tampering (the core claim)**
 - (Test env only) tamper with a `merkle_batches` row's stored vote list in Supabase, then re-verify a vote from that batch → must return `409` "possible data tampering," never a false-positive valid proof
+- Also edit a vote's `encrypted_vote` directly, then `GET /anchor/verify/:voteId` for that vote → `409`, recomputed root ≠ on-chain root
 - Call `POST /anchor/batch` without `x-admin-secret` → `401`
 - Call `POST /anchor/batch` when there are zero unanchored votes → `400`, no empty batch gets anchored
 
+**Adversarial — deletion / completeness (methodology row 6 — expect a partial/honest result, not a clean pass)**
+- (Test env only) after a batch is anchored, **delete** one anchored vote row *and* remove its id from that batch's `merkle_batches.vote_ids`, then re-verify a *different, surviving* vote from the same batch.
+- Record honestly which of these happens:
+  - Surviving votes still verify `true` (likely) — because a Merkle root proves **inclusion**, not **completeness**. The deleted vote simply "never existed" as far as the surviving proofs know.
+  - Whether anything at all flags that the batch shrank. Today the contract anchors only the root, **not a leaf/vote count**, so a consistent deletion is probably **not detected**.
+- This is a **known boundary**, not a bug to panic over. Write down exactly what you observed. Mitigation (commit a leaf-count on-chain and have the auditor check it) is tracked — the honest "not detected, mitigated by X" result is itself a paper finding.
+
+**Adversarial — pre-anchor window (methodology row 7 — expect not-detectable, that's the point)**
+- Cast a vote but do **not** anchor its batch yet. Edit that vote's `encrypted_vote` in Supabase, then `GET /anchor/verify/:voteId`.
+- Expected: verification cannot flag on-chain tampering because there is **no on-chain root for this vote yet**. This demonstrates the guarantee only holds *after* anchoring — record the result to bound the claim by anchoring cadence.
+- Do **not** file this as a bug. It quantifies the protection window, which the paper states openly.
+
 **What NOT to test**
-- Gas costs or real financial risk — Amoy is a testnet, the token has no real value
+- Gas costs or real financial risk — Sepolia is a testnet, the ETH has no real value
 - Performance/scale of anchoring — this is a simulation, not a production chain with real throughput requirements
 
-**Pass criteria**: on-chain and off-chain verification always agree; tampered data is caught, never silently trusted
+**Pass criteria**: for anchored votes, on-chain and off-chain verification always agree and edit-tampering is caught (`409`); for deletion and pre-anchor cases, the observed result is **recorded honestly** (detected / not detected / mitigated) — these bound the guarantee rather than pass or fail it
 
 ---
 

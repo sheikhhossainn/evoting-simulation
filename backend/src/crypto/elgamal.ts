@@ -101,21 +101,27 @@ function randomBigIntInRange(max: bigint): bigint {
 }
 
 /**
- * Find a generator for Z*_p where p is a safe prime (p = 2q + 1).
- * For a safe prime, g is a generator of the subgroup of order q
- * if g^2 mod p != 1 and g^q mod p != 1.
- * We use a small candidate and verify.
+ * Find a generator for the prime-order subgroup of Z*_p where p is a
+ * safe prime (p = 2q + 1).  The subgroup has order q and consists of
+ * all quadratic residues mod p.
+ *
+ * Strategy: find a generator g0 of the full Z*_p (order p-1), then
+ * square it to obtain h = g0² mod p, which has order q.
  */
 function findGenerator(p: bigint): bigint {
   const q = (p - 1n) / 2n;
-  // Try small candidates starting from 2
-  for (let g = 2n; g < 100n; g++) {
-    if (modPow(g, 2n, p) !== 1n && modPow(g, q, p) !== 1n) {
-      return g;
+  // Find a generator of the full group Z*_p (order p-1):
+  // g0 must satisfy g0^2 ≢ 1 and g0^q ≢ 1 (mod p).
+  for (let g0 = 2n; g0 < 100n; g0++) {
+    if (modPow(g0, 2n, p) !== 1n && modPow(g0, q, p) !== 1n) {
+      // Square to project into the order-q subgroup (quadratic residues)
+      const h = modPow(g0, 2n, p);
+      return h;
     }
   }
-  // Fallback: use random
-  return randomBigIntInRange(p);
+  // Fallback: use random, then square
+  const g0 = randomBigIntInRange(p);
+  return modPow(g0, 2n, p);
 }
 
 // ── Core Functions ──
@@ -265,16 +271,61 @@ export function encryptCandidateId(
   return { c1: bigIntToHex(c1), c2: bigIntToHex(c2) };
 }
 
-/** Decrypt a ballot ciphertext back into the candidate's UUID */
+/**
+ * Validate that a hex string is well-formed and parse it to BigInt.
+ * Throws if the string is empty or contains non-hex characters.
+ */
+function safeHexToBigInt(hex: string, label: string): bigint {
+  if (typeof hex !== "string" || hex.length === 0 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error(`Invalid ciphertext: ${label} is not a valid hex string`);
+  }
+  return BigInt("0x" + hex);
+}
+
+/**
+ * Decrypt a ballot ciphertext back into the candidate's UUID.
+ *
+ * Validates the ciphertext components before decryption:
+ * - c1 and c2 must be valid hex strings
+ * - c1 and c2 must be in range [1, p-1]  (elements of Z*_p)
+ * - c1 must be a member of the prime-order subgroup (c1^q ≡ 1 mod p)
+ *
+ * Throws an Error for any malformed or out-of-group ciphertext.
+ */
 export function decryptCandidateId(
   ciphertext: ElGamalCiphertext,
   privKey: ElGamalPrivateKey
 ): string {
   const p = hexToBigInt(privKey.p);
   const x = hexToBigInt(privKey.x);
+  const q = (p - 1n) / 2n; // safe prime: p = 2q + 1
 
-  const c1 = hexToBigInt(ciphertext.c1);
-  const c2 = hexToBigInt(ciphertext.c2);
+  // ── Validate ciphertext components ──
+
+  const c1 = safeHexToBigInt(ciphertext.c1, "c1");
+  const c2 = safeHexToBigInt(ciphertext.c2, "c2");
+
+  // Range check: c1, c2 ∈ [1, p-1]
+  if (c1 <= 0n || c1 >= p) {
+    throw new Error(
+      `Invalid ciphertext: c1 out of range [1, p-1] (got ${c1})`
+    );
+  }
+  // c2 = m · y^k mod p — can be 0 when m = 0 (e.g. all-zero UUID)
+  if (c2 < 0n || c2 >= p) {
+    throw new Error(
+      `Invalid ciphertext: c2 out of range [0, p-1] (got ${c2 < 0n ? c2 : "≥ p"})`
+    );
+  }
+
+  // Subgroup membership: c1^q ≡ 1 (mod p) for safe-prime subgroup
+  if (modPow(c1, q, p) !== 1n) {
+    throw new Error(
+      "Invalid ciphertext: c1 is not a member of the prime-order subgroup (non-quadratic residue)"
+    );
+  }
+
+  // ── Decrypt ──
 
   const s = modPow(c1, x, p);
   const sInv = modInverse(s, p);
