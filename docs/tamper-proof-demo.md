@@ -3,7 +3,7 @@
 > The centerpiece evidence for the project's core claim: **honest vote data
 > verifies against a public blockchain; tampered data is caught.**
 >
-> This run was executed end-to-end on 2026-07-19 against the live deployed
+> This run was executed end-to-end on 2026-07-26 against the live deployed
 > `MerkleRootStorage` contract on Ethereum Sepolia and the project's Supabase
 > instance. Every command and response below is real, not illustrative.
 
@@ -12,8 +12,8 @@
 | Item | Value |
 |---|---|
 | Chain | Ethereum Sepolia testnet (chainId 11155111) |
-| Contract | `0x312621075076Eb379fbE81760A76B5a8E56b95a7` |
-| Contract explorer | https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7 |
+| Contract | `0x7f228912a2a709010F9419582d021485B5F4d928` |
+| Contract explorer | https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928 |
 | Backend | `npm run dev:backend` → `http://localhost:3000` |
 | Anchoring config | `backend/.env`: `AMOY_RPC_URL` (legacy var name, holds the Sepolia RPC URL), `MERKLE_CONTRACT_ADDRESS`, `ANCHOR_PRIVATE_KEY`, `ADMIN_SECRET` |
 
@@ -49,7 +49,7 @@ curl -s -X POST http://localhost:3000/vote \
 Sample response:
 
 ```json
-{"status":"queued","vote_id":"d05de520-a2a5-49d5-b5a9-fc46343637db"}
+{"status":"queued","vote_id":"8c869d49-41a5-42c8-bf0d-5a33afdb33f2"}
 ```
 
 Record at least one `vote_id` — it's used for verification below.
@@ -67,31 +67,31 @@ curl -s -X POST http://localhost:3000/anchor/batch \
 
 ```json
 {
-  "batch_id": 0,
-  "root": "0xda72243919abca01eda0a118f50a64d9506af85c2d43f999597f578cc1fdd38c",
-  "tx_hash": "0x0bdb8c507cd9f2cf748ca2e052e0dcfdce7a724097caf53aa72f37a43212a27d",
-  "vote_count": 25
+  "batch_id": 1,
+  "root": "0x2531a8a03bb2d9255830164884e9981c3f688226926f7acf5885617608678bf5",
+  "tx_hash": "0xf4c5577b3c016acdfa7ca1f8a7b0c0c93aff5168b721e493543ce961d904316c",
+  "vote_count": 32
 }
 ```
 
 | Field | Value |
 |---|---|
-| `batch_id` | `0` |
-| `root` | `0xda72243919abca01eda0a118f50a64d9506af85c2d43f999597f578cc1fdd38c` |
-| `tx_hash` | `0x0bdb8c507cd9f2cf748ca2e052e0dcfdce7a724097caf53aa72f37a43212a27d` |
-| `vote_count` | `25` |
+| `batch_id` | `1` |
+| `root` | `0x2531a8a03bb2d9255830164884e9981c3f688226926f7acf5885617608678bf5` |
+| `tx_hash` | `0xf4c5577b3c016acdfa7ca1f8a7b0c0c93aff5168b721e493543ce961d904316c` |
+| `vote_count` | `32` |
 
 ### Etherscan evidence
 
-Transaction: https://sepolia.etherscan.io/tx/0x0bdb8c507cd9f2cf748ca2e052e0dcfdce7a724097caf53aa72f37a43212a27d
+Transaction: https://sepolia.etherscan.io/tx/0xf4c5577b3c016acdfa7ca1f8a7b0c0c93aff5168b721e493543ce961d904316c
 
-Verified on the explorer (2026-07-19):
+Verified on the explorer (2026-07-26):
 
 | Field | Value |
 |---|---|
 | Status | **Success** |
-| To (contract) | `0x312621075076Eb379fbE81760A76B5a8E56b95a7` |
-| Block | 11304389 |
+| To (contract) | `0x7f228912a2a709010F9419582d021485B5F4d928` |
+| Block | 11352499 |
 | Event emitted | `BatchAnchored(batchId, merkleRoot, certificateCount, timestamp)` |
 
 ![Sepolia anchoring transaction](img/sepolia-tx-batch0.png)
@@ -101,22 +101,22 @@ Verified on the explorer (2026-07-19):
 ## Step 3 — Verify a vote (local + on-chain must agree)
 
 ```bash
-curl -s http://localhost:3000/anchor/verify/d05de520-a2a5-49d5-b5a9-fc46343637db
+curl -s http://localhost:3000/anchor/verify/8c869d49-41a5-42c8-bf0d-5a33afdb33f2
 ```
 
 **Actual response (HTTP 200):**
 
 ```json
 {
-  "vote_id": "d05de520-a2a5-49d5-b5a9-fc46343637db",
-  "batch_id": 0,
-  "tx_hash": "0x0bdb8c507cd9f2cf748ca2e052e0dcfdce7a724097caf53aa72f37a43212a27d",
-  "root": "0xda72243919abca01eda0a118f50a64d9506af85c2d43f999597f578cc1fdd38c",
+  "vote_id": "8c869d49-41a5-42c8-bf0d-5a33afdb33f2",
+  "batch_id": 1,
+  "tx_hash": "0xf4c5577b3c016acdfa7ca1f8a7b0c0c93aff5168b721e493543ce961d904316c",
+  "root": "0x2531a8a03bb2d9255830164884e9981c3f688226926f7acf5885617608678bf5",
   "proof": [
-    "0x9508f40d4cba7d4dee496e1c5bf2c3f0c5ec4de065ca5c3be7f5aa4c9b37ede9",
-    "0x9323f245dbf2fbae074995c77e9fb8fa45145266dbe140dac61797a9586a357b",
-    "0x94b877d87cee6a4595f92a436368ee628c9eae67b2a9a22eed1429abae3b0b6d",
-    "0xb754193789c5e13dd48973e86308885d3f6921d57ec50dbab4fd97d4b6e04406",
+    "0x03b59425171b7858cc5bb7a013dde3adc932c6f14206f46fb3bcd9c2646314d0",
+    "0x220bd3f894af249a7d5dd7c7dab6e3bb2e2bea5806099ab2ce388f5a83f9f44e",
+    "0x90108a034c42b541e86bb15fe48e3400c3e59e1bc1b8c9df0e74065b9c4e8639",
+    "0xf6a71c6d5622b2536708dab9c5ddf0032059f261d27d8ceb01465a83d0c32c4b",
     "0x2af4eaef7c76bdb20c3a437396e3884fbd732f6de0dac535968e239c9462e05c"
   ],
   "included_locally": true,
@@ -139,10 +139,10 @@ Two independent tamper vectors were exercised by a controlled script
 The script flips the last hex character of the stored `root`, then re-verifies:
 
 ```
-[vector 1] Tampering merkle_batches.root → 0x...fdd380 (was ...fdd38c)
+[vector 1] Tampering merkle_batches.root → 0x...78bf0 (was ...78bf5)
 [vector 1] verify → HTTP 409: {"error":"Recomputed root does not match the
            anchored root — possible data tampering"}
-[vector 1] Restored root → 0x...fdd38c
+[vector 1] Restored root → 0x...78bf5
 [vector 1] post-restore verify → HTTP 200, included_on_chain=true
 ```
 
@@ -152,17 +152,17 @@ returns to `200`.
 
 **Supabase evidence — the `merkle_batches.root` value before and after the tamper:**
 
-Before (original, anchored root ending `...fdd38c`):
+Before (original, anchored root ending `...78bf5`):
 
 ![Supabase merkle_batches before tamper](img/supabase-sql-1.png)
 
-After tamper (root ending `...fdd380`, one hex character flipped):
+After tamper (root ending `...78bf0`, one hex character flipped):
 
 ![Supabase merkle_batches after tamper](img/supabase-sql-2.png)
 
 With the row in the tampered state above, `GET /anchor/verify/:voteId` returns
 `409 "possible data tampering"` for every vote in the batch — the recomputed root
-no longer matches the on-chain root. The row was restored to `...fdd38c` afterward.
+no longer matches the on-chain root. The row was restored to `...78bf5` afterward.
 
 ### Vector 2 — edit `votes.encrypted_vote` → **rejected by DB trigger**
 
@@ -222,7 +222,7 @@ HTTP 401 ✅
 
 | Test | Expected | Actual |
 |---|---|---|
-| Anchor batch | 201 + `batch_id`/`root`/`tx_hash` | ✅ 201, batch 0, 25 votes |
+| Anchor batch | 201 + `batch_id`/`root`/`tx_hash` | ✅ 201, batch 1, 32 votes |
 | On-chain tx | succeeds, `BatchAnchored` | ✅ (verify on Etherscan) |
 | Verify anchored vote | `included_locally` && `included_on_chain` | ✅ both `true` |
 | Tamper `merkle_batches.root` | 409 | ✅ 409, restored to 200 |

@@ -65,9 +65,9 @@ Generate Shamir shares: `npx ts-node src/scripts/setup-shamir.ts`
 
 - **Contract**: `MerkleRootStorage.sol`
 - **Network**: Ethereum Sepolia (testnet, no real money)
-- **Address**: `0x312621075076Eb379fbE81760A76B5a8E56b95a7`
-- **Explorer**: https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7
-- **Deployed**: 2026-07-15 by wallet `0x03A56C16Ce34976a35b22E55b39fE3D1744A04E0`
+- **Address**: `0x7f228912a2a709010F9419582d021485B5F4d928`
+- **Explorer**: https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928
+- **Deployed**: 2026-07-26 by wallet `0xA7D73f178Dc431659b6d865955caEB3967237229` (redeployed after the previous anchor key was rotated; old contract `0x312621075076Eb379fbE81760A76B5a8E56b95a7` abandoned)
 - Deploy command: `npm run contracts:deploy:sepolia` (root) / `deploy:sepolia` (blockchain/)
 - Backend anchoring config lives in `backend/.env`: `MERKLE_CONTRACT_ADDRESS`, `AMOY_RPC_URL` (legacy var name, holds the Sepolia RPC URL), `ANCHOR_PRIVATE_KEY`
 

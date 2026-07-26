@@ -481,7 +481,7 @@ curl -s "http://localhost:3000/public/stats?election_id=NATIONAL-2026-001"
   "anchoring": {
     "batches_anchored": 1,
     "latest_batch": {
-      "tx_hash": "0x0bdb8c507cd9f2cf748ca2e052e0dcfdce7a724097caf53aa72f37a43212a27d",
+      "tx_hash": "0xf4c5577b3c016acdfa7ca1f8a7b0c0c93aff5168b721e493543ce961d904316c",
       "vote_count": 25
     }
   }

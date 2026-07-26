@@ -10,8 +10,8 @@ This document compiles the evidence from Tasks 1, 3, 4, 8A, 8B, and 8C to valida
 - **Command:** `curl -s http://localhost:3000/anchor/verify/vote-12345`
 - **Response:** `409 Conflict`, `{"error": "Recomputed root does not match the anchored root — possible data tampering"}`
 - **Evidence:** 
-  - **Contract Address:** `0x312621075076Eb379fbE81760A76B5a8E56b95a7`
-  - **Etherscan Link:** [Contract on Sepolia](https://sepolia.etherscan.io/address/0x312621075076Eb379fbE81760A76B5a8E56b95a7)
+  - **Contract Address:** `0x7f228912a2a709010F9419582d021485B5F4d928`
+  - **Etherscan Link:** [Contract on Sepolia](https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928)
   - The off-chain and on-chain roots diverge, successfully catching the tamper attempt. See [tamper-proof-demo.md](./tamper-proof-demo.md) for full transaction evidence.
 
 ## 2. Ballot Secrecy & Nullifier Unlinkability (Task 3)
