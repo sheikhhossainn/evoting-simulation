@@ -27,7 +27,34 @@ END $$;
 -- Drop tables if re-running during development (order matters for FK)
 -- DROP TABLE IF EXISTS votes;
 -- DROP TABLE IF EXISTS voters;
+-- DROP TABLE IF EXISTS constituencies;
 -- DROP TYPE IF EXISTS vote_status;
+
+-- =============================================================
+-- 0. CONSTITUENCIES TABLE
+-- =============================================================
+-- Defines the valid set of constituency codes. All other tables
+-- reference this via FK so that only seeded constituencies are
+-- accepted. Must be populated before voters/candidates.
+-- =============================================================
+
+CREATE TABLE constituencies (
+    -- Primary key: the short code (e.g. "CON-01")
+    code            VARCHAR(10) PRIMARY KEY
+                    CONSTRAINT ck_constituency_code_format
+                        CHECK (code ~ '^[A-Z]{2,4}-\d{1,3}$'),
+
+    -- Human-readable name (e.g. "Dhaka North")
+    name            TEXT        NOT NULL
+                    CONSTRAINT ck_constituency_name_not_empty
+                        CHECK (length(trim(name)) > 0),
+
+    -- Timestamp
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Constituencies RLS ──
+ALTER TABLE constituencies ENABLE ROW LEVEL SECURITY;
 
 -- =============================================================
 -- 1. VOTERS TABLE
@@ -68,7 +95,9 @@ CREATE TABLE voters (
     updated_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
 
     -- ── Constraints ──
-    CONSTRAINT uq_voters_nid_hash UNIQUE (nid_hash)
+    CONSTRAINT uq_voters_nid_hash UNIQUE (nid_hash),
+    CONSTRAINT fk_voters_constituency
+        FOREIGN KEY (constituency_code) REFERENCES constituencies (code)
 );
 
 -- ── Voters Indexes ──
@@ -145,7 +174,9 @@ CREATE TABLE votes (
     -- ── Constraints ──
     -- One vote per nullifier — enforces one-person-one-vote without
     -- ever storing which specific person cast which specific vote.
-    CONSTRAINT uq_votes_nullifier_hash UNIQUE (nullifier_hash)
+    CONSTRAINT uq_votes_nullifier_hash UNIQUE (nullifier_hash),
+    CONSTRAINT fk_votes_constituency
+        FOREIGN KEY (constituency_code) REFERENCES constituencies (code)
 );
 
 -- ── Votes Indexes ──
@@ -203,7 +234,9 @@ CREATE TABLE candidates (
     -- ── Constraints ──
     -- A candidate can only stand in one constituency (name + constituency unique)
     CONSTRAINT uq_candidate_per_constituency
-        UNIQUE (name, constituency_code)
+        UNIQUE (name, constituency_code),
+    CONSTRAINT fk_candidates_constituency
+        FOREIGN KEY (constituency_code) REFERENCES constituencies (code)
 );
 
 -- ── Candidates Indexes ──

@@ -95,8 +95,10 @@ async function apiFetch<T>(
   return data as T;
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+async function apiGet<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: headers ? { ...headers } : undefined,
+  });
   const data = await res.json();
 
   if (!res.ok) {
@@ -167,12 +169,14 @@ export async function checkNullifier(
  */
 export async function submitVote(
   nid: string,
+  candidateId: string,
   encryptedVote: { c1: string; c2: string },
   electionId: string
 ): Promise<SubmitVoteResponse> {
   try {
     return await apiFetch<SubmitVoteResponse>("/vote", {
       nid,
+      candidate_id: candidateId,
       encrypted_vote: encryptedVote,
       election_id: electionId,
     });
@@ -217,17 +221,20 @@ export async function getElectionPublicKey(): Promise<ElGamalPublicKeyResponse> 
  * `candidates` table so decrypted tallies can be joined back to names.
  */
 export async function getCandidates(
-  constituencyCode: string
+  voterNid: string
 ): Promise<CandidatesResponse> {
   try {
     return await apiGet<CandidatesResponse>(
-      `/candidates?constituency=${encodeURIComponent(constituencyCode)}`
+      `/candidates`,
+      { "x-voter-nid": voterNid }
     );
   } catch (err) {
     if (err instanceof TypeError) {
       const res = await fetch("/candidates.json");
       const all = await res.json();
-      const constId = parseInt(constituencyCode.replace("CON-", ""));
+      const firstFour = parseInt(voterNid.slice(0, 4)) || 0;
+      const constId = (firstFour % 8) + 1;
+      const constituencyCode = `CON-${String(constId).padStart(2, "0")}`;
       return {
         constituency_code: constituencyCode,
         candidates: all

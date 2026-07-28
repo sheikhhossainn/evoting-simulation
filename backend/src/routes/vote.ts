@@ -42,6 +42,7 @@ const router = Router();
 
 const voteSchema = z.object({
   nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
+  candidate_id: z.string().uuid("candidate_id must be a valid UUID"),
   encrypted_vote: z.object({
     c1: z.string().min(1, "c1 is required"),
     c2: z.string().min(1, "c2 is required"),
@@ -58,7 +59,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid, encrypted_vote, election_id } = parsed.data;
+  const { nid, candidate_id, encrypted_vote, election_id } = parsed.data;
 
   // ── Derive everything server-side from the raw NID ──
   // The raw NID is used only here, transiently, and is never persisted.
@@ -87,7 +88,35 @@ router.post("/vote", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── Step 2: Cast vote using atomic stored procedure ──
+    // ── Step 2: Constituency guard — reject cross-constituency votes ──
+    // Look up the candidate and verify they belong to the voter's constituency.
+    // This is a server-side enforcement; the frontend already filters candidates
+    // by constituency, but we don't trust the client.
+    const { data: candidateRow, error: candidateLookupError } = await supabase
+      .from("candidates")
+      .select("id, constituency_code")
+      .eq("id", candidate_id)
+      .maybeSingle();
+
+    if (candidateLookupError) {
+      console.error("Supabase candidate lookup error:", candidateLookupError);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+
+    if (!candidateRow) {
+      res.status(404).json({ error: "Candidate not found" });
+      return;
+    }
+
+    if (candidateRow.constituency_code !== constituencyCode) {
+      res.status(403).json({
+        error: "Candidate is not in your constituency",
+      });
+      return;
+    }
+
+    // ── Step 3: Cast vote using atomic stored procedure ──
     // fn_cast_vote handles: voter lookup (by nid_hash), eligibility check,
     // vote insertion (by nullifier_hash + constituency_code — never
     // nid_hash), and the has_voted flip — all in one transaction.

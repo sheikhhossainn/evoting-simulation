@@ -93,7 +93,7 @@ const VotingPage = () => {
   // Load the real candidate roster (DB UUIDs) and the election's ElGamal
   // public key so the ballot can be genuinely encrypted client-side.
   useEffect(() => {
-    getCandidates(constituencyCode)
+    getCandidates(voterNid)
       .then((res) => setCandidates(res.candidates))
       .catch((err) => {
         console.error("Failed to load candidates", err);
@@ -108,7 +108,7 @@ const VotingPage = () => {
           "Unable to load the election's encryption key. Please ensure the backend is running."
         );
       });
-  }, [constituencyCode]);
+  }, [constituencyCode, voterNid]);
 
   const selectedCandidate = candidates.find((c) => c.id === selectedId);
 
@@ -196,7 +196,7 @@ const VotingPage = () => {
       // 3. Submit vote to backend. Only the raw NID (for server-side
       // derivation) and the encrypted ballot are sent — no client-computed
       // hashes.
-      const result = await submitVote(voterNid, encryptedVote, ELECTION_ID);
+      const result = await submitVote(voterNid, selectedCandidate.id, encryptedVote, ELECTION_ID);
 
       // 4. Success — navigate to confirmation
       navigate("/voter/confirmation", {
