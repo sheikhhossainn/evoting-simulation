@@ -5,6 +5,7 @@ const navLinks = [
   { label: "Home", path: "/" },
   { label: "How to Vote", path: "/how-to-vote" },
   { label: "Watchdog", path: "/watchdog" },
+  { label: "Tamper Demo", path: "/visualizer" },
   { label: "About", path: "/about" },
 ] as const;
 

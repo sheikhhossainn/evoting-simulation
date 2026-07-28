@@ -504,3 +504,137 @@ export async function getPublicResults(): Promise<PublicResultsResponse> {
     throw err;
   }
 }
+
+// ── Tamper-Proof Visualizer ──
+//
+// Backs frontend/src/pages/TamperVisualizer.tsx. The tamper/restore calls hit
+// admin-guarded backend routes (x-admin-secret, same pattern as runTally) and
+// operate on seeded/mock data only.
+
+export interface LatestBatchResponse {
+  batch_id: number;
+  root: string;
+  tx_hash: string;
+  vote_count: number;
+  created_at: string;
+  sample_vote_id: string | null;
+}
+
+/** Latest anchored batch + a sample vote id, for the anchor-status zone. */
+export async function getLatestBatch(): Promise<LatestBatchResponse> {
+  return apiGet<LatestBatchResponse>("/anchor/latest");
+}
+
+/**
+ * The three verify outcomes the visualizer must distinguish. Crucially, a
+ * 409 (tamper detected) is NOT an error here — it's the demo's whole point —
+ * so we surface it as a first-class state instead of letting it throw.
+ */
+export type VerifyOutcome =
+  | { kind: "verified"; data: VoteVerifyResponse }
+  | { kind: "tampered"; message: string }
+  | { kind: "not_anchored"; message: string }
+  | { kind: "error"; message: string };
+
+/**
+ * Verify a vote and classify the result for the visualizer. Wraps
+ * verifyVoteAnchor's raw endpoint but maps 409 → "tampered" and 404 →
+ * "not_anchored" rather than throwing.
+ */
+export async function verifyVoteOutcome(voteId: string): Promise<VerifyOutcome> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/anchor/verify/${encodeURIComponent(voteId)}`
+    );
+    const data = await res.json();
+
+    if (res.status === 409) {
+      return {
+        kind: "tampered",
+        message:
+          typeof data.error === "string"
+            ? data.error
+            : "Recomputed root does not match the anchored root — possible data tampering",
+      };
+    }
+    if (res.status === 404) {
+      return {
+        kind: "not_anchored",
+        message:
+          typeof data.error === "string"
+            ? data.error
+            : "Vote not found in any anchored batch yet",
+      };
+    }
+    if (!res.ok) {
+      return {
+        kind: "error",
+        message: typeof data.error === "string" ? data.error : "Verification failed",
+      };
+    }
+    return { kind: "verified", data: data as VoteVerifyResponse };
+  } catch {
+    return {
+      kind: "error",
+      message: "Backend unreachable — is the server running on :3000?",
+    };
+  }
+}
+
+async function adminPost<T>(
+  path: string,
+  adminSecret: string,
+  body: Record<string, unknown> = {}
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-secret": adminSecret,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const message = typeof data.error === "string" ? data.error : "Request failed";
+    throw new ApiError(message, res.status, data);
+  }
+  return data as T;
+}
+
+export interface TamperRootResponse {
+  batch_id: number;
+  original_root: string;
+  tampered_root: string;
+  note: string;
+}
+
+export interface RestoreRootResponse {
+  batch_id: number;
+  restored_root: string;
+  was_tampered: boolean;
+  note: string;
+}
+
+export interface TamperBallotResponse {
+  batch_id: number;
+  vote_id: string;
+  blocked: boolean;
+  db_message: string | null;
+  note: string;
+}
+
+/** Vector 1: edit the anchored root in the DB (defaults to latest batch). */
+export function tamperRoot(adminSecret: string): Promise<TamperRootResponse> {
+  return adminPost<TamperRootResponse>("/anchor/tamper/root", adminSecret);
+}
+
+/** Undo vector 1: recompute and write back the true root (repeatable). */
+export function restoreRoot(adminSecret: string): Promise<RestoreRootResponse> {
+  return adminPost<RestoreRootResponse>("/anchor/restore/root", adminSecret);
+}
+
+/** Vector 2: attempt an encrypted_vote edit; the DB trigger should block it. */
+export function tamperBallot(adminSecret: string): Promise<TamperBallotResponse> {
+  return adminPost<TamperBallotResponse>("/anchor/tamper/ballot", adminSecret);
+}

@@ -6,6 +6,7 @@ import LandingPage from "./pages/LandingPage";
 import HowToVote from "./pages/HowToVote";
 import About from "./pages/About";
 import PublicWatchdog from "./pages/PublicWatchdog";
+import TamperVisualizer from "./pages/TamperVisualizer";
 
 // ── Standalone portal pages (no Navbar — focused experience) ──
 import VoterLogin from "./pages/VoterLogin";
@@ -28,6 +29,7 @@ function App() {
           <Route path="/how-to-vote" element={<HowToVote />} />
           <Route path="/about" element={<About />} />
           <Route path="/watchdog" element={<PublicWatchdog />} />
+          <Route path="/visualizer" element={<TamperVisualizer />} />
         </Route>
 
         {/* ── Voter portal (standalone — no navbar) ── */}
