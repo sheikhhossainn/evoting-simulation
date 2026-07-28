@@ -1,10 +1,10 @@
 /**
- * seed-candidates.ts — Seed candidates into Supabase from candidates.json
+ * seed-constituencies.ts — Seed constituencies and candidates into Supabase
  *
- * Run: npx ts-node src/scripts/seed-candidates.ts
+ * Run: npx ts-node src/scripts/seed-constituencies.ts
  *
- * Reads frontend/public/candidates.json, maps constituencyId → CON-XX,
- * and inserts into the Supabase candidates table.
+ * Seeds the 8 predefined constituencies and then reads
+ * frontend/public/candidates.json to populate the candidates table.
  */
 
 import fs from "fs";
@@ -34,9 +34,36 @@ interface CandidateJson {
   symbol: string;
 }
 
-async function main() {
-  console.log("\n🗳️  Seeding candidates into Supabase...\n");
+const CONSTITUENCIES = [
+  { code: "CON-01", name: "Dhaka North" },
+  { code: "CON-02", name: "Dhaka South" },
+  { code: "CON-03", name: "Chattogram City" },
+  { code: "CON-04", name: "Rajshahi Central" },
+  { code: "CON-05", name: "Khulna Metro" },
+  { code: "CON-06", name: "Sylhet City" },
+  { code: "CON-07", name: "Barishal Sadar" },
+  { code: "CON-08", name: "Rangpur Metro" },
+];
 
+async function main() {
+  console.log("\n🗳️  Seeding constituencies and candidates into Supabase...\n");
+
+  // 1. Seed Constituencies
+  console.log("  Seeding 8 constituencies...");
+  const { error: conError } = await supabase
+    .from("constituencies")
+    .upsert(CONSTITUENCIES, {
+      onConflict: "code",
+      ignoreDuplicates: true,
+    });
+
+  if (conError) {
+    console.error("❌ Supabase error seeding constituencies:", conError.message);
+    process.exit(1);
+  }
+  console.log("  ✅ Constituencies seeded.\n");
+
+  // 2. Seed Candidates
   const jsonPath = path.join(__dirname, "../../../frontend/public/candidates.json");
 
   if (!fs.existsSync(jsonPath)) {
@@ -57,15 +84,16 @@ async function main() {
   }));
 
   // Upsert in batches
-  const { data, error } = await supabase
+  console.log("  Seeding candidates...");
+  const { data, error: canError } = await supabase
     .from("candidates")
     .upsert(candidates, {
       onConflict: "name,constituency_code",
       ignoreDuplicates: true,
     });
 
-  if (error) {
-    console.error("❌ Supabase error:", error.message);
+  if (canError) {
+    console.error("❌ Supabase error seeding candidates:", canError.message);
     process.exit(1);
   }
 
@@ -80,7 +108,7 @@ async function main() {
     console.log(`    ${code}: ${count} candidates`);
   }
 
-  console.log(`\n✅ ${candidates.length} candidates seeded\n`);
+  console.log(`\n✅ ${candidates.length} candidates seeded successfully.\n`);
 }
 
 main().catch(console.error);
