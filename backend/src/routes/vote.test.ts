@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
+import { constituencyFromNid } from '../crypto/identity';
 
 // Load test environment variables
 const envTestPath = path.resolve(__dirname, '../../.env.test');
@@ -35,10 +36,33 @@ async function fetchPost(urlPath: string, body: any) {
   return { status: res.status, body: await res.json() };
 }
 
+// /vote now requires a real candidate_id whose constituency_code matches
+// the voter's derived constituency (server-side constituency guard, see
+// vote.ts). Tests must look up a genuinely seeded candidate rather than
+// sending a placeholder id, or every request is rejected at that guard
+// before it ever reaches the check the test is actually trying to exercise.
+async function candidateIdForNid(nid: string): Promise<string> {
+  const constituency = constituencyFromNid(nid);
+  const { data, error } = await supabase
+    .from('candidates')
+    .select('id')
+    .eq('constituency_code', constituency)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error(
+      `No seeded candidate found for constituency ${constituency} (nid ${nid}) — run seed-constituencies/seed-candidates first.`
+    );
+  }
+  return data.id;
+}
+
 describe('Vote Casting Adversarial Tests', () => {
   it('rejects unregistered voter (404)', async () => {
+    const unregNid = '99999999999';
     const unregRes = await fetchPost('/vote', {
-      nid: '99999999999',
+      nid: unregNid,
+      candidate_id: await candidateIdForNid(unregNid),
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: { c1: 'c1', c2: 'c2' }
     });
@@ -56,12 +80,13 @@ describe('Vote Casting Adversarial Tests', () => {
       .select('is_eligible')
       .eq('nid_hash', inelHash)
       .single();
-    
+
     expect(verifyInelErr).toBeNull();
     expect(verifyInel?.is_eligible).toBe(false);
-    
+
     const inelRes = await fetchPost('/vote', {
       nid: inelNid,
+      candidate_id: await candidateIdForNid(inelNid),
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: { c1: 'c1', c2: 'c2' }
     });
@@ -69,40 +94,55 @@ describe('Vote Casting Adversarial Tests', () => {
   });
 
   it('rejects malformed payload (400)', async () => {
+    const malNid = '10001234571';
     const malRes = await fetchPost('/vote', {
-      nid: '10001234571',
+      nid: malNid,
+      candidate_id: await candidateIdForNid(malNid),
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: { c1: 'c1' } // missing c2
     });
     expect(malRes.status).toBe(400);
   });
 
-  it('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
+  // SKIPPED: each of the 10 trials below inserts a real, successful vote row
+  // (via fn_cast_vote), and trg_votes_no_delete now makes every one of them
+  // permanent — there's no way to reset between trials or clean up after,
+  // and no separate test DB yet (this file points at the same project as
+  // the live app — see .env). Running this would leave 10 fake votes in the
+  // real database on every run. Unskip once a dedicated test DB exists;
+  // concurrency_stress_output.json remains as the last verified evidence
+  // until then.
+  it.skip('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
     // Concurrency stress: instead of 2 racing requests, fire N=50 identical
     // casts for the same voter simultaneously, repeated over several trials.
     // The DB lock must let exactly ONE through each time — never 0, never 2+.
     const N = 50;
     const TRIALS = 10;
-    const doubleNid = '10001000002';
-    await fetchPost('/voter/register', { nid: doubleNid });
-    const doubleHash = crypto.createHash('sha256').update(doubleNid + process.env.NID_HASH_SALT!).digest('hex');
-
-    const nullifierSecret = process.env.NULLIFIER_SECRET!;
     const electionId = 'NATIONAL-2026-001';
-    const nullifier = crypto.createHash('sha256').update(doubleNid + electionId + nullifierSecret).digest('hex');
-
-    const evidence: Array<{ trial: number; successCount: number; dbRows: number | null }> = [];
+    const evidence: Array<{ trial: number; nid: string; successCount: number; dbRows: number | null }> = [];
 
     for (let trial = 1; trial <= TRIALS; trial++) {
-      // Reset voter + vote/nullifier state before each trial so every trial
-      // starts from a clean "eligible, has not voted" baseline.
-      await supabase.from('votes').delete().eq('nullifier_hash', nullifier);
-      await supabase.from('nullifiers').delete().eq('nullifier_hash', nullifier);
-      await supabase.from('voters').update({ is_eligible: true, has_voted: false }).eq('nid_hash', doubleHash);
+      // Each trial uses a fresh, never-before-used NID instead of resetting
+      // shared state between trials. votes rows can no longer be deleted
+      // (trg_votes_no_delete — see schema.sql), so a delete-and-reuse reset
+      // is no longer possible; giving every trial its own voter is cleaner
+      // anyway — fully independent trials, nothing to reset.
+      const trialNid = `1000100${String(9000 + trial)}`; // 11 digits total
+      await fetchPost('/voter/register', { nid: trialNid });
+      const trialCandidateId = await candidateIdForNid(trialNid);
+      const trialNullifier = crypto
+        .createHash('sha256')
+        .update(trialNid + electionId + process.env.NULLIFIER_SECRET!)
+        .digest('hex');
 
       // Fire N identical casts simultaneously to hammer the database lock.
       const requests = Array.from({ length: N }, () =>
-        fetchPost('/vote', { nid: doubleNid, election_id: electionId, encrypted_vote: { c1: 'c1', c2: 'c2' } })
+        fetchPost('/vote', {
+          nid: trialNid,
+          candidate_id: trialCandidateId,
+          election_id: electionId,
+          encrypted_vote: { c1: 'c1', c2: 'c2' },
+        })
       );
       const results = await Promise.all(requests);
 
@@ -110,9 +150,9 @@ describe('Vote Casting Adversarial Tests', () => {
       const voteCount = await supabase
         .from('votes')
         .select('*', { count: 'exact', head: true })
-        .eq('nullifier_hash', nullifier);
+        .eq('nullifier_hash', trialNullifier);
 
-      evidence.push({ trial, successCount, dbRows: voteCount.count });
+      evidence.push({ trial, nid: trialNid, successCount, dbRows: voteCount.count });
 
       // Exactly one request wins; every other is rejected (409/403); one row lands.
       expect(successCount).toBe(1);
@@ -125,7 +165,7 @@ describe('Vote Casting Adversarial Tests', () => {
     fs.writeFileSync(
       evidencePath,
       JSON.stringify(
-        { test: 'concurrent_double_cast_stress', N, trials: TRIALS, voter_nid: doubleNid, results: evidence },
+        { test: 'concurrent_double_cast_stress', N, trials: TRIALS, results: evidence },
         null,
         2
       )
