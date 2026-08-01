@@ -75,6 +75,11 @@ const VotingPage = () => {
     `CON-${String(((parseInt(voterNid.slice(0, 4)) || 0) % 8) + 1).padStart(2, "0")}`;
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  // Server-derived constituency from the authenticated /candidates response —
+  // the source of truth once loaded. Falls back to the router-state/derived
+  // constituencyCode only until that response arrives.
+  const [resolvedConstituency, setResolvedConstituency] = useState<string | null>(null);
+  const displayConstituency = resolvedConstituency ?? constituencyCode;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +99,10 @@ const VotingPage = () => {
   // public key so the ballot can be genuinely encrypted client-side.
   useEffect(() => {
     getCandidates(voterNid)
-      .then((res) => setCandidates(res.candidates))
+      .then((res) => {
+        setCandidates(res.candidates);
+        setResolvedConstituency(res.constituency_code);
+      })
       .catch((err) => {
         console.error("Failed to load candidates", err);
         setLoadError("Unable to load candidates. Please ensure the backend is running.");
@@ -252,10 +260,7 @@ const VotingPage = () => {
               National Election 2026
             </span>
           </div>
-          <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-between sm:justify-end gap-4">
-             <span className="text-xs font-semibold" style={{ color: "#627d98" }}>
-              Constituency {constituencyCode}
-            </span>
+          <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-end gap-4">
             <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-slate-100 border border-slate-200">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs font-mono" style={{ color: "#0A2540" }}>
@@ -263,6 +268,37 @@ const VotingPage = () => {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Constituency banner */}
+        <div
+          className="mb-8 rounded-xl px-6 py-4 flex items-center gap-3 animate-fade-in-up"
+          style={{
+            background: "rgba(0, 106, 78, 0.06)",
+            border: "1px solid rgba(0, 106, 78, 0.2)",
+          }}
+        >
+          <svg
+            className="w-5 h-5 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="#006A4E"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+            />
+          </svg>
+          <p className="text-sm font-medium" style={{ color: "#0A2540" }}>
+            You are voting in <span className="font-bold">{displayConstituency}</span> constituency
+          </p>
         </div>
 
         {/* Title */}
