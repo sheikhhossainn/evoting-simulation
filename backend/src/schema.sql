@@ -302,6 +302,22 @@ CREATE TRIGGER trg_votes_immutable
     BEFORE UPDATE ON votes
     FOR EACH ROW EXECUTE FUNCTION fn_votes_immutable_guard();
 
+-- ── Deletion guard: cast votes may never be removed ──
+-- A vote row is part of the permanent audit/tally record once inserted.
+-- Processing only ever UPDATEs mutable fields (status, tx_hash, zkp_proof)
+-- — nothing in normal operation should ever DELETE a vote row, so any
+-- DELETE attempt is rejected outright, same as the UPDATE guard above.
+CREATE OR REPLACE FUNCTION fn_votes_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'votes rows are immutable and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_votes_no_delete
+    BEFORE DELETE ON votes
+    FOR EACH ROW EXECUTE FUNCTION fn_votes_no_delete();
+
 -- =============================================================
 -- 4. STORED PROCEDURES
 -- =============================================================
