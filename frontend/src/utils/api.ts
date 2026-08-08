@@ -166,12 +166,17 @@ export async function checkNullifier(
  * Submit the encrypted vote. The backend derives nid_hash (eligibility),
  * nullifier_hash (double-vote prevention / vote storage key), and
  * constituency_code (tally grouping) from the raw NID server-side.
+ *
+ * Optionally includes a ZKP proof of ballot validity and the candidate
+ * list used to generate it.
  */
 export async function submitVote(
   nid: string,
   candidateId: string,
   encryptedVote: { c1: string; c2: string },
-  electionId: string
+  electionId: string,
+  zkpProof?: { challenges: string[]; responses: string[] },
+  candidateIds?: string[]
 ): Promise<SubmitVoteResponse> {
   try {
     return await apiFetch<SubmitVoteResponse>("/vote", {
@@ -179,6 +184,8 @@ export async function submitVote(
       candidate_id: candidateId,
       encrypted_vote: encryptedVote,
       election_id: electionId,
+      ...(zkpProof && { zkp_proof: zkpProof }),
+      ...(candidateIds && { candidate_ids: candidateIds }),
     });
   } catch (err) {
     if (err instanceof TypeError) {

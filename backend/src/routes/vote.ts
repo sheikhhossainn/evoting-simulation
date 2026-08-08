@@ -35,6 +35,8 @@ import {
   computeNullifier,
   constituencyFromNid,
 } from "../crypto/identity";
+import { verifyBallotValidity } from "../crypto/zkp";
+import { loadPublicKeyFromEnv } from "../crypto/elgamal";
 
 const router = Router();
 
@@ -48,6 +50,11 @@ const voteSchema = z.object({
     c2: z.string().min(1, "c2 is required"),
   }),
   election_id: z.string().min(1, "election_id is required"),
+  zkp_proof: z.object({
+    challenges: z.array(z.string().min(1)),
+    responses: z.array(z.string().min(1)),
+  }).optional(),
+  candidate_ids: z.array(z.string().uuid()).optional(),
 });
 
 // ── Route ──
@@ -59,7 +66,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid, candidate_id, encrypted_vote, election_id } = parsed.data;
+  const { nid, candidate_id, encrypted_vote, election_id, zkp_proof, candidate_ids } = parsed.data;
 
   // ── Derive everything server-side from the raw NID ──
   // The raw NID is used only here, transiently, and is never persisted.
@@ -116,6 +123,35 @@ router.post("/vote", async (req: Request, res: Response) => {
       return;
     }
 
+    // ── Step 2b: ZKP ballot validity check ──
+    // If the client sent a ZKP proof and candidate list, verify the proof
+    // before accepting the vote. This proves the ciphertext encrypts one
+    // of the valid candidate UUIDs without revealing which.
+    let verifiedProof: object | null = null;
+    if (zkp_proof && candidate_ids && candidate_ids.length > 0) {
+      const elgamalPubKey = loadPublicKeyFromEnv();
+      if (!elgamalPubKey) {
+        console.error("ZKP verification failed: ElGamal public key not configured");
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+
+      const zkpValid = verifyBallotValidity(
+        encrypted_vote.c1,
+        encrypted_vote.c2,
+        elgamalPubKey,
+        candidate_ids,
+        zkp_proof
+      );
+
+      if (!zkpValid) {
+        res.status(400).json({ error: "ZKP ballot validity proof failed" });
+        return;
+      }
+
+      verifiedProof = zkp_proof;
+    }
+
     // ── Step 3: Cast vote using atomic stored procedure ──
     // fn_cast_vote handles: voter lookup (by nid_hash), eligibility check,
     // vote insertion (by nullifier_hash + constituency_code — never
@@ -127,7 +163,7 @@ router.post("/vote", async (req: Request, res: Response) => {
         p_nullifier_hash: nullifierHash,
         p_constituency_code: constituencyCode,
         p_encrypted_vote: encrypted_vote,
-        p_zkp_proof: null,
+        p_zkp_proof: verifiedProof,
       }
     );
 
