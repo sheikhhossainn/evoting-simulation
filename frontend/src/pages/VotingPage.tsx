@@ -11,8 +11,8 @@ import {
   type ElGamalPublicKeyResponse,
 } from "../utils/api";
 import {
-  encryptCandidateId,
   encryptCandidateIdForAudit,
+  encryptCandidateIdWithProof,
   verifyEncryptedCandidateId,
 } from "../utils/elgamal";
 
@@ -197,14 +197,20 @@ const VotingPage = () => {
       }
 
       // 2. Encrypt the selected candidate's real UUID with the election's
-      // ElGamal public key — this is the actual ballot content, and it
-      // never leaves the browser in plaintext.
-      const encryptedVote = encryptCandidateId(selectedCandidate.id, publicKey);
+      // ElGamal public key and generate a ZKP proof of ballot validity —
+      // proves the ciphertext encrypts one of the valid candidates without
+      // revealing which.
+      const allCandidateIds = candidates.map((c) => c.id);
+      const { ciphertext: encryptedVote, zkpProof } =
+        await encryptCandidateIdWithProof(selectedCandidate.id, publicKey, allCandidateIds);
 
-      // 3. Submit vote to backend. Only the raw NID (for server-side
-      // derivation) and the encrypted ballot are sent — no client-computed
-      // hashes.
-      const result = await submitVote(voterNid, selectedCandidate.id, encryptedVote, ELECTION_ID);
+      // 3. Submit vote to backend with ZKP proof. Only the raw NID (for
+      // server-side derivation), the encrypted ballot, and the validity
+      // proof are sent — no client-computed hashes.
+      const result = await submitVote(
+        voterNid, selectedCandidate.id, encryptedVote, ELECTION_ID,
+        zkpProof, allCandidateIds
+      );
 
       // 4. Success — navigate to confirmation
       navigate("/voter/confirmation", {

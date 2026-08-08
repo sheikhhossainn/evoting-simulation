@@ -78,6 +78,20 @@ function encodeCandidateId(id: string): bigint {
   return BigInt("0x" + hex);
 }
 
+/** Modular multiplicative inverse using extended Euclidean algorithm */
+function modInverse(a: bigint, m: bigint): bigint {
+  let [old_r, r] = [a, m];
+  let [old_s, s] = [1n, 0n];
+
+  while (r !== 0n) {
+    const quotient = old_r / r;
+    [old_r, r] = [r, old_r - quotient * r];
+    [old_s, s] = [s, old_s - quotient * s];
+  }
+
+  return ((old_s % m) + m) % m;
+}
+
 /** Core ElGamal encrypt with a caller-supplied ephemeral exponent k. */
 function encryptCandidateIdWithK(
   candidateId: string,
@@ -113,6 +127,153 @@ export function encryptCandidateId(
   const p = hexToBigInt(pubKey.p);
   const k = randomBigIntInRange(p);
   return encryptCandidateIdWithK(candidateId, pubKey, k);
+}
+
+// ── ZKP Ballot Validity Proof (client-side prover) ──
+
+export interface ZkpProof {
+  challenges: string[];
+  responses: string[];
+}
+
+/** Random BigInt in [1, max-1] using the Web Crypto API */
+function randomBigIntBelow(max: bigint): bigint {
+  const byteLength = Math.ceil(max.toString(16).length / 2);
+  let result: bigint;
+  do {
+    const buf = new Uint8Array(byteLength);
+    crypto.getRandomValues(buf);
+    const hex = Array.from(buf)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    result = BigInt("0x" + hex) % max;
+  } while (result === 0n);
+  return result;
+}
+
+/**
+ * Fiat-Shamir challenge: SHA-256 over the transcript, reduced mod q.
+ * Uses SubtleCrypto.digest for real SHA-256 — matches the backend exactly.
+ *
+ * Input order: g ‖ y ‖ c1 ‖ c2 ‖ a_0 ‖ b_0 ‖ a_1 ‖ b_1 ‖ …
+ * Each element is serialised as its minimal hex representation.
+ */
+async function fiatShamirChallenge(
+  g: bigint,
+  y: bigint,
+  c1: bigint,
+  c2: bigint,
+  commitments: { a: bigint; b: bigint }[],
+  q: bigint
+): Promise<bigint> {
+  const parts: string[] = [
+    bigIntToHex(g),
+    bigIntToHex(y),
+    bigIntToHex(c1),
+    bigIntToHex(c2),
+  ];
+  for (const { a, b } of commitments) {
+    parts.push(bigIntToHex(a));
+    parts.push(bigIntToHex(b));
+  }
+  const preimage = parts.join(",");
+  const encoder = new TextEncoder();
+  const data = encoder.encode(preimage);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = new Uint8Array(hashBuffer);
+  const hashHex = Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return BigInt("0x" + hashHex) % q;
+}
+
+/**
+ * Encrypt a candidate's UUID and generate a disjunctive Chaum-Pedersen
+ * NIZK proof that the ciphertext encrypts one of the valid candidates.
+ *
+ * This is the main entry point for the cast-path: it generates fresh
+ * randomness k, encrypts, and produces the proof — all in one call.
+ *
+ * @param candidateId      - The chosen candidate's UUID
+ * @param pubKey           - ElGamal public key { p, g, y }
+ * @param allCandidateIds  - Ordered list of all valid candidate UUIDs for the constituency
+ * @returns                - { ciphertext, zkpProof }
+ */
+export async function encryptCandidateIdWithProof(
+  candidateId: string,
+  pubKey: ElGamalPublicKey,
+  allCandidateIds: string[]
+): Promise<{ ciphertext: ElGamalCiphertext; zkpProof: ZkpProof }> {
+  const p = hexToBigInt(pubKey.p);
+  const g = hexToBigInt(pubKey.g);
+  const y = hexToBigInt(pubKey.y);
+  const q = (p - 1n) / 2n;
+
+  // Fresh ephemeral key
+  const k = randomBigIntInRange(p);
+  const ciphertext = encryptCandidateIdWithK(candidateId, pubKey, k);
+
+  const c1 = hexToBigInt(ciphertext.c1);
+  const c2 = hexToBigInt(ciphertext.c2);
+
+  const trueIndex = allCandidateIds.indexOf(candidateId);
+  if (trueIndex === -1) {
+    throw new Error("candidateId not found in allCandidateIds");
+  }
+  const n = allCandidateIds.length;
+
+  // Encode all candidate UUIDs
+  const encodings = allCandidateIds.map((id) => encodeCandidateId(id));
+  const targets = encodings.map((m_i) => {
+    const mInv = modInverse(m_i, p);
+    return (c2 * mInv) % p;
+  });
+
+  // ── Simulate non-true branches, commit on the real branch ──
+  const challenges: bigint[] = new Array(n);
+  const responses: bigint[] = new Array(n);
+  const commitments: { a: bigint; b: bigint }[] = new Array(n);
+
+  // Real branch: pick random w, compute commitment
+  const w = randomBigIntBelow(q);
+  commitments[trueIndex] = {
+    a: modPow(g, w, p),
+    b: modPow(y, w, p),
+  };
+
+  // Simulated branches
+  let challengeSum = 0n;
+  for (let j = 0; j < n; j++) {
+    if (j === trueIndex) continue;
+
+    const e_j = randomBigIntBelow(q);
+    const z_j = randomBigIntBelow(q);
+    challenges[j] = e_j;
+    responses[j] = z_j;
+    challengeSum = (challengeSum + e_j) % q;
+
+    const c1InvE = modPow(modInverse(c1, p), e_j, p);
+    const a_j = (modPow(g, z_j, p) * c1InvE) % p;
+
+    const tInvE = modPow(modInverse(targets[j], p), e_j, p);
+    const b_j = (modPow(y, z_j, p) * tInvE) % p;
+
+    commitments[j] = { a: a_j, b: b_j };
+  }
+
+  // Fiat-Shamir
+  const e = await fiatShamirChallenge(g, y, c1, c2, commitments, q);
+
+  const e_t = ((e - challengeSum) % q + q) % q;
+  challenges[trueIndex] = e_t;
+  responses[trueIndex] = (w + e_t * k) % q;
+
+  const zkpProof: ZkpProof = {
+    challenges: challenges.map(bigIntToHex),
+    responses: responses.map(bigIntToHex),
+  };
+
+  return { ciphertext, zkpProof };
 }
 
 /**

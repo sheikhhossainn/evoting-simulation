@@ -47,7 +47,7 @@ function bigIntToHex(n: bigint): string {
 }
 
 /** Modular exponentiation: base^exp mod mod */
-function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
+export function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
   if (mod === 1n) return 0n;
   let result = 1n;
   base = ((base % mod) + mod) % mod;
@@ -62,7 +62,7 @@ function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
 }
 
 /** Modular multiplicative inverse using extended Euclidean algorithm */
-function modInverse(a: bigint, m: bigint): bigint {
+export function modInverse(a: bigint, m: bigint): bigint {
   let [old_r, r] = [a, m];
   let [old_s, s] = [1n, 0n];
 
@@ -232,7 +232,7 @@ export function decrypt(
  * encodeMessage() would treat each hex character as its own UTF-8 byte
  * (32 chars -> 256 bits) and risk exceeding p.
  */
-function encodeCandidateId(id: string): bigint {
+export function encodeCandidateId(id: string): bigint {
   const hex = id.replace(/-/g, "").toLowerCase();
   if (!/^[0-9a-f]{32}$/.test(hex)) {
     throw new Error("Candidate id must be a UUID");
