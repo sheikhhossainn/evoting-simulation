@@ -50,11 +50,16 @@ const voteSchema = z.object({
     c2: z.string().min(1, "c2 is required"),
   }),
   election_id: z.string().min(1, "election_id is required"),
+  // ZKP ballot-validity proof is MANDATORY. A vote with no proof (or one
+  // that fails to verify) is rejected — otherwise an attacker could simply
+  // omit it and bypass validity checking entirely. The candidate set the
+  // proof is checked against is derived SERVER-SIDE (see the route), never
+  // taken from the request, so a forged single-element "valid set" can't be
+  // smuggled in alongside a forged ciphertext.
   zkp_proof: z.object({
     challenges: z.array(z.string().min(1)),
     responses: z.array(z.string().min(1)),
-  }).optional(),
-  candidate_ids: z.array(z.string().uuid()).optional(),
+  }),
 });
 
 // ── Route ──
@@ -66,7 +71,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid, candidate_id, encrypted_vote, election_id, zkp_proof, candidate_ids } = parsed.data;
+  const { nid, candidate_id, encrypted_vote, election_id, zkp_proof } = parsed.data;
 
   // ── Derive everything server-side from the raw NID ──
   // The raw NID is used only here, transiently, and is never persisted.
@@ -95,15 +100,19 @@ router.post("/vote", async (req: Request, res: Response) => {
       return;
     }
 
-    // ── Step 2: Constituency guard — reject cross-constituency votes ──
-    // Look up the candidate and verify they belong to the voter's constituency.
-    // This is a server-side enforcement; the frontend already filters candidates
-    // by constituency, but we don't trust the client.
-    const { data: candidateRow, error: candidateLookupError } = await supabase
-      .from("candidates")
-      .select("id, constituency_code")
-      .eq("id", candidate_id)
-      .maybeSingle();
+    // ── Step 2: Derive the constituency candidate set SERVER-SIDE ──
+    // Fetch every candidate in the voter's constituency, ordered identically
+    // to GET /candidates (name ascending). This ordered list is the source of
+    // truth for BOTH the constituency guard and the ZKP valid-candidate set —
+    // the client never gets to say what counts as a valid ballot. The
+    // frontend prover builds its set from the same GET /candidates response,
+    // so an honest ballot's proof verifies against this exact ordering.
+    const { data: constituencyCandidates, error: candidateLookupError } =
+      await supabase
+        .from("candidates")
+        .select("id, name")
+        .eq("constituency_code", constituencyCode)
+        .order("name", { ascending: true });
 
     if (candidateLookupError) {
       console.error("Supabase candidate lookup error:", candidateLookupError);
@@ -111,46 +120,50 @@ router.post("/vote", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!candidateRow) {
-      res.status(404).json({ error: "Candidate not found" });
+    if (!constituencyCandidates || constituencyCandidates.length === 0) {
+      res.status(404).json({ error: "No candidates found for your constituency" });
       return;
     }
 
-    if (candidateRow.constituency_code !== constituencyCode) {
+    const candidateIds = constituencyCandidates.map((c) => c.id);
+
+    // Constituency guard — the chosen candidate must belong to this set.
+    // (A non-existent candidate id is also, correctly, "not in your
+    // constituency".) Server-side enforcement; we don't trust the client.
+    if (!candidateIds.includes(candidate_id)) {
       res.status(403).json({
         error: "Candidate is not in your constituency",
       });
       return;
     }
 
-    // ── Step 2b: ZKP ballot validity check ──
-    // If the client sent a ZKP proof and candidate list, verify the proof
-    // before accepting the vote. This proves the ciphertext encrypts one
-    // of the valid candidate UUIDs without revealing which.
-    let verifiedProof: object | null = null;
-    if (zkp_proof && candidate_ids && candidate_ids.length > 0) {
-      const elgamalPubKey = loadPublicKeyFromEnv();
-      if (!elgamalPubKey) {
-        console.error("ZKP verification failed: ElGamal public key not configured");
-        res.status(500).json({ error: "Internal server error" });
-        return;
-      }
-
-      const zkpValid = verifyBallotValidity(
-        encrypted_vote.c1,
-        encrypted_vote.c2,
-        elgamalPubKey,
-        candidate_ids,
-        zkp_proof
-      );
-
-      if (!zkpValid) {
-        res.status(400).json({ error: "ZKP ballot validity proof failed" });
-        return;
-      }
-
-      verifiedProof = zkp_proof;
+    // ── Step 2b: Mandatory ZKP ballot-validity check ──
+    // Verify the proof against the SERVER-DERIVED candidate set. This proves
+    // the ciphertext encrypts one of the real constituency candidates without
+    // revealing which. The proof is required (enforced by the zod schema) and
+    // the candidate set is not client-supplied, so neither the check nor its
+    // reference set can be bypassed or spoofed by the caller.
+    const elgamalPubKey = loadPublicKeyFromEnv();
+    if (!elgamalPubKey) {
+      console.error("ZKP verification failed: ElGamal public key not configured");
+      res.status(500).json({ error: "Internal server error" });
+      return;
     }
+
+    const zkpValid = verifyBallotValidity(
+      encrypted_vote.c1,
+      encrypted_vote.c2,
+      elgamalPubKey,
+      candidateIds,
+      zkp_proof
+    );
+
+    if (!zkpValid) {
+      res.status(400).json({ error: "ZKP ballot validity proof failed" });
+      return;
+    }
+
+    const verifiedProof: object = zkp_proof;
 
     // ── Step 3: Cast vote using atomic stored procedure ──
     // fn_cast_vote handles: voter lookup (by nid_hash), eligibility check,

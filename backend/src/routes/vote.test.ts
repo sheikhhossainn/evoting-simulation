@@ -5,6 +5,8 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import { constituencyFromNid } from '../crypto/identity';
+import { proveBallotValidity } from '../crypto/zkp';
+import { modPow, encodeCandidateId } from '../crypto/elgamal';
 
 // Load test environment variables
 const envTestPath = path.resolve(__dirname, '../../.env.test');
@@ -57,14 +59,76 @@ async function candidateIdForNid(nid: string): Promise<string> {
   return data.id;
 }
 
+// /vote now MANDATES a ZKP ballot-validity proof, and derives the valid
+// candidate set server-side (all candidates in the voter's constituency,
+// ordered by name ascending — identical to GET /candidates). To exercise the
+// gates *behind* the ZKP check (registration, eligibility, fn_cast_vote), a
+// test must submit a genuinely valid ballot + proof, otherwise the request is
+// (correctly) rejected at the proof gate before reaching them.
+function loadPubKey() {
+  const p = process.env.ELGAMAL_P;
+  const g = process.env.ELGAMAL_G;
+  const y = process.env.ELGAMAL_PUBLIC_KEY;
+  if (!p || !g || !y) {
+    throw new Error('ELGAMAL_P / ELGAMAL_G / ELGAMAL_PUBLIC_KEY must be set for vote tests');
+  }
+  return { p, g, y };
+}
+
+async function buildValidBallot(nid: string) {
+  const constituency = constituencyFromNid(nid);
+  // Same query + ordering the server uses to build the valid candidate set.
+  const { data, error } = await supabase
+    .from('candidates')
+    .select('id, name')
+    .eq('constituency_code', constituency)
+    .order('name', { ascending: true });
+  if (error || !data || data.length === 0) {
+    throw new Error(
+      `No seeded candidates for constituency ${constituency} (nid ${nid}) — run seed-constituencies/seed-candidates first.`
+    );
+  }
+
+  const candidateIds = data.map((c) => c.id);
+  const trueIndex = 0;
+  const candidate_id = candidateIds[trueIndex];
+
+  const pubKey = loadPubKey();
+  const p = BigInt('0x' + pubKey.p);
+  const g = BigInt('0x' + pubKey.g);
+  const y = BigInt('0x' + pubKey.y);
+  const q = (p - 1n) / 2n;
+
+  // Fresh ephemeral k in [2, q-1]; genuine ElGamal ciphertext of the chosen id.
+  const k = (BigInt('0x' + crypto.randomBytes(32).toString('hex')) % (q - 2n)) + 2n;
+  const m = encodeCandidateId(candidate_id);
+  const c1 = modPow(g, k, p);
+  const c2 = (m * modPow(y, k, p)) % p;
+  const encrypted_vote = { c1: c1.toString(16), c2: c2.toString(16) };
+
+  const zkp_proof = proveBallotValidity(
+    encrypted_vote.c1,
+    encrypted_vote.c2,
+    k.toString(16),
+    pubKey,
+    candidateIds,
+    trueIndex
+  );
+
+  return { candidate_id, encrypted_vote, zkp_proof, candidate_ids: candidateIds };
+}
+
 describe('Vote Casting Adversarial Tests', () => {
   it('rejects unregistered voter (404)', async () => {
     const unregNid = '99999999999';
+    const ballot = await buildValidBallot(unregNid);
     const unregRes = await fetchPost('/vote', {
       nid: unregNid,
-      candidate_id: await candidateIdForNid(unregNid),
+      candidate_id: ballot.candidate_id,
       election_id: 'NATIONAL-2026-001',
-      encrypted_vote: { c1: 'c1', c2: 'c2' }
+      encrypted_vote: ballot.encrypted_vote,
+      zkp_proof: ballot.zkp_proof,
+      candidate_ids: ballot.candidate_ids,
     });
     expect(unregRes.status).toBe(404);
   });
@@ -84,11 +148,14 @@ describe('Vote Casting Adversarial Tests', () => {
     expect(verifyInelErr).toBeNull();
     expect(verifyInel?.is_eligible).toBe(false);
 
+    const ballot = await buildValidBallot(inelNid);
     const inelRes = await fetchPost('/vote', {
       nid: inelNid,
-      candidate_id: await candidateIdForNid(inelNid),
+      candidate_id: ballot.candidate_id,
       election_id: 'NATIONAL-2026-001',
-      encrypted_vote: { c1: 'c1', c2: 'c2' }
+      encrypted_vote: ballot.encrypted_vote,
+      zkp_proof: ballot.zkp_proof,
+      candidate_ids: ballot.candidate_ids,
     });
     expect(inelRes.status).toBe(403);
   });
@@ -102,6 +169,69 @@ describe('Vote Casting Adversarial Tests', () => {
       encrypted_vote: { c1: 'c1' } // missing c2
     });
     expect(malRes.status).toBe(400);
+  });
+
+  it('rejects a vote with NO zkp_proof (proof is mandatory)', async () => {
+    // Pre-fix, omitting zkp_proof silently skipped validity checking. Now the
+    // schema requires it, so a proofless ballot is rejected at the 400 gate —
+    // it never reaches registration/eligibility/insert.
+    const nid = '99999999999';
+    const candidate_id = await candidateIdForNid(nid);
+    const res = await fetchPost('/vote', {
+      nid,
+      candidate_id,
+      election_id: 'NATIONAL-2026-001',
+      encrypted_vote: { c1: 'abc', c2: 'def' },
+      // zkp_proof deliberately omitted
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('ignores client-supplied candidate_ids — proof is checked against the server set', async () => {
+    // The core trust-boundary fix: an attacker forges a ciphertext encoding an
+    // illegal value and ships candidate_ids=[thatValue] so the proof validates
+    // against their own bogus single-element set. The server now derives the
+    // valid set itself (real constituency candidates), so the forged proof
+    // fails to verify (wrong set + length mismatch) and the vote is rejected.
+    // Unregistered NID guarantees nothing persists even if the gate regressed.
+    const nid = '99999999999';
+    const realCandidateId = await candidateIdForNid(nid); // passes constituency guard
+
+    const pubKey = loadPubKey();
+    const p = BigInt('0x' + pubKey.p);
+    const g = BigInt('0x' + pubKey.g);
+    const y = BigInt('0x' + pubKey.y);
+    const q = (p - 1n) / 2n;
+
+    // Illegal plaintext: a random UUID that is NOT a candidate in the DB.
+    const bogusId = crypto.randomUUID();
+    const k = (BigInt('0x' + crypto.randomBytes(32).toString('hex')) % (q - 2n)) + 2n;
+    const m = encodeCandidateId(bogusId);
+    const c1 = modPow(g, k, p);
+    const c2 = (m * modPow(y, k, p)) % p;
+    const encrypted_vote = { c1: c1.toString(16), c2: c2.toString(16) };
+
+    // Attacker's self-serving "valid set" of exactly the bogus id.
+    const forgedSet = [bogusId];
+    const zkp_proof = proveBallotValidity(
+      encrypted_vote.c1,
+      encrypted_vote.c2,
+      k.toString(16),
+      pubKey,
+      forgedSet,
+      0
+    );
+
+    const res = await fetchPost('/vote', {
+      nid,
+      candidate_id: realCandidateId,
+      election_id: 'NATIONAL-2026-001',
+      encrypted_vote,
+      zkp_proof,
+      candidate_ids: forgedSet, // ignored by the server
+    });
+    expect(res.status).toBe(400);
+    expect((res.body as any)?.error).toMatch(/ZKP ballot validity proof failed/);
   });
 
   // SKIPPED: each of the 10 trials below inserts a real, successful vote row
