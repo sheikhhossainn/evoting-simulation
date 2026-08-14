@@ -4,7 +4,7 @@
 
 ## What This Is
 
-Blockchain-based secure e-voting simulation using ZKP (not yet implemented), ElGamal encryption, Shamir's Secret Sharing, and Ethereum Sepolia anchoring. Academic/research project. Monorepo with 4 packages.
+Blockchain-based secure e-voting simulation using ZKP of ballot validity, ElGamal encryption, Shamir's Secret Sharing, and Ethereum Sepolia anchoring. Academic/research project. Monorepo with 4 packages.
 
 ## Repo & Git
 
@@ -202,13 +202,12 @@ Frontend ElGamal encryption: `frontend/src/utils/elgamal.ts` (mirrors backend's 
 ## Known Limitations
 
 - ~~**Ballot secrecy**: `votes.voter_nid_hash` directly linked votes to voters~~ — **FIXED** (PR #17, nullifier redesign): votes now store only `nullifier_hash = SHA-256(nid + election_id + NULLIFIER_SECRET)` + `constituency_code`. The server-side `NULLIFIER_SECRET` means nobody can recompute a voter's nullifier from public info, and the `votes` table has no voter FK. See `backend/src/crypto/identity.ts` and `backend/src/schema.sql`.
-- **No ZKP of vote validity yet**: a malformed or maliciously-crafted ciphertext can still be submitted. `POST /keyshares/tally` defends against this at decrypt time (rejects any ballot that doesn't decode to a real candidate in the voter's own constituency, counting it as "invalid" rather than crashing or silently miscounting), but there's still no proof at submission time that a ciphertext encodes a valid choice.
+- ~~**No ZKP of vote validity yet**~~ — **FIXED** (PR #37 + follow-up): `POST /vote` now requires a ZKP of ballot validity (`backend/src/crypto/zkp.ts`, `proveBallotValidity`/`verifyBallotValidity`), mandatory and derived server-side against the candidate set. `POST /keyshares/tally` still additionally rejects any ballot that doesn't decode to a real candidate at decrypt time as defense-in-depth.
 - **Admin/EC login is still a UI mock** (`AdminLogin.tsx` navigates with no real auth). Sensitive admin routes are protected by `ADMIN_SECRET` instead — good enough for a simulation, not for production.
 - **RLS policies**: tables have RLS enabled but no policies yet (all access goes through the backend's service-role key).
 
 ## Not Yet Implemented
 
-- Zero-Knowledge Proofs for vote validity at submission time (see LEFTWORK.md Task 6 — decision pending: document as limitation vs. build disjunctive Chaum-Pedersen proof)
 - Benaloh challenge (cast-or-audit voter verifiability) — LEFTWORK.md Task 5
 - Session-based EC Admin authentication (currently `x-admin-secret` header + UI-mock login) — intentional, out of scope
 - RLS policies — intentional, out of scope (all access via backend service-role key)
