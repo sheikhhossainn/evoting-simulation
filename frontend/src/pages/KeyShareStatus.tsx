@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ApiError } from "../utils/api";
 
 const ELECTION_ID = "NATIONAL-2026-001";
@@ -22,25 +22,39 @@ const ROLE_LABELS: Record<number, { name: string; role: string; theme: string; a
   4: { name: "Civil Society Observer",  role: "Public Trust",         theme: "from-rose-500 to-pink-600",     accent: "text-rose-600",    bg: "bg-rose-50"    },
 };
 
+// Matches the actual GET /keyshares/status response shape (docs
+// §8/tally-verifiability-design.md §9) — methodology-audit follow-up:
+// this type previously described a submitted/submitted_at/threshold_met
+// shape the backend has never returned since the partial-decryption
+// redesign, so this page silently rendered default/stale values instead
+// of real progress. A keyholder only counts as "submitted" for a batch
+// once they've submitted a partial for EVERY ballot in it — a batch can
+// have more than one ballot, so a single boolean isn't enough on its own.
 type KeyholderStatus = {
-  id: string;
-  share_index: number;
+  index: number;
   keyholder_id: string;
-  keyholder_role: string | null;
-  submitted: boolean;
-  submitted_at: string | null;
+  role: string | null;
+  ceremony_commitment_published: boolean;
+  ballots_submitted: number;
 };
 
 type StatusData = {
   election_id: string;
-  threshold: { required: number; total: number };
-  submitted_count: number;
-  threshold_met: boolean;
+  batch_id: number;
+  dense_root: string;
+  anchored_ballot_count: number;
   keyholders: KeyholderStatus[];
 };
 
 const KeyShareStatus = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Explicit, not "latest" — see KeyShareSubmit.tsx's BATCH_ID comment.
+  // Read from ?batch_id= so this page can target whichever batch the
+  // portal is currently pointed at, not one hardcoded at build time.
+  const batchIdParam = new URLSearchParams(location.search).get("batch_id");
+  const BATCH_ID = batchIdParam !== null && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : 0;
+
   const [data, setData]       = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -50,7 +64,7 @@ const KeyShareStatus = () => {
     setError(null);
     try {
       const res = await fetch(
-  `http://localhost:3000/keyshares/status?election_id=${encodeURIComponent(ELECTION_ID)}`
+  `http://localhost:3000/keyshares/status?election_id=${encodeURIComponent(ELECTION_ID)}&batch_id=${BATCH_ID}`
 );
 if (!res.ok) {
   const err = await res.json();
@@ -71,26 +85,36 @@ setData(result);
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchStatus, 30_000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [BATCH_ID]);
+
+  const anchoredBallotCount = data?.anchored_ballot_count ?? 0;
+
+  // A keyholder counts as "submitted" for THIS batch only once they've
+  // submitted a verified partial for every ballot in it — matches how
+  // POST /keyshares/tally itself requires >=3 valid partials PER BALLOT
+  // (docs §4/§10), not just >=3 keyholders having submitted something.
+  const isFullySubmitted = (k: KeyholderStatus) =>
+    anchoredBallotCount > 0 && k.ballots_submitted >= anchoredBallotCount;
 
   // Derive display list — always show all 4 slots
   const displayKeyholders = [1, 2, 3, 4].map((idx) => {
-    const live = data?.keyholders.find((k) => k.share_index === idx);
+    const live = data?.keyholders.find((k) => k.index === idx);
     const meta = ROLE_LABELS[idx];
     return {
       share_index: idx,
-      name: live?.keyholder_role ?? meta.name,
+      name: live?.role ?? meta.name,
       role: meta.role,
-      submitted: live?.submitted ?? false,
-      submitted_at: live?.submitted_at ?? null,
+      submitted: live ? isFullySubmitted(live) : false,
+      ballots_submitted: live?.ballots_submitted ?? 0,
       theme: meta.theme,
       accent: meta.accent,
       bg: meta.bg,
     };
   });
 
-  const submittedCount = data?.submitted_count ?? 0;
-  const thresholdMet   = data?.threshold_met ?? false;
+  const submittedCount = (data?.keyholders ?? []).filter(isFullySubmitted).length;
+  const thresholdMet   = submittedCount >= THRESHOLD;
   const remaining      = Math.max(0, THRESHOLD - submittedCount);
   const progressPct    = (submittedCount / TOTAL) * 100;
 
@@ -109,6 +133,9 @@ setData(result);
             </span>
           </div>
           <div className="px-6 py-2 flex items-center gap-3 sm:mr-4">
+            <span className="text-xs font-mono px-2 py-1 rounded bg-slate-100" style={{ color: "#0A2540" }}>
+              Batch #{BATCH_ID}
+            </span>
             <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-amber-50 border border-amber-100">
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               <span className="text-xs font-mono" style={{ color: "#0A2540" }}>Live</span>
@@ -258,9 +285,13 @@ setData(result);
                     {kh.role}
                   </span>
                   <p className="mt-2 text-xs font-mono" style={{ color: "#9fb3c8" }}>
-                    {kh.submitted && kh.submitted_at
-                      ? `Submitted ${new Date(kh.submitted_at).toLocaleString()}`
-                      : "Awaiting submission"}
+                    {anchoredBallotCount === 0
+                      ? "No ballots in this batch"
+                      : kh.submitted
+                        ? `Submitted for all ${anchoredBallotCount} ballot${anchoredBallotCount === 1 ? "" : "s"}`
+                        : kh.ballots_submitted > 0
+                          ? `${kh.ballots_submitted}/${anchoredBallotCount} ballots submitted`
+                          : "Awaiting submission"}
                   </p>
                 </div>
               </div>
@@ -277,7 +308,7 @@ setData(result);
 
         {thresholdMet && (
           <div className="text-center mb-4">
-            <button onClick={() => navigate("/tally")} className="btn-navy text-sm px-6">
+            <button onClick={() => navigate(`/tally?batch_id=${BATCH_ID}`)} className="btn-navy text-sm px-6">
               Proceed to Tallying →
             </button>
           </div>

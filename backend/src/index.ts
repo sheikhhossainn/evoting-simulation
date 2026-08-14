@@ -18,6 +18,7 @@ import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 import keySharesRouter from "./routes/keyshares";
 import anchorRouter from "./routes/anchor";
 import publicRouter from "./routes/public";
+import { maybeAutoAnchor } from "./services/anchorBatch";
 
 
 dotenv.config();
@@ -81,4 +82,14 @@ app.listen(PORT, () => {
   } else {
     console.warn("⚠️  NID_HASH_SALT not set — NID hashes will be unsalted!");
   }
+
+  // Periodic auto-anchor check, independent of vote traffic (methodology-audit
+  // finding M3). maybeAutoAnchor() was previously only ever invoked
+  // fire-and-forget after a vote was cast — if voting stopped entirely before
+  // AUTO_ANCHOR_THRESHOLD was reached, nothing would ever re-check the
+  // age-based trigger. This closes that: the pre-anchor window is now bounded
+  // by AUTO_ANCHOR_MAX_AGE_MS even with zero further votes.
+  setInterval(() => {
+    maybeAutoAnchor().catch((err) => console.error("Periodic auto-anchor check failed:", err));
+  }, 5 * 60 * 1000);
 });

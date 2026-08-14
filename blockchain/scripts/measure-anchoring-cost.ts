@@ -20,6 +20,10 @@ import {
   verifyProof,
   type VoteLeafInput,
 } from "../../backend/src/merkle/merkleTree";
+import {
+  SparseMerkleTree,
+  GENESIS_ROOT,
+} from "../../backend/src/merkle/sparseMerkleTree";
 
 function mockVoteBatch(n: number): VoteLeafInput[] {
   const votes: VoteLeafInput[] = [];
@@ -95,6 +99,42 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nsteady-state anchorRoot gas (representative): ${steadyGas.toString()}`);
+
+  // === 4. anchorSmtRoot gas per batch (docs/smt-design.md §13 test 17) ===
+  // Chain several SMT batches (like the real anchorBatch flow: rebuild the
+  // cumulative tree, insert this batch's new keys, anchor the new root with
+  // chain-continuity back to the previous one). Batch size shouldn't matter
+  // to gas — anchorSmtRoot's cost is fixed (four bytes32/uint256 args + one
+  // storage write), independent of how many keys were inserted off-chain to
+  // produce newRoot, same flat-per-batch shape as anchorRoot above.
+  console.log(`\n=== 4. anchorSmtRoot gas per batch (chained) ===`);
+  console.log(`batch_size,newKeysThisBatch,totalKeysAnchored,anchorSmtRoot_gas`);
+  const smtTree = new SparseMerkleTree();
+  let previousSmtRoot = GENESIS_ROOT;
+  let totalKeys = 0;
+  const smtBatchSizes = [10, 30, 50, 100];
+  const smtGasBySize: Record<number, bigint> = {};
+  for (const size of smtBatchSizes) {
+    for (let i = 0; i < size; i++) {
+      const key = ethers.hexlify(ethers.randomBytes(32));
+      const value = ethers.hexlify(ethers.randomBytes(32));
+      smtTree.insert(key, value);
+    }
+    const newRoot = smtTree.root();
+    totalKeys += size;
+    const tx = await contract.anchorSmtRoot(newRoot, previousSmtRoot, size, totalKeys);
+    const receipt = await tx.wait();
+    smtGasBySize[size] = receipt!.gasUsed;
+    console.log(`${size},${size},${totalKeys},${receipt!.gasUsed.toString()}`);
+    previousSmtRoot = newRoot;
+  }
+
+  console.log(
+    `\nverifySmtMembership / verifySmtNonMembership: both are \`pure\` functions ` +
+      `taking \`root\` as a parameter (not reading contract state), so any ` +
+      `off-chain eth_call to them costs $0 in gas for the caller, and can check ` +
+      `ANY historically anchored root, not just the latest.`
+  );
 }
 
 main().catch((err) => {

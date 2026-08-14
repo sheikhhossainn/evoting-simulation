@@ -192,4 +192,68 @@ describe('Merkle Tree (Unit)', () => {
       );
     });
   });
+
+  describe('Reordering the root — honest coverage (methodology-audit finding m1/new-finding, threat_model.md §9)', () => {
+    // hashPair(a, b) sorts its two operands by BigInt value before hashing —
+    // commutative, matching OpenZeppelin's MerkleProof/_hashPair convention
+    // (deliberate: it's what lets a proof verify without carrying leaf
+    // position). A direct, testable CONSEQUENCE of that choice, found while
+    // writing this very test: swapping two leaves that land in the SAME
+    // sibling pair at any tree level is UNDETECTABLE — the root is
+    // byte-identical. This is not a bug in this codebase; it's inherent to
+    // sorted-pair Merkle hashing generally. But it means "reordering is
+    // detected" cannot be claimed as a blanket property — only reorderings
+    // that move a leaf ACROSS a sibling-pair boundary change the root. Both
+    // halves of this are asserted below so the limitation stays honest and
+    // visible in the test suite itself (mirrors sparseMerkleTree.test.ts's
+    // "hypothesis, not a completeness proof" framing for its own proof-size
+    // test), not just in prose.
+    it('swapping two leaves within the SAME sibling pair does NOT change the root (undetected, by construction)', () => {
+      const leaves = mockVoteBatch(4).map(hashVoteLeaf);
+      const original = buildMerkleTree(leaves).root;
+
+      const swapPair0 = [leaves[1], leaves[0], leaves[2], leaves[3]];
+      expect(buildMerkleTree(swapPair0).root).toBe(original);
+
+      const swapPair1 = [leaves[0], leaves[1], leaves[3], leaves[2]];
+      expect(buildMerkleTree(swapPair1).root).toBe(original);
+
+      // A full reverse of an even-length array decomposes into only
+      // same-pair swaps at the leaf level — also undetected. Deliberately
+      // included because a naive "shuffle and expect a different root" test
+      // would itself have picked an undetectable permutation here.
+      const reversed = [...leaves].reverse();
+      expect(buildMerkleTree(reversed).root).toBe(original);
+    });
+
+    it('swapping two leaves ACROSS a sibling-pair boundary DOES change the root (detected)', () => {
+      const leaves = mockVoteBatch(4).map(hashVoteLeaf);
+      const original = buildMerkleTree(leaves).root;
+
+      // Swap positions 1 and 2 — different sibling pairs (pair 0 = [0,1],
+      // pair 1 = [2,3]) — this changes which leaves are paired together.
+      const crossPairSwap = [leaves[0], leaves[2], leaves[1], leaves[3]];
+      expect(buildMerkleTree(crossPairSwap).root).not.toBe(original);
+    });
+
+    it('∀ batch: moving the FIRST leaf to the LAST position changes the root (a reordering that always crosses a pair boundary for size >= 3)', () => {
+      const localLeafArbitrary = fc.record({
+        voteId: fc.uuid(),
+        c1: fc.array(fc.constantFrom('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'), { minLength: 64, maxLength: 64 }).map(a => '0x' + a.join('')),
+        c2: fc.array(fc.constantFrom('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'), { minLength: 64, maxLength: 64 }).map(a => '0x' + a.join('')),
+        createdAt: fc.date().map(d => d.toISOString()),
+      }).map(hashVoteLeaf);
+      fc.assert(
+        fc.property(
+          fc.array(localLeafArbitrary, { minLength: 3, maxLength: 100 }),
+          (leaves) => {
+            const original = buildMerkleTree(leaves).root;
+            const rotated = [...leaves.slice(1), leaves[0]];
+            const rotatedRoot = buildMerkleTree(rotated).root;
+            return rotatedRoot !== original;
+          }
+        )
+      );
+    });
+  });
 });

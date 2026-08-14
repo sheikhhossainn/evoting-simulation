@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["./scripts", "./test", "./hardhat.config.ts", "../backend/src/merkle"]
+  "include": ["./scripts", "./test", "./hardhat.config.ts", "../backend/src/merkle", "../backend/src/crypto"]
 }

@@ -24,6 +24,24 @@ const DEMO_PASSPHRASES: Record<string, string> = {
   "KH-004": "share004",
 };
 
+/**
+ * Server-side keyholder_id -> share index mapping. The old /keyshares/submit
+ * trusted a client-supplied share_index field (validated only for range,
+ * not correctness) — the new verifiable-tally flow derives it server-side
+ * instead, so a keyholder cannot claim a different index than the one they
+ * were actually issued.
+ */
+const KEYHOLDER_INDEX: Record<string, number> = {
+  "KH-001": 1,
+  "KH-002": 2,
+  "KH-003": 3,
+  "KH-004": 4,
+};
+
+export function getKeyholderIndex(keyholderId: string): number | null {
+  return KEYHOLDER_INDEX[keyholderId] ?? null;
+}
+
 function hashPassphrase(passphrase: string): string {
   const salt = process.env.KEYHOLDER_PASSPHRASE_SALT || "";
   return createHash("sha256").update(passphrase + salt).digest("hex");

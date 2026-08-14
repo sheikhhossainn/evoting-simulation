@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ApiError } from "../utils/api";
+import { computeAllPartials, type GroupParams } from "../utils/keyholderCrypto";
 
 // ── Keyholder demo config (matches setup-shamir output) ──
 const DEMO_KEYHOLDERS = [
@@ -24,6 +25,18 @@ const KeyShareSubmit = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Explicit, not "latest" — batch 2 (32 votes) is confirmed contaminated
+  // (test/fixture data anchored alongside real ballots). GET
+  // /keyshares/verification-bundle and /keyshares/status require batch_id
+  // explicitly (docs §8) precisely so this can never silently drift onto
+  // whatever batch is anchored latest. Read from ?batch_id= so the portal
+  // can target whichever batch is actually pending tally (e.g. a fresh
+  // batch anchored after these fixes) instead of a value hardcoded at
+  // build time — defaults to 0 (the original verified-clean batch) when
+  // absent, unchanged for existing links/bookmarks.
+  const batchIdParam = new URLSearchParams(location.search).get("batch_id");
+  const BATCH_ID = batchIdParam !== null && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : 0;
+
   // keyholderId passed from login page via state
   const passedId = (location.state as { keyholderId?: string })?.keyholderId ?? "";
 
@@ -37,7 +50,6 @@ const KeyShareSubmit = () => {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [success, setSuccess]   = useState(false);
-  const [thresholdMet, setThresholdMet] = useState(false);
 
   // Derive share_index from keyholder_id
   const keyholderInfo = DEMO_KEYHOLDERS.find((k) => k.id === keyholderId);
@@ -62,24 +74,73 @@ const KeyShareSubmit = () => {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:3000/keyshares/submit", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    election_id: ELECTION_ID,
-    keyholder_id: keyholderId,
-    share_index: shareIndex,
-    share_value: shareValue.trim(),
-    passphrase,
-  }),
-});
-if (!res.ok) {
-  const err = await res.json();
-  throw new ApiError(err.error ?? "Submission failed", res.status);
-}
-const data = await res.json();
+      // Everything below happens in THIS browser tab. The share value
+      // (x_i) never appears in any fetch() body — only the computed
+      // (d_i, proof) pairs do (docs/tally-verifiability-design.md §7).
 
-      setThresholdMet(data.threshold_status?.threshold_met ?? false);
+      const commitmentsRes = await fetch(
+        `http://localhost:3000/keyshares/commitments?election_id=${encodeURIComponent(ELECTION_ID)}`
+      );
+      if (!commitmentsRes.ok) {
+        const err = await commitmentsRes.json();
+        throw new ApiError(err.error ?? "Could not load key ceremony commitments", commitmentsRes.status);
+      }
+      const commitmentsData = await commitmentsRes.json();
+      const yEntry = commitmentsData.keyholder_commitments?.find(
+        (k: { index: number }) => k.index === shareIndex
+      );
+      if (!yEntry) {
+        throw new ApiError("No published commitment found for this keyholder index", 500);
+      }
+
+      const group: GroupParams = {
+        p: BigInt("0x" + commitmentsData.group_params.p),
+        g: BigInt("0x" + commitmentsData.group_params.g),
+        q: (BigInt("0x" + commitmentsData.group_params.p) - 1n) / 2n,
+      };
+
+      const bundleRes = await fetch(
+        `http://localhost:3000/keyshares/verification-bundle?election_id=${encodeURIComponent(ELECTION_ID)}&batch_id=${BATCH_ID}`
+      );
+      if (!bundleRes.ok) {
+        const err = await bundleRes.json();
+        throw new ApiError(err.error ?? "Could not load the anchored ballot set", bundleRes.status);
+      }
+      const bundle = await bundleRes.json();
+      const ballots: { ballot_id: string; c1: string }[] = bundle.ballots ?? [];
+
+      // Compute d_i + DLEQ proof for every in-scope ballot, locally.
+      const partials = await computeAllPartials(
+        ELECTION_ID,
+        shareValue.trim(),
+        yEntry.y_i,
+        group,
+        ballots
+      );
+
+      const res = await fetch("http://localhost:3000/keyshares/submit-partial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          election_id: ELECTION_ID,
+          keyholder_id: keyholderId,
+          passphrase,
+          partials,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new ApiError(err.error ?? "Submission failed", res.status);
+      }
+      const data = await res.json();
+      const failedCount = (data.results ?? []).filter((r: { verified: boolean }) => !r.verified).length;
+      if (failedCount > 0) {
+        throw new ApiError(
+          `${failedCount} of ${data.results.length} computed partial decryptions failed verification — check your share value.`,
+          422
+        );
+      }
+
       setSuccess(true);
 
     } catch (err: any) {
@@ -115,28 +176,28 @@ const data = await res.json();
           </div>
 
           <h1 className="text-3xl font-bold mb-3 opacity-0-init animate-fade-in-up" style={{ color: "#0A2540" }}>
-            Share Submitted
+            Partial Decryptions Submitted
           </h1>
           <p className="text-lg mb-8 opacity-0-init animate-fade-in-up-delayed" style={{ color: "#627d98" }}>
-            Your Shamir share has been recorded for{" "}
+            Your partial decryptions were computed in this browser and verified for{" "}
             <span className="font-mono font-semibold" style={{ color: "#0A2540" }}>
               {ELECTION_ID}
             </span>
           </p>
 
-          {thresholdMet && (
-            <div
-              className="mb-6 rounded-xl p-4 opacity-0-init animate-fade-in-up-delayed"
-              style={{ background: "rgba(0,106,78,0.06)", border: "1px solid rgba(0,106,78,0.2)" }}
-            >
-              <p className="text-sm font-semibold" style={{ color: "#0F6E56" }}>
-                ✓ Threshold met — 3 of 4 shares received
-              </p>
-              <p className="text-xs mt-1" style={{ color: "#627d98" }}>
-                The private key can now be reconstructed for tallying.
-              </p>
-            </div>
-          )}
+          <div
+            className="mb-6 rounded-xl p-4 opacity-0-init animate-fade-in-up-delayed"
+            style={{ background: "rgba(0,106,78,0.06)", border: "1px solid rgba(0,106,78,0.2)" }}
+          >
+            <p className="text-sm font-semibold" style={{ color: "#0F6E56" }}>
+              ✓ Every proof verified before submission
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#627d98" }}>
+              Your secret share was never sent to the server — only the computed partial decryptions and
+              their proofs were. Once 3 of 4 keyholders have submitted, the tally can combine them
+              publicly, without anyone reconstructing the private key.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-3 opacity-0-init animate-fade-in-up-delayed">
             <button
@@ -174,19 +235,26 @@ const data = await res.json();
               Threshold Decryption · {ELECTION_ID}
             </span>
           </div>
-          <div className="px-6 py-2 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-100 mx-6 sm:mx-0 sm:mr-4">
-            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-xs font-mono" style={{ color: "#0A2540" }}>Signed in</span>
+          <div className="px-6 py-2 flex items-center gap-2 mx-6 sm:mx-0 sm:mr-4">
+            <span className="text-xs font-mono px-2 py-1 rounded bg-slate-100" style={{ color: "#0A2540" }}>
+              Batch #{BATCH_ID}
+            </span>
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1 bg-amber-50 border border-amber-100">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-mono" style={{ color: "#0A2540" }}>Signed in</span>
+            </div>
           </div>
         </div>
 
         {/* ── Title ── */}
         <div className="text-center mb-8 opacity-0-init animate-fade-in-up-delayed">
           <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: "#0A2540" }}>
-            Submit Your Secret Share
+            Compute Your Partial Decryptions
           </h1>
           <p style={{ color: "#627d98" }}>
-            Your share will be combined with 2 others to reconstruct the private decryption key.
+            Your share never leaves this browser. It's used here to compute a partial decryption and a
+            proof for every anchored ballot — only those get sent, combined publicly with 2 other
+            keyholders' at tally time.
           </p>
         </div>
 
@@ -201,7 +269,8 @@ const data = await res.json();
             <div>
               <p className="text-sm font-semibold" style={{ color: "#0A2540" }}>Verify before submitting</p>
               <p className="mt-1 text-sm" style={{ color: "#627d98" }}>
-                Once submitted, your share is stored permanently. This cannot be reversed.
+                Once submitted, your computed partial decryptions are stored permanently. This cannot be
+                reversed — your raw share itself is never transmitted or stored anywhere.
               </p>
             </div>
           </div>
@@ -260,17 +329,17 @@ const data = await res.json();
             {/* Share Value */}
             <div>
               <label className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
-                Share Value (y value)
+                Your Secret Share (x_i) — used locally only
               </label>
               <textarea
                 rows={4}
                 value={shareValue}
                 onChange={(e) => setShareValue(e.target.value)}
-                placeholder="Paste your Shamir share value here (from setup-shamir.ts output or your secure backup)"
+                placeholder="Paste your Z_q share value here (from setup-shamir-zq.ts output or your secure backup)"
                 className="input-field font-mono text-xs leading-relaxed resize-none"
               />
               <p className="mt-1.5 text-xs" style={{ color: "#9fb3c8" }}>
-                The long hex string from your secure backup
+                Used in this browser to compute partial decryptions and proofs. Never sent to the server.
               </p>
             </div>
 

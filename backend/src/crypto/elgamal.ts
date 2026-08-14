@@ -241,7 +241,7 @@ export function encodeCandidateId(id: string): bigint {
 }
 
 /** Reform a UUID string from the 128-bit BigInt produced by encodeCandidateId */
-function decodeCandidateId(n: bigint): string {
+export function decodeCandidateId(n: bigint): string {
   const hex = n.toString(16).padStart(32, "0");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

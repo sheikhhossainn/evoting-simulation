@@ -91,7 +91,7 @@ The ElGamal private key is split into **4 shares, threshold 3** ([setup-shamir.t
 ```
 
 1. **Register** — `POST /voter/register` with an 11-digit NID. The backend hashes it and marks the voter registered.
-2. **Vote** — the client fetches the public key and the candidate list, encrypts its choice with fresh randomness, builds the ZKP, and calls `POST /vote` with `{ nid, candidate_id, encrypted_vote, election_id, zkp_proof }`.
+2. **Vote** — the client fetches the public key and the candidate list, encrypts its choice with fresh randomness, builds the ZKP, and calls `POST /vote` with `{ nid, encrypted_vote, election_id, zkp_proof }`. No plaintext candidate id is sent — the ZKP alone establishes that the ciphertext encrypts one of the constituency's real candidates.
 3. **Server-side gates (in order)** — zod schema validation → nullifier check (already voted?) → server-derived candidate set + constituency guard → mandatory ZKP verification against that set → `fn_cast_vote` atomic transaction (eligibility, insert, `has_voted` flip). Returns `201 { status: "queued", vote_id }`.
 4. **Anchoring** — a batching service folds votes into a Merkle tree and calls `anchorRoot` on the deployed `MerkleRootStorage` contract once per batch.
 5. **Tally** — 3-of-4 keyholders submit shares (`POST /keyshares/submit`); with 3 shares the key is reconstructed and ballots are decrypted for the tally page.
@@ -208,7 +208,7 @@ npm run contracts:test   # Hardhat contract tests
 ```
 
 - **Unit** (no DB): ElGamal, identity, ZKP, Shamir, Merkle tree — `vitest run`.
-- **Integration** (`backend/src/routes/vote.test.ts`): needs a live backend on `:3000` + seeded Supabase. Covers registration/eligibility gates, mandatory-ZKP rejection, and the forged-`candidate_ids` trust-boundary regression. The N=50 concurrency stress test is deliberately `it.skip` — it would write permanent vote rows, and there is no separate test DB yet.
+- **Integration** (`backend/src/routes/vote.test.ts`): needs a live backend on `:3000` + seeded Supabase. Covers registration/eligibility gates, mandatory-ZKP rejection, and the forged-candidate-set trust-boundary regression. The N=50 concurrency stress test is deliberately `it.skip` — it would write permanent vote rows, and there is no separate test DB yet.
 
 ## Docs
 

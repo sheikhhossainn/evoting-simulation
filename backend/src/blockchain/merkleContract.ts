@@ -15,6 +15,13 @@ const MERKLE_ROOT_STORAGE_ABI = [
   "function verify(uint256 batchId, bytes32 leaf, bytes32[] calldata proof) external view returns (bool)",
   "function batchCount() external view returns (uint256)",
   "event BatchAnchored(uint256 indexed batchId, bytes32 indexed root, uint256 voteCount, uint256 timestamp)",
+  "function anchorSmtRoot(bytes32 newRoot, bytes32 previousRoot, uint256 newKeysThisBatch, uint256 totalKeysAnchored) external returns (uint256 smtBatchId)",
+  "function verifySmtMembership(bytes32 root, bytes32 key, bytes32 value, bytes32 bitmap, bytes32[] calldata siblings) external pure returns (bool)",
+  "function verifySmtNonMembership(bytes32 root, bytes32 key, bytes32 bitmap, bytes32[] calldata siblings) external pure returns (bool)",
+  "function smtBatchCount() external view returns (uint256)",
+  "function smtBatches(uint256 smtBatchId) external view returns (bytes32 smtRoot, bytes32 previousSmtRoot, uint256 newKeysThisBatch, uint256 totalKeysAnchored, uint256 timestamp)",
+  "function EMPTY_TREE_ROOT() external view returns (bytes32)",
+  "event SmtBatchAnchored(uint256 indexed smtBatchId, bytes32 indexed smtRoot, bytes32 previousSmtRoot, uint256 newKeysThisBatch, uint256 totalKeysAnchored, uint256 timestamp)",
 ];
 
 interface MerkleContractConfig {

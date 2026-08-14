@@ -44,7 +44,11 @@ const router = Router();
 
 const voteSchema = z.object({
   nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
-  candidate_id: z.string().uuid("candidate_id must be a valid UUID"),
+  // NOTE: no plaintext candidate_id field. The ZKP disjunction proof is the
+  // sole mechanism that establishes ballot validity — it proves the
+  // ciphertext encrypts one of the server-derived constituency candidates
+  // without revealing which. A plaintext candidate id alongside the
+  // ciphertext would be a redundant leak of the voter's choice.
   encrypted_vote: z.object({
     c1: z.string().min(1, "c1 is required"),
     c2: z.string().min(1, "c2 is required"),
@@ -71,7 +75,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid, candidate_id, encrypted_vote, election_id, zkp_proof } = parsed.data;
+  const { nid, encrypted_vote, election_id, zkp_proof } = parsed.data;
 
   // ── Derive everything server-side from the raw NID ──
   // The raw NID is used only here, transiently, and is never persisted.
@@ -80,6 +84,33 @@ router.post("/vote", async (req: Request, res: Response) => {
   const constituencyCode = constituencyFromNid(nid);
 
   try {
+    // ── Step 0: Election setup commitment must be anchored before any vote ──
+    // docs/tally-verifiability-design.md §8.2.5: "POST /vote should refuse to
+    // accept ballots for an election_id with no anchored electionSetupCommitment
+    // yet — a commitment computed after votes exist could be back-dated to
+    // match whatever result is wanted." This was previously unenforced (the
+    // check existed only in design-doc prose, not in code) — closing that gap
+    // here so candidate-set integrity is an actual precondition, not a claim.
+    const { data: setupCommitment, error: setupCheckError } = await supabase
+      .from("election_setup_commitments")
+      .select("election_id")
+      .eq("election_id", election_id)
+      .maybeSingle();
+
+    if (setupCheckError) {
+      console.error("Supabase election_setup_commitments check error:", setupCheckError);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+
+    if (!setupCommitment) {
+      res.status(412).json({
+        error:
+          "No election setup commitment has been anchored for this election yet — candidates/constituencies are not yet locked (docs §8.2.5). Votes cannot be accepted until setup is committed.",
+      });
+      return;
+    }
+
     // ── Step 1: Check nullifier hasn't been used ──
     const { data: existingNullifier, error: nullifierCheckError } =
       await supabase
@@ -102,11 +133,11 @@ router.post("/vote", async (req: Request, res: Response) => {
 
     // ── Step 2: Derive the constituency candidate set SERVER-SIDE ──
     // Fetch every candidate in the voter's constituency, ordered identically
-    // to GET /candidates (name ascending). This ordered list is the source of
-    // truth for BOTH the constituency guard and the ZKP valid-candidate set —
-    // the client never gets to say what counts as a valid ballot. The
-    // frontend prover builds its set from the same GET /candidates response,
-    // so an honest ballot's proof verifies against this exact ordering.
+    // to GET /candidates (name ascending). This ordered list is the ZKP
+    // valid-candidate set — the client never gets to say what counts as a
+    // valid ballot. The frontend prover builds its set from the same
+    // GET /candidates response, so an honest ballot's proof verifies against
+    // this exact ordering.
     const { data: constituencyCandidates, error: candidateLookupError } =
       await supabase
         .from("candidates")
@@ -127,22 +158,12 @@ router.post("/vote", async (req: Request, res: Response) => {
 
     const candidateIds = constituencyCandidates.map((c) => c.id);
 
-    // Constituency guard — the chosen candidate must belong to this set.
-    // (A non-existent candidate id is also, correctly, "not in your
-    // constituency".) Server-side enforcement; we don't trust the client.
-    if (!candidateIds.includes(candidate_id)) {
-      res.status(403).json({
-        error: "Candidate is not in your constituency",
-      });
-      return;
-    }
-
     // ── Step 2b: Mandatory ZKP ballot-validity check ──
     // Verify the proof against the SERVER-DERIVED candidate set. This proves
     // the ciphertext encrypts one of the real constituency candidates without
-    // revealing which. The proof is required (enforced by the zod schema) and
-    // the candidate set is not client-supplied, so neither the check nor its
-    // reference set can be bypassed or spoofed by the caller.
+    // revealing which — this is now the ONLY mechanism that establishes
+    // ballot validity; there is no separate plaintext candidate_id guard to
+    // bypass or spoof, because there is no plaintext candidate_id at all.
     const elgamalPubKey = loadPublicKeyFromEnv();
     if (!elgamalPubKey) {
       console.error("ZKP verification failed: ElGamal public key not configured");

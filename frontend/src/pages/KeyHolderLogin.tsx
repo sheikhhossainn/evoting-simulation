@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const KeyHolderLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [keyholderId, setKeyholderId] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
@@ -10,10 +11,16 @@ const KeyHolderLogin = () => {
 
   const isValid = keyholderId.trim().length > 0 && passphrase.length > 0;
 
+  // Forward ?batch_id= through to the submit page (methodology-audit
+  // finding, live: this page previously dropped the query string entirely,
+  // so navigating here via the login form always silently fell back to
+  // batch_id=0 regardless of which batch's link the keyholder actually
+  // opened — a real submission landed on the wrong, already-tallied batch
+  // because of this).
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
-    navigate("/keyholder/submit", { state: { keyholderId } });
+    navigate(`/keyholder/submit${location.search}`, { state: { keyholderId } });
   };
 
   return (
@@ -299,7 +306,7 @@ const KeyHolderLogin = () => {
         {/* ── Public status link ── */}
         <div className="mt-4 flex justify-center gap-4 text-sm">
           <button
-            onClick={() => navigate("/keyholder/status")}
+            onClick={() => navigate(`/keyholder/status${location.search}`)}
             className="font-medium transition-colors text-amber-600 hover:text-amber-700"
           >
             View public submission status →

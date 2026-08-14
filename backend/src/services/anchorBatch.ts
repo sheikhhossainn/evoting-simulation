@@ -11,12 +11,28 @@
 import { supabase } from "../supabaseClient";
 import { buildMerkleTree, hashVoteLeaf } from "../merkle/merkleTree";
 import { getWritableMerkleContract } from "../blockchain/merkleContract";
+import { runAnchorSmtBatch, type AnchorSmtBatchResult } from "./anchorSmtBatch";
 
 /** Auto-anchor triggers once this many votes are waiting, unanchored. */
 export const AUTO_ANCHOR_THRESHOLD = 50;
 
+/**
+ * Auto-anchor also triggers once the OLDEST unanchored vote has been
+ * waiting this long, regardless of count (methodology-audit finding M3).
+ * Without this, the pre-anchor integrity window (threat_model.md §6) is
+ * unbounded during low turnout: maybeAutoAnchor() only ever runs
+ * fire-and-forget after a vote is cast, and only fires on count — a
+ * trickle of votes that never reaches AUTO_ANCHOR_THRESHOLD could sit
+ * unanchored indefinitely. Configurable via AUTO_ANCHOR_MAX_AGE_MS for
+ * testing; defaults to 30 minutes.
+ */
+export const AUTO_ANCHOR_MAX_AGE_MS = process.env.AUTO_ANCHOR_MAX_AGE_MS
+  ? Number(process.env.AUTO_ANCHOR_MAX_AGE_MS)
+  : 30 * 60 * 1000;
+
 interface VoteRow {
   id: string;
+  nullifier_hash: string;
   encrypted_vote: { c1: string; c2: string };
   created_at: string;
 }
@@ -26,6 +42,7 @@ export interface AnchorBatchResult {
   root: string;
   tx_hash: string;
   vote_count: number;
+  smt: AnchorSmtBatchResult | null;
 }
 
 /**
@@ -40,7 +57,7 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
 
   const { data: votes, error } = await supabase
     .from("votes")
-    .select("id, encrypted_vote, created_at")
+    .select("id, nullifier_hash, encrypted_vote, created_at")
     .is("tx_hash", null)
     .order("created_at", { ascending: true });
 
@@ -108,11 +125,25 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
     console.error("Supabase error updating anchored votes:", updateError);
   }
 
+  // Anchor the SMT alongside the dense tree (docs/smt-design.md §9: "Both
+  // trees are anchored together at each batch"). A failure here is logged,
+  // not thrown — the dense-tree anchor above already committed on-chain and
+  // must not be rolled back; the SMT simply falls behind until the next
+  // batch, same "log loudly, chain state is source of truth" policy used
+  // throughout this file.
+  let smtResult: AnchorSmtBatchResult | null = null;
+  try {
+    smtResult = await runAnchorSmtBatch(voteRows);
+  } catch (err) {
+    console.error("SMT batch anchor failed (dense-tree anchor already committed!):", err);
+  }
+
   return {
     batch_id: batchId,
     root: tree.root,
     tx_hash: tx.hash,
     vote_count: voteRows.length,
+    smt: smtResult,
   };
 }
 
@@ -122,9 +153,12 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
 let autoAnchorInFlight = false;
 
 /**
- * Check whether unanchored votes have crossed AUTO_ANCHOR_THRESHOLD and,
- * if so, kick off a batch anchor. Called fire-and-forget after each vote
- * is cast — never throws, never blocks/delays the voter's response.
+ * Check whether unanchored votes have crossed AUTO_ANCHOR_THRESHOLD, OR the
+ * oldest unanchored vote has aged past AUTO_ANCHOR_MAX_AGE_MS, and if so,
+ * kick off a batch anchor. Called fire-and-forget after each vote is cast —
+ * never throws, never blocks/delays the voter's response. Also called
+ * periodically by index.ts's timer so the age-based trigger still fires
+ * even when no new vote comes in to invoke this function at all.
  */
 export async function maybeAutoAnchor(): Promise<void> {
   if (autoAnchorInFlight) return;
@@ -135,12 +169,31 @@ export async function maybeAutoAnchor(): Promise<void> {
       .select("id", { count: "exact", head: true })
       .is("tx_hash", null);
 
-    if (error || !count || count < AUTO_ANCHOR_THRESHOLD) return;
+    if (error || !count) return;
+
+    let reason: string | null = null;
+    if (count >= AUTO_ANCHOR_THRESHOLD) {
+      reason = `${count} unanchored votes >= ${AUTO_ANCHOR_THRESHOLD}`;
+    } else {
+      const { data: oldest, error: oldestErr } = await supabase
+        .from("votes")
+        .select("created_at")
+        .is("tx_hash", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (!oldestErr && oldest) {
+        const ageMs = Date.now() - new Date(oldest.created_at).getTime();
+        if (ageMs >= AUTO_ANCHOR_MAX_AGE_MS) {
+          reason = `oldest unanchored vote is ${Math.round(ageMs / 1000)}s old (>= ${AUTO_ANCHOR_MAX_AGE_MS / 1000}s threshold), only ${count} votes waiting`;
+        }
+      }
+    }
+
+    if (!reason) return;
 
     autoAnchorInFlight = true;
-    console.log(
-      `Auto-anchor: ${count} unanchored votes >= ${AUTO_ANCHOR_THRESHOLD}, anchoring batch...`
-    );
+    console.log(`Auto-anchor: ${reason}, anchoring batch...`);
 
     const result = await runAnchorBatch();
 

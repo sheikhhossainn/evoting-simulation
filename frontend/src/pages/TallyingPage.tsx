@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   runTally,
   ApiError,
@@ -38,14 +38,16 @@ const REJECTION_LABELS: Record<RejectedVote["reason"], string> = {
   constituency_mismatch: "Constituency Mismatch",
   duplicate_nullifier: "Duplicate Vote",
   invalid_signature: "Invalid Signature",
+  insufficient_valid_shares: "Insufficient Valid Shares",
 };
 
 const REJECTION_DESCRIPTIONS: Record<RejectedVote["reason"], string> = {
-  decryption_failed: "The ciphertext could not be decrypted with the reconstructed key.",
+  decryption_failed: "The combined partial decryptions did not yield a valid plaintext.",
   candidate_not_found: "Decrypted candidate ID does not match any registered candidate.",
   constituency_mismatch: "Candidate is not standing in the voter's constituency.",
   duplicate_nullifier: "A vote with this nullifier was already recorded.",
   invalid_signature: "The vote's Ed25519 signature failed verification.",
+  insufficient_valid_shares: "Fewer than 3 keyholders submitted a verifiably correct partial decryption for this ballot.",
 };
 
 // ── Count-up animation hook ──
@@ -185,13 +187,21 @@ const TallySkeleton = () => (
       </div>
     ))}
     <p className="text-center text-sm" style={{ color: "#9fb3c8" }}>
-      Reconstructing key and decrypting votes…
+      Verifying partial decryptions and combining votes…
     </p>
   </div>
 );
 
 const TallyingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Explicit, not "latest" — see KeyShareSubmit.tsx's BATCH_ID comment.
+  // Read from ?batch_id= (carried over from the status page's "Proceed to
+  // Tallying" link) so this page tallies whichever batch the portal is
+  // actually pointed at, not one hardcoded at build time.
+  const batchIdParam = new URLSearchParams(location.search).get("batch_id");
+  const BATCH_ID = batchIdParam !== null && /^\d+$/.test(batchIdParam) ? Number(batchIdParam) : 0;
+
   const [adminSecret, setAdminSecret] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +217,7 @@ const TallyingPage = () => {
     setError(null);
 
     try {
-      const data = await runTally(ELECTION_ID, adminSecret.trim());
+      const data = await runTally(ELECTION_ID, adminSecret.trim(), BATCH_ID);
       setResult(data);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -274,6 +284,11 @@ const TallyingPage = () => {
               Tallying &amp; Decryption · {ELECTION_ID}
             </span>
           </div>
+          <div className="px-6 py-2 sm:mr-4">
+            <span className="text-xs font-mono px-2 py-1 rounded bg-slate-100" style={{ color: "#0A2540" }}>
+              Batch #{BATCH_ID}
+            </span>
+          </div>
         </div>
 
         {/* ── Title ── */}
@@ -285,8 +300,8 @@ const TallyingPage = () => {
             Tally the Election
           </h1>
           <p style={{ color: "#627d98" }}>
-            Reconstructs the private key from the submitted shares and decrypts every
-            cast vote. This is a one-time, irreversible ceremony action.
+            Verifies and combines keyholders' submitted partial decryptions for every cast vote — the
+            private key itself is never reconstructed. This is a one-time, irreversible ceremony action.
           </p>
         </div>
 
@@ -360,10 +375,10 @@ const TallyingPage = () => {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                       />
                     </svg>
-                    Decrypting…
+                    Verifying &amp; Combining…
                   </span>
                 ) : (
-                  "Reconstruct Key & Tally"
+                  "Verify Partials & Tally"
                 )}
               </button>
             </form>

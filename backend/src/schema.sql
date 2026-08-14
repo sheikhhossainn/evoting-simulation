@@ -318,6 +318,31 @@ CREATE TRIGGER trg_votes_no_delete
     BEFORE DELETE ON votes
     FOR EACH ROW EXECUTE FUNCTION fn_votes_no_delete();
 
+-- ── Scoped, audited exception: admin-triggered vote deletion (demo only) ──
+-- Normal DELETEs stay blocked by trg_votes_no_delete above — this function
+-- is the ONE narrow, explicit path around it, used solely by the SMT
+-- deletion-detection demo (docs/smt-design.md §13 test 19,
+-- POST /anchor/tamper/delete-vote in backend/src/routes/anchor.ts, gated by
+-- requireAdminSecret). It disables the guard trigger only for the duration
+-- of this single call, on this session, then re-enables it unconditionally
+-- (including on error) — it is not a standing bypass. Update
+-- docs/threat_model.md if this function's existence changes the DB-admin
+-- threat entry.
+CREATE OR REPLACE FUNCTION fn_admin_delete_vote(p_vote_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    ALTER TABLE votes DISABLE TRIGGER trg_votes_no_delete;
+    DELETE FROM votes WHERE id = p_vote_id;
+    ALTER TABLE votes ENABLE TRIGGER trg_votes_no_delete;
+EXCEPTION WHEN OTHERS THEN
+    ALTER TABLE votes ENABLE TRIGGER trg_votes_no_delete;
+    RAISE;
+END;
+$$;
+
 -- =============================================================
 -- 4. STORED PROCEDURES
 -- =============================================================
@@ -637,5 +662,225 @@ ALTER TABLE tally_results ENABLE ROW LEVEL SECURITY;
 --     after computing results
 --   • GET /public/results (public, no auth) reads the latest row —
 --     returns { status: "not_tallied" } if none exists yet
+-- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — SMT Batches Table Schema (docs/smt-design.md)
+--
+-- Each row records one anchor of the cumulative Sparse Merkle Tree over
+-- nullifier_hash keys (backend/src/merkle/sparseMerkleTree.ts), anchored
+-- alongside — not replacing — the per-batch dense tree in merkle_batches
+-- above. smt_batch_id mirrors MerkleRootStorage.sol's sequential
+-- smtBatches[smtBatchId], independent of merkle_batches.batch_id.
+-- =============================================================
+
+CREATE TABLE smt_batches (
+    -- Primary key: auto-generated UUID
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Sequential on-chain SMT batch id (MerkleRootStorage.smtBatches[smtBatchId])
+    smt_batch_id        BIGINT      NOT NULL UNIQUE,
+
+    -- New cumulative SMT root anchored on-chain for this batch
+    smt_root            CHAR(66)    NOT NULL
+                        CONSTRAINT ck_smt_batches_smt_root_hex
+                            CHECK (smt_root ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- The previous smt_root this batch chains from (EMPTY_TREE_ROOT for the
+    -- first batch) — the chain-continuity value the contract re-derives and
+    -- checks, kept here too for local auditability without a chain read.
+    previous_smt_root   CHAR(66)    NOT NULL
+                        CONSTRAINT ck_smt_batches_previous_smt_root_hex
+                            CHECK (previous_smt_root ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- Count of genuinely new keys inserted this batch. May be 0 for a
+    -- deletion-triggered re-anchor (docs/smt-design.md §13 test 19) — the
+    -- root changes but no new key was added.
+    new_keys_this_batch  INTEGER    NOT NULL
+                        CONSTRAINT ck_smt_batches_new_keys_non_negative
+                            CHECK (new_keys_this_batch >= 0),
+
+    -- Running total of insertions ever made — a monotonic ledger, NOT the
+    -- tree's current live key count (a later deletion does not decrement
+    -- this; see MerkleRootStorage.sol's anchorSmtRoot comment).
+    total_keys_anchored  BIGINT     NOT NULL
+                        CONSTRAINT ck_smt_batches_total_keys_non_negative
+                            CHECK (total_keys_anchored >= 0),
+
+    -- Polygon transaction hash for the anchorSmtRoot() call
+    tx_hash              VARCHAR(66) NOT NULL
+                        CONSTRAINT ck_smt_batches_tx_hash_hex
+                            CHECK (tx_hash ~ '^0x[a-fA-F0-9]{64}$'),
+
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_smt_batches_smt_batch_id ON smt_batches (smt_batch_id);
+
+-- ── Row-Level Security ──
+ALTER TABLE smt_batches ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • runAnchorSmtBatch() (backend/src/services/anchorSmtBatch.ts) inserts
+--     one row here after each successful on-chain anchorSmtRoot() call,
+--     called in lockstep with runAnchorBatch()'s merkle_batches insert
+--   • GET /anchor/verify-smt/:voteId regenerates a membership or
+--     non-membership proof against the current cumulative tree and
+--     verifies it both locally and against the on-chain contract
+-- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — Verifiable Tally Schema (docs/tally-verifiability-design.md)
+--
+-- Replaces the old raw-Shamir-share submission flow (key_shares.share_value,
+-- GF(2^8)) with the Z_q + Feldman VSS + Chaum-Pedersen DLEQ flow. The old
+-- share_value column and the old shamir.ts module are left in place,
+-- untouched, but are no longer written or read by any route — see
+-- backend/src/crypto/shamirZq.ts, dleq.ts, docs/tally-verifiability-design.md §14.
+-- =============================================================
+
+-- ── key_shares: add the public commitment column for the new flow ──
+-- public_commitment = y_i = g^(x_i) mod p (§2.1) — NOT secret, published at
+-- ceremony time so keyholders and verifiers can check it against the
+-- Feldman coefficient commitments in election_key_ceremony below. Distinct
+-- from the old share_value column (the old flow's raw GF(2^8) share,
+-- deprecated, never populated by the new ceremony script).
+ALTER TABLE key_shares
+    ADD COLUMN IF NOT EXISTS public_commitment TEXT
+        CONSTRAINT ck_key_shares_public_commitment_hex
+            CHECK (public_commitment IS NULL OR public_commitment ~ '^[0-9a-f]+$');
+
+-- ── Election key ceremony: per-election group params + Feldman commitments ──
+-- One row per election. Published once at ceremony time — p, g, and the
+-- Feldman coefficient commitments C_0..C_2 (docs §2.1) are all public; no
+-- secret material is ever stored here. C_0 == the ElGamal public key y.
+CREATE TABLE election_key_ceremony (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id         TEXT        NOT NULL UNIQUE,
+    p_hex               TEXT        NOT NULL,
+    g_hex               TEXT        NOT NULL,
+    -- Feldman commitments C_0..C_2 (t=3), each a hex-encoded group element.
+    -- C_0 must equal the public key y — cross-checked at ceremony time, not
+    -- re-derived here (no CHECK constraint can compare against an external value).
+    feldman_commitments JSONB       NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_key_ceremony ENABLE ROW LEVEL SECURITY;
+
+-- ── Partial decryptions: the new /keyshares/submit-partial payload ──
+-- One row per (election_id, ballot_id, keyholder_index) submission.
+-- d_i and the DLEQ proof are the ONLY things that ever cross the wire from
+-- a keyholder in the new flow — the raw share x_i is computed and held
+-- client-side and never appears here or anywhere backend-reachable
+-- (docs/tally-verifiability-design.md §7/§7.1).
+CREATE TABLE partial_decryptions (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id     TEXT        NOT NULL,
+    ballot_id       UUID        NOT NULL REFERENCES votes (id),
+    keyholder_index INTEGER     NOT NULL CHECK (keyholder_index BETWEEN 1 AND 4),
+
+    d_i             TEXT        NOT NULL
+                    CONSTRAINT ck_partial_decryptions_d_i_hex
+                        CHECK (d_i ~ '^[0-9a-f]+$'),
+
+    -- Chaum-Pedersen DLEQ proof (docs §5.1) — (t1, t2, z), all hex.
+    proof_t1        TEXT        NOT NULL,
+    proof_t2        TEXT        NOT NULL,
+    proof_z         TEXT        NOT NULL,
+
+    -- Set by the tally route after independently re-verifying the proof
+    -- (docs §5.2) — never trusted purely because it was accepted at
+    -- submission time; re-checked at combination time too, so this column
+    -- is a cache/audit trail, not the sole gate.
+    verified        BOOLEAN     NOT NULL DEFAULT false,
+
+    submitted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT uq_partial_decryptions_ballot_keyholder
+        UNIQUE (election_id, ballot_id, keyholder_index)
+);
+
+CREATE INDEX idx_partial_decryptions_ballot
+    ON partial_decryptions (election_id, ballot_id);
+
+ALTER TABLE partial_decryptions ENABLE ROW LEVEL SECURITY;
+
+-- ── Election setup commitment: candidate/constituency integrity (§8.2) ──
+-- One row per election, written once, before voting opens. Mirrors the
+-- write-once semantics of the on-chain ElectionSetupCommitment contract —
+-- this table is the off-chain record of what was anchored, not a second
+-- source of truth; GET routes re-derive from candidates/constituencies and
+-- compare against the ON-CHAIN commitment, not this row, for anything
+-- security-relevant (this row is bookkeeping/convenience only).
+CREATE TABLE election_setup_commitments (
+    id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id             TEXT        NOT NULL UNIQUE,
+    commitment              CHAR(66)    NOT NULL
+                            CONSTRAINT ck_election_setup_commitment_hex
+                                CHECK (commitment ~ '^0x[a-fA-F0-9]{64}$'),
+    candidates_root         CHAR(66)    NOT NULL,
+    constituencies_root     CHAR(66)    NOT NULL,
+    contract_address        VARCHAR(42),
+    tx_hash                 VARCHAR(66),
+    anchored_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_setup_commitments ENABLE ROW LEVEL SECURITY;
+
+-- ── candidates/constituencies immutability, GATED on a commitment existing ──
+-- Unlike votes (always immutable), candidates/constituencies are mutable
+-- during election SETUP but must freeze the instant a commitment is
+-- anchored — otherwise the on-chain commitment stays truthful about the
+-- past while the live system silently drifts underneath it (docs §8.2.4's
+-- "live DB drift" adversarial case, found by reading this file directly —
+-- neither table had ANY immutability guard before this migration).
+--
+-- This system currently models a single global candidate list (no
+-- per-election election_id column on candidates/constituencies) — the gate
+-- is therefore global: ANY anchored commitment freezes both tables. This
+-- matches the system's existing single-election assumption; a multi-election
+-- deployment would need to scope both the gate and the tables themselves.
+CREATE OR REPLACE FUNCTION fn_candidates_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM election_setup_commitments) THEN
+        RAISE EXCEPTION 'candidates are immutable once an election setup commitment has been anchored';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_candidates_immutable_after_commitment
+    BEFORE UPDATE OR DELETE ON candidates
+    FOR EACH ROW EXECUTE FUNCTION fn_candidates_immutable_after_commitment();
+
+CREATE OR REPLACE FUNCTION fn_constituencies_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM election_setup_commitments) THEN
+        RAISE EXCEPTION 'constituencies are immutable once an election setup commitment has been anchored';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_constituencies_immutable_after_commitment
+    BEFORE UPDATE OR DELETE ON constituencies
+    FOR EACH ROW EXECUTE FUNCTION fn_constituencies_immutable_after_commitment();
+
+-- =============================================================
+-- Notes for future implementation:
+--   • setup-shamir-zq.ts (ceremony script) inserts election_key_ceremony's
+--     one row; NEVER writes x_i anywhere backend-reachable (docs §7.1)
+--   • POST /keyshares/submit-partial inserts partial_decryptions rows
+--     (client-side-computed d_i + proof only, per ballot)
+--   • POST /keyshares/tally (rewritten) verifies partial_decryptions rows
+--     via dleq.ts, combines >=3 per ballot, never reconstructs the key
+--   • scripts/deploy-election-setup.ts anchors ElectionSetupCommitment.sol
+--     and inserts the election_setup_commitments row
 -- =============================================================
 

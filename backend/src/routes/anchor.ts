@@ -31,6 +31,11 @@ import {
   getWritableMerkleContract,
 } from "../blockchain/merkleContract";
 import { runAnchorBatch } from "../services/anchorBatch";
+import { getSmtProof, runSmtReanchorAfterDeletion } from "../services/anchorSmtBatch";
+import {
+  verifySmtMembershipProof,
+  verifySmtNonMembershipProof,
+} from "../merkle/sparseMerkleTree";
 
 const router = Router();
 
@@ -239,6 +244,78 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /anchor/verify-smt/:voteId — SMT counterpart to GET /anchor/verify/:voteId
+ * (docs/smt-design.md §13 test 18). Public, read-only. Fetches the vote's
+ * nullifier_hash, generates a membership (or non-membership, if the key was
+ * since removed) proof against the current cumulative SMT root, and verifies
+ * it both locally and against the on-chain contract.
+ */
+router.get("/anchor/verify-smt/:voteId", async (req: Request, res: Response) => {
+  const voteId = String(req.params.voteId);
+
+  try {
+    const { data: vote, error: voteError } = await supabase
+      .from("votes")
+      .select("id, nullifier_hash")
+      .eq("id", voteId)
+      .maybeSingle();
+
+    if (voteError) {
+      console.error("Supabase error looking up vote for SMT verify:", voteError);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+    if (!vote) {
+      res.status(404).json({ error: "Vote not found" });
+      return;
+    }
+
+    const result = await getSmtProof(vote.nullifier_hash);
+    const includedLocally =
+      result.type === "membership"
+        ? verifySmtMembershipProof(result.root, result.proof as any)
+        : verifySmtNonMembershipProof(result.root, result.proof as any);
+
+    let includedOnChain: boolean | null = null;
+    const readContract = getReadOnlyMerkleContract();
+    if (readContract) {
+      try {
+        includedOnChain =
+          result.type === "membership"
+            ? await readContract.verifySmtMembership(
+                result.root,
+                (result.proof as any).key,
+                (result.proof as any).value,
+                (result.proof as any).bitmap,
+                (result.proof as any).siblings
+              )
+            : await readContract.verifySmtNonMembership(
+                result.root,
+                (result.proof as any).key,
+                (result.proof as any).bitmap,
+                (result.proof as any).siblings
+              );
+      } catch (err) {
+        console.error("On-chain verifySmtMembership/NonMembership call failed:", err);
+      }
+    }
+
+    res.json({
+      vote_id: voteId,
+      nullifier_hash: vote.nullifier_hash,
+      type: result.type,
+      root: result.root,
+      proof: result.proof,
+      included_locally: includedLocally,
+      included_on_chain: includedOnChain,
+    });
+  } catch (err) {
+    console.error("Unexpected error in GET /anchor/verify-smt:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
  * GET /anchor/latest — latest anchored batch + a sample vote id.
  *
  * Public, read-only. Backs the visualizer's "Anchor status" zone and gives
@@ -427,6 +504,75 @@ router.post(
       });
     } catch (err) {
       console.error("Unexpected error in POST /anchor/tamper/ballot:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+/**
+ * POST /anchor/tamper/delete-vote — SMT deletion-detection demo (docs/smt-design.md
+ * §13 test 19). Deletes a confirmed, already-SMT-anchored vote row via the
+ * scoped fn_admin_delete_vote() RPC (schema.sql), then re-anchors the SMT.
+ * The now-stale membership proof issued before deletion still verifies
+ * against its original root (§8's contradiction) — GET /anchor/verify-smt
+ * on the same vote_id, called again after this, will 404 (vote row gone)
+ * while a proof captured beforehand remains independently checkable via
+ * verifySmtMembershipProof/verifySmtMembership against the pre-deletion root.
+ * Seeded/mock data only, same operating envelope as the other tamper routes.
+ */
+router.post(
+  "/anchor/tamper/delete-vote",
+  requireAdminSecret,
+  async (req: Request, res: Response) => {
+    try {
+      const voteId = req.body?.vote_id;
+      if (typeof voteId !== "string" || !voteId) {
+        res.status(400).json({ error: "vote_id is required" });
+        return;
+      }
+
+      const { data: vote, error: fetchErr } = await supabase
+        .from("votes")
+        .select("id, nullifier_hash, tx_hash")
+        .eq("id", voteId)
+        .maybeSingle();
+
+      if (fetchErr || !vote) {
+        res.status(404).json({ error: "Vote not found" });
+        return;
+      }
+      if (!vote.tx_hash) {
+        res.status(400).json({
+          error: "Vote has not been anchored yet — nothing for the SMT to contradict",
+        });
+        return;
+      }
+
+      const proofBeforeDeletion = await getSmtProof(vote.nullifier_hash);
+
+      const { error: rpcErr } = await supabase.rpc("fn_admin_delete_vote", {
+        p_vote_id: voteId,
+      });
+      if (rpcErr) {
+        console.error("fn_admin_delete_vote RPC failed:", rpcErr);
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+
+      const reanchorResult = await runSmtReanchorAfterDeletion();
+
+      res.json({
+        vote_id: voteId,
+        nullifier_hash: vote.nullifier_hash,
+        deleted: true,
+        proof_before_deletion: proofBeforeDeletion,
+        reanchor: reanchorResult,
+        note: reanchorResult
+          ? "Vote row deleted and SMT re-anchored. proof_before_deletion (a membership proof) still verifies against its original root; a fresh non-membership proof for the same key now verifies against the new root."
+          : "Vote row deleted, but SMT anchoring is not configured (no re-anchor performed) or the root did not change.",
+      });
+    } catch (err) {
+      console.error("Unexpected error in POST /anchor/tamper/delete-vote:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   }

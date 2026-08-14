@@ -167,25 +167,22 @@ export async function checkNullifier(
  * nullifier_hash (double-vote prevention / vote storage key), and
  * constituency_code (tally grouping) from the raw NID server-side.
  *
- * Optionally includes a ZKP proof of ballot validity and the candidate
- * list used to generate it.
+ * No plaintext candidate id is sent — the ZKP proof is the sole mechanism
+ * that establishes ballot validity; the backend verifies it against the
+ * constituency candidate set it derives itself.
  */
 export async function submitVote(
   nid: string,
-  candidateId: string,
   encryptedVote: { c1: string; c2: string },
   electionId: string,
-  zkpProof?: { challenges: string[]; responses: string[] },
-  candidateIds?: string[]
+  zkpProof: { challenges: string[]; responses: string[] }
 ): Promise<SubmitVoteResponse> {
   try {
     return await apiFetch<SubmitVoteResponse>("/vote", {
       nid,
-      candidate_id: candidateId,
       encrypted_vote: encryptedVote,
       election_id: electionId,
-      ...(zkpProof && { zkp_proof: zkpProof }),
-      ...(candidateIds && { candidate_ids: candidateIds }),
+      zkp_proof: zkpProof,
     });
   } catch (err) {
     if (err instanceof TypeError) {
@@ -392,7 +389,8 @@ export interface RejectedVote {
     | "candidate_not_found"
     | "constituency_mismatch"
     | "duplicate_nullifier"
-    | "invalid_signature";
+    | "invalid_signature"
+    | "insufficient_valid_shares";
 }
 
 export interface TallyResponse {
@@ -413,7 +411,8 @@ export interface TallyResponse {
  */
 export async function runTally(
   electionId: string,
-  adminSecret: string
+  adminSecret: string,
+  batchId: number
 ): Promise<TallyResponse> {
   const res = await fetch(`${API_BASE}/keyshares/tally`, {
     method: "POST",
@@ -421,7 +420,7 @@ export async function runTally(
       "Content-Type": "application/json",
       "x-admin-secret": adminSecret,
     },
-    body: JSON.stringify({ election_id: electionId }),
+    body: JSON.stringify({ election_id: electionId, batch_id: batchId }),
   });
 
   const data = await res.json();

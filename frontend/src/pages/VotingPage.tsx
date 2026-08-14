@@ -206,10 +206,9 @@ const VotingPage = () => {
 
       // 3. Submit vote to backend with ZKP proof. Only the raw NID (for
       // server-side derivation), the encrypted ballot, and the validity
-      // proof are sent — no client-computed hashes.
+      // proof are sent — no client-computed hashes, no plaintext candidate id.
       const result = await submitVote(
-        voterNid, selectedCandidate.id, encryptedVote, ELECTION_ID,
-        zkpProof, allCandidateIds
+        voterNid, encryptedVote, ELECTION_ID, zkpProof
       );
 
       // 4. Success — navigate to confirmation
