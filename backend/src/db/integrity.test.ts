@@ -47,6 +47,11 @@ const supabase = createClient(
 // succeed" side of these tests.
 const VALID_CONSTITUENCY = "CON-01";
 
+// Multi-election isolation (threat_model.md §10): election_id is NOT NULL on
+// voters/votes/candidates now, so every insert below needs a real one — the
+// backfilled election every other fixture/script in this project uses.
+const VALID_ELECTION_ID = "NATIONAL-2026-001";
+
 // Well-formed per ck_constituency_code_format (`^[A-Z]{2,4}-\d{1,3}$`) but
 // deliberately never seeded — the FK target that should always fail.
 const NONEXISTENT_CONSTITUENCY = "ZZ-99";
@@ -97,6 +102,7 @@ describe("DB Integrity & Immutability", () => {
   describe("Category 2 — Foreign key integrity", () => {
     it("rejects a voter with a non-existent constituency_code", async () => {
       const { error } = await supabase.from("voters").insert({
+        election_id: VALID_ELECTION_ID,
         nid_hash: randomHex64(),
         name: "FK Test Voter",
         constituency_code: NONEXISTENT_CONSTITUENCY,
@@ -107,6 +113,7 @@ describe("DB Integrity & Immutability", () => {
 
     it("rejects a vote with a non-existent constituency_code", async () => {
       const { error } = await supabase.from("votes").insert({
+        election_id: VALID_ELECTION_ID,
         nullifier_hash: randomHex64(),
         constituency_code: NONEXISTENT_CONSTITUENCY,
         encrypted_vote: { c1: "c1", c2: "c2" },
@@ -118,6 +125,7 @@ describe("DB Integrity & Immutability", () => {
 
     it("rejects a candidate with a non-existent constituency_code", async () => {
       const { error } = await supabase.from("candidates").insert({
+        election_id: VALID_ELECTION_ID,
         name: "FK Test Candidate",
         party: "Test Party",
         symbol: "x",

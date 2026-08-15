@@ -1,16 +1,26 @@
 # Threat Model
 
 Defines attackers, capabilities, trust assumptions, and security properties for the e-voting
-simulation. Written against the codebase as of commit `08782df`. This document is the reference
-point for prioritizing fixes (see [FUTURE_WORK.md](../FUTURE_WORK.md) for the mobile-first roadmap,
-which is a separate, later-phase concern) and for scoping the adversarial test suite.
+simulation. Originally written against commit `08782df`; updated against `eaa38e1`/`2eea30f` to
+reflect the distributed key generation ceremony, verifiable tally, and multi-election isolation —
+see [dkg-security-analysis.md](./dkg-security-analysis.md) and
+[system-overview-and-evaluation.md](./system-overview-and-evaluation.md) for the full evidence
+behind those changes. This document is the reference point for prioritizing fixes (see
+[FUTURE_WORK.md](../FUTURE_WORK.md) for the mobile-first roadmap, which is a separate, later-phase
+concern) and for scoping the adversarial test suite.
 
 ## 1. System summary (for context)
 
-Voter → ElGamal-encrypts candidate choice client-side + builds a Chaum–Pedersen ZKP of validity →
-backend verifies proof against a server-derived candidate set → vote inserted (immutable row,
-keyed by `nullifier_hash`) → votes periodically batched into a Merkle tree, root anchored on-chain
-→ at tally time, 3-of-4 Shamir keyholders reconstruct the ElGamal private key and decrypt.
+Key generation: 4 keyholders run a Pedersen-style DKG ceremony client-side (`POST /dkg/round1..3`)
+— each generates their own share of the ElGamal private key `x`; `x` itself is never computed or
+held by any single party, including the server (detail: [dkg-security-analysis.md](./dkg-security-analysis.md)).
+Voting: voter → ElGamal-encrypts candidate choice client-side + builds a Chaum–Pedersen ZKP of
+validity → backend verifies proof against a server-derived candidate set → vote inserted (immutable
+row, keyed by `nullifier_hash`) → votes periodically batched into a Merkle tree (dense + Sparse
+Merkle Tree), root anchored on-chain. Tally: 3-of-4 keyholders each compute a partial decryption in
+their own browser and publish a Chaum–Pedersen DLEQ proof that it was computed correctly from their
+share, without revealing the share; the backend verifies each proof and combines only the valid
+partials — the full private key `x` is never reconstructed anywhere, at generation or at tally time.
 Full flow: [README.md#the-voting-flow](../README.md#the-voting-flow).
 
 ## 2. Actors
@@ -23,7 +33,7 @@ Full flow: [README.md#the-voting-flow](../README.md#the-voting-flow).
 | **Database administrator / compromised DB credentials** | Full read/write on Supabase via service-role key | **Currently over-trusted.** Direct `DELETE`/`UPDATE` SQL against `votes` is blocked by `trg_votes_no_delete`/`trg_votes_immutable` — see §5. The one narrow exception is `fn_admin_delete_vote()` (schema.sql), a `SECURITY DEFINER` RPC that disables the delete guard for a single row and is used ONLY by the admin-gated SMT deletion-detection demo (`POST /anchor/tamper/delete-vote`); a DB admin with direct SQL access could still call it (or disable the trigger directly), so it does not add a new capability beyond what "full read/write" already implies — it exists to make the deletion-detection demo exercisable, not to close this gap |
 | **Backend administrator / compromised backend** | Controls the Express process: env secrets (`NULLIFIER_SECRET`, `NID_HASH_SALT`, `ADMIN_SECRET`), can call any route including dev-tamper endpoints | **Currently over-trusted** for pre-anchor windows (§6); single shared `ADMIN_SECRET`, not per-admin (noted in [FUTURE_WORK.md §0](../FUTURE_WORK.md#0-current-state-baseline-from-codebase-review)) |
 | **Keyholder / guardian (individual)** | Holds 1 of 4 Shamir shares, submits via passphrase | Cannot decrypt alone (3-of-4 threshold); passphrase-only auth today, no step-up (mobile roadmap addresses this separately) |
-| **Keyholder / guardian (colluding, ≥3 of 4)** | Can reconstruct the ElGamal private key | **Out of scope to fully prevent** — this is the explicit trust assumption of threshold decryption. Property to preserve: decryption is provably impossible below threshold ([evaluation_writeup.md §3](./evaluation_writeup.md#3-threshold-decryption--key-ceremony-task-4)) |
+| **Keyholder / guardian (colluding, ≥3 of 4)** | Can jointly decrypt any ballot by combining their partial decryptions (the full private key `x` itself is never reconstructed — see §1) | **Out of scope to fully prevent** — this is the explicit trust assumption of threshold decryption. Property to preserve: decryption is provably impossible below threshold ([evaluation_writeup.md §3](./evaluation_writeup.md#3-threshold-decryption--key-ceremony-task-4)) |
 | **Blockchain observer (public)** | Reads anchored roots on Sepolia/Amoy, calls `GET /anchor/verify/:voteId`, `GET /public/stats` | Fully untrusted input to the system; should be able to independently verify integrity without any special access |
 | **Miner / chain reorg attacker** | Could theoretically reorg Sepolia/Amoy | Out of scope — testnet finality assumptions inherited, not this project's problem to solve |
 
@@ -55,7 +65,7 @@ Full flow: [README.md#the-voting-flow](../README.md#the-voting-flow).
 | Uniqueness | Unique constraint on `nullifier_hash` + row lock in `fn_cast_vote` | Concurrency-tested ([evaluation_writeup.md §4](./evaluation_writeup.md#4-double-vote-prevention)) — holds |
 | Validity | Mandatory Chaum–Pedersen OR-proof, server-derived candidate set ([README.md — ZKP section](../README.md#zero-knowledge-proof-of-ballot-validity-chaumpedersen-or-proof)) | Sound against a network/voter attacker. Not sound against a backend attacker who controls candidate-set derivation itself |
 | Tamper-evidence | Merkle batch + on-chain anchor ([evaluation_writeup.md §1](./evaluation_writeup.md#1-tamper-detection--on-chain-anchoring-task-1)) | **Deletion-completeness gap** (§5) and **pre-anchor window** (§6) — both open |
-| Tally correctness | 3-of-4 Shamir reconstruction, decrypt-and-bin-invalid ([evaluation_writeup.md §3](./evaluation_writeup.md#3-threshold-decryption--key-ceremony-task-4)) | No ZK proof of *correct* partial decryption per share — a malicious keyholder with a valid share could submit a wrong decryption and nothing catches it today (§7) |
+| Tally correctness | 3-of-4 partial decryptions, each accompanied by a Chaum–Pedersen DLEQ proof of correct computation from the submitter's share; backend verifies every proof before combining ([dkg-security-analysis.md §6](./dkg-security-analysis.md)) | **Closed** — a malicious keyholder submitting a wrong partial decryption is rejected at verification, not silently combined (§7) |
 | Voter verifiability | None enforced today — Benaloh audit is design-only ([evaluation_writeup.md §6](./evaluation_writeup.md#6-benaloh-voter-verifiability)) | Explicit boundary (§8), not silently gapped |
 
 ## 5. Deletion-completeness gap (detail)
@@ -92,15 +102,22 @@ signed or hash-chained intermediate commitments written more frequently than the
 the window of undetectable tampering shrinks from "until next batch" to "until next signature,"
 independent of chain cost.
 
-## 7. Tally verifiability gap (detail)
+## 7. Tally verifiability gap — closed
 
-Today: reconstruct private key from 3-of-4 shares, decrypt every ballot server-side, publish totals.
-An external observer has no way to confirm the published totals are the correct decryption of the
-anchored ciphertext set — they must trust the backend process that ran the decryption. Standard fix:
-each keyholder publishes a ZK proof of correct partial decryption (proving their share was applied
-correctly to each ciphertext, without revealing the share itself) alongside their partial decryption
-result; anyone can verify the proofs and recombine, without trusting the backend's arithmetic.
-Flagged as the strongest available research contribution — bigger lift than §5/§6 but higher payoff.
+Previously: reconstructing the private key from 3-of-4 shares and decrypting server-side left an
+external observer with no way to confirm the published totals were the correct decryption of the
+anchored ciphertext set, other than trusting the backend's arithmetic.
+
+Fixed: each keyholder now computes their partial decryption **client-side** and publishes a
+Chaum–Pedersen DLEQ proof (`crypto/dleq.ts`, ported independently to the browser in
+`keyholderCrypto.ts`) that the partial decryption was correctly derived from their share, without
+revealing the share itself. The backend verifies every proof (`POST /keyshares/submit-partial`)
+before a partial is eligible for combination, and `GET /keyshares/verification-bundle` publishes
+everything an independent observer needs to re-verify the proofs and recombination themselves. A
+malicious keyholder submitting an incorrect partial decryption is rejected at verification, not
+silently combined into the tally. Full treatment and live evidence:
+[dkg-security-analysis.md](./dkg-security-analysis.md); combined with the DKG ceremony (§1), the
+full private key `x` is now never computed by any single party at generation OR at tally time.
 
 ## 8. Explicit boundary: voter-verifiable cast confirmation
 
@@ -128,7 +145,7 @@ Each row should map to a property in §3 and a concrete automated test.
 | Forged Merkle proof | Tamper-evidence | Covered — [evaluation_writeup.md §8](./evaluation_writeup.md#8-merkle-tree-integrity) |
 | Manipulated root | Tamper-evidence | Covered — [evaluation_writeup.md §1](./evaluation_writeup.md#1-tamper-detection--on-chain-anchoring-task-1) |
 | Insufficient Shamir shares | Tally correctness (confidentiality side) | Covered — [evaluation_writeup.md §3](./evaluation_writeup.md#3-threshold-decryption--key-ceremony-task-4) |
-| Malicious guardian share (wrong partial decryption) | Tally correctness | **Not covered** — no proof-of-correct-decryption exists yet (§7) |
+| Malicious guardian share (wrong partial decryption) | Tally correctness | Covered — DLEQ proof verification rejects an incorrect partial decryption at submission ([dkg-security-analysis.md §6](./dkg-security-analysis.md)); closed per §7 |
 | Concurrent double voting | Uniqueness | Covered — [evaluation_writeup.md §4](./evaluation_writeup.md#4-double-vote-prevention) |
 | Backend/database direct manipulation (DELETE bypass) | Tamper-evidence (completeness) | **Not covered** — trigger blocks UPDATE only |
 
@@ -139,4 +156,3 @@ Each row should map to a property in §3 and a concrete automated test.
 - Physical device compromise of the voter's browser (malware, keylogger) — standard client-security
   assumption, not specific to this protocol.
 - DDoS / infra hardening — tracked separately in [FUTURE_WORK.md §6](../FUTURE_WORK.md#6-ddos--security-hardening).
-- Multi-election isolation. `votes`/`voters`/`nullifiers` carry no `election_id` column — this system models exactly one live election at a time; `election_id` strings flowing through DLEQ/commitment hash domains (dleq.ts, candidateCommitment.ts) are pure cross-context domain separation, not an enforced storage-level scoping key. The candidates/constituencies immutability gate (schema.sql's `trg_candidates_immutable_after_commitment`) is correspondingly global, not per-election, by the same design. A multi-election deployment would need real per-election scoping on all three tables, not just the hash domains.
