@@ -18,6 +18,8 @@ import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 import keySharesRouter from "./routes/keyshares";
 import anchorRouter from "./routes/anchor";
 import publicRouter from "./routes/public";
+import electionsRouter from "./routes/elections";
+import dkgRouter from "./routes/dkg";
 import { maybeAutoAnchor } from "./services/anchorBatch";
 
 
@@ -42,6 +44,8 @@ app.use(candidatesRouter);    // GET /candidates lives at root
 app.use("/keyshares", keySharesRouter);
 app.use(anchorRouter);         // POST /anchor/batch, GET /anchor/verify/:voteId
 app.use(publicRouter);         // GET /public/stats (Public Watchdog page)
+app.use(electionsRouter);      // POST /elections, GET /elections, GET /elections/:id
+app.use("/dkg", dkgRouter);    // Distributed key generation ceremony
 
 
 // ── Health check ──

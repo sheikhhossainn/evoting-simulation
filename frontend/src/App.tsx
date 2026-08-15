@@ -13,6 +13,7 @@ import VoterLogin from "./pages/VoterLogin";
 import VotingPage from "./pages/VotingPage";
 import VoteConfirmation from "./pages/VoteConfirmation";
 import KeyHolderLogin from "./pages/KeyHolderLogin";
+import KeyCeremony from "./pages/KeyCeremony";
 import KeyShareSubmit from "./pages/KeyShareSubmit";
 import KeyShareStatus from "./pages/KeyShareStatus";
 import TallyingPage from "./pages/TallyingPage";
@@ -39,6 +40,7 @@ function App() {
 
         {/* ── Key Holder portal (standalone — no navbar) ── */}
         <Route path="/keyholder/login" element={<KeyHolderLogin />} />
+        <Route path="/keyholder/ceremony" element={<KeyCeremony />} />
         <Route path="/keyholder/submit" element={<KeyShareSubmit />} />
         <Route path="/keyholder/status" element={<KeyShareStatus />} />
         <Route path="/tally" element={<TallyingPage />} />

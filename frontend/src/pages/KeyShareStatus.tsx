@@ -9,8 +9,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ApiError } from "../utils/api";
+import { getElectionId } from "../utils/nullifier";
 
-const ELECTION_ID = "NATIONAL-2026-001";
 const THRESHOLD = 3;
 const TOTAL = 4;
 
@@ -49,6 +49,9 @@ type StatusData = {
 const KeyShareStatus = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  // Multi-election isolation (threat_model.md §10) — see nullifier.ts's
+  // getElectionId() comment.
+  const ELECTION_ID = getElectionId(location.search);
   // Explicit, not "latest" — see KeyShareSubmit.tsx's BATCH_ID comment.
   // Read from ?batch_id= so this page can target whichever batch the
   // portal is currently pointed at, not one hardcoded at build time.
@@ -86,7 +89,7 @@ setData(result);
     const interval = setInterval(fetchStatus, 30_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [BATCH_ID]);
+  }, [ELECTION_ID, BATCH_ID]);
 
   const anchoredBallotCount = data?.anchored_ballot_count ?? 0;
 
@@ -308,7 +311,7 @@ setData(result);
 
         {thresholdMet && (
           <div className="text-center mb-4">
-            <button onClick={() => navigate(`/tally?batch_id=${BATCH_ID}`)} className="btn-navy text-sm px-6">
+            <button onClick={() => navigate(`/tally?election_id=${encodeURIComponent(ELECTION_ID)}&batch_id=${BATCH_ID}`)} className="btn-navy text-sm px-6">
               Proceed to Tallying →
             </button>
           </div>

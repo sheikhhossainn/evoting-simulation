@@ -19,8 +19,7 @@ import {
   type TallyResponse,
   type RejectedVote,
 } from "../utils/api";
-
-const ELECTION_ID = "NATIONAL-2026-001";
+import { getElectionId } from "../utils/nullifier";
 
 const PARTY_ACCENTS: Record<string, string> = {
   "Progressive Alliance": "text-emerald-600 bg-emerald-50",
@@ -195,6 +194,9 @@ const TallySkeleton = () => (
 const TallyingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  // Multi-election isolation (threat_model.md §10) — see nullifier.ts's
+  // getElectionId() comment.
+  const ELECTION_ID = getElectionId(location.search);
   // Explicit, not "latest" — see KeyShareSubmit.tsx's BATCH_ID comment.
   // Read from ?batch_id= (carried over from the status page's "Proceed to
   // Tallying" link) so this page tallies whichever batch the portal is

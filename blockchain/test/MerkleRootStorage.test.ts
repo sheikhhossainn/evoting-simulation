@@ -20,6 +20,8 @@ import {
   type VoteLeafInput,
 } from "../../backend/src/merkle/merkleTree";
 
+const EID = "TEST-ELECTION";
+
 function mockVoteBatch(n: number): VoteLeafInput[] {
   const votes: VoteLeafInput[] = [];
   for (let i = 0; i < n; i++) {
@@ -44,7 +46,7 @@ describe("MerkleRootStorage", () => {
     const leaves = votes.map(hashVoteLeaf);
     const tree = buildMerkleTree(leaves);
 
-    const tx = await contract.anchorRoot(tree.root, votes.length);
+    const tx = await contract.anchorRoot(EID, tree.root, votes.length);
     const receipt = await tx.wait();
 
     const event = receipt!.logs
@@ -62,7 +64,7 @@ describe("MerkleRootStorage", () => {
     expect(event!.args.root).to.equal(tree.root);
     expect(event!.args.voteCount).to.equal(BigInt(votes.length));
 
-    const [storedRoot, storedCount] = await contract.getBatch(0);
+    const [storedRoot, storedCount] = await contract.getBatch(EID, 0);
     expect(storedRoot).to.equal(tree.root);
     expect(storedCount).to.equal(BigInt(votes.length));
 
@@ -71,7 +73,7 @@ describe("MerkleRootStorage", () => {
       const proof = getProof(tree, i);
 
       expect(verifyProof(leaves[i], proof, tree.root)).to.equal(true);
-      expect(await contract.verify(0, leaves[i], proof)).to.equal(true);
+      expect(await contract.verify(EID, 0, leaves[i], proof)).to.equal(true);
     }
 
     // A vote that was never in the batch must fail verification
@@ -81,7 +83,7 @@ describe("MerkleRootStorage", () => {
       c2: "0x00",
       createdAt: new Date().toISOString(),
     });
-    expect(await contract.verify(0, foreignLeaf, getProof(tree, 0))).to.equal(
+    expect(await contract.verify(EID, 0, foreignLeaf, getProof(tree, 0))).to.equal(
       false
     );
   });
@@ -94,16 +96,16 @@ describe("MerkleRootStorage", () => {
 
     const batchA = mockVoteBatch(4);
     const treeA = buildMerkleTree(batchA.map(hashVoteLeaf));
-    await (await contract.anchorRoot(treeA.root, batchA.length)).wait();
+    await (await contract.anchorRoot(EID, treeA.root, batchA.length)).wait();
 
     const batchB = mockVoteBatch(5);
     const treeB = buildMerkleTree(batchB.map(hashVoteLeaf));
-    await (await contract.anchorRoot(treeB.root, batchB.length)).wait();
+    await (await contract.anchorRoot(EID, treeB.root, batchB.length)).wait();
 
-    expect(await contract.batchCount()).to.equal(2n);
+    expect(await contract.batchCount(EID)).to.equal(2n);
 
-    const [rootA] = await contract.getBatch(0);
-    const [rootB] = await contract.getBatch(1);
+    const [rootA] = await contract.getBatch(EID, 0);
+    const [rootB] = await contract.getBatch(EID, 1);
     expect(rootA).to.equal(treeA.root);
     expect(rootB).to.equal(treeB.root);
     expect(rootA).to.not.equal(rootB);
@@ -120,6 +122,7 @@ describe("MerkleRootStorage", () => {
 
     await expect(
       (contract.connect(stranger) as MerkleRootStorage).anchorRoot(
+        EID,
         tree.root,
         votes.length
       )
@@ -132,9 +135,74 @@ describe("MerkleRootStorage", () => {
     const contract = await factory.deploy(owner.address);
     await contract.waitForDeployment();
 
-    await expect(contract.anchorRoot(ethers.ZeroHash, 1)).to.be.revertedWith(
+    await expect(contract.anchorRoot(EID, ethers.ZeroHash, 1)).to.be.revertedWith(
       "MerkleRootStorage: root cannot be zero"
     );
+  });
+
+  it("rejects an empty electionId", async () => {
+    const [owner] = await ethers.getSigners();
+    const factory = await ethers.getContractFactory("MerkleRootStorage");
+    const contract = await factory.deploy(owner.address);
+    await contract.waitForDeployment();
+
+    await expect(contract.anchorRoot("", ethers.keccak256("0x01"), 1)).to.be.revertedWith(
+      "MerkleRootStorage: electionId cannot be empty"
+    );
+  });
+
+  // ── Multi-election isolation: two elections anchoring on the SAME deployed
+  // contract must never share batch counters, roots, or proofs.
+  // (threat_model.md §10 — this is the direct regression test for the gap
+  // that section names as an explicit non-goal, now closed.) ──
+  describe("multi-election isolation", () => {
+    it("two elections' batchIds are independent counters, starting at 0 each", async () => {
+      const [owner] = await ethers.getSigners();
+      const factory = await ethers.getContractFactory("MerkleRootStorage");
+      const contract = await factory.deploy(owner.address);
+      await contract.waitForDeployment();
+
+      const treeA1 = buildMerkleTree(mockVoteBatch(3).map(hashVoteLeaf));
+      const treeB1 = buildMerkleTree(mockVoteBatch(4).map(hashVoteLeaf));
+      const treeA2 = buildMerkleTree(mockVoteBatch(5).map(hashVoteLeaf));
+
+      await (await contract.anchorRoot("ELECTION-A", treeA1.root, 3)).wait();
+      await (await contract.anchorRoot("ELECTION-B", treeB1.root, 4)).wait();
+      await (await contract.anchorRoot("ELECTION-A", treeA2.root, 5)).wait();
+
+      expect(await contract.batchCount("ELECTION-A")).to.equal(2n);
+      expect(await contract.batchCount("ELECTION-B")).to.equal(1n);
+
+      const [rootA0] = await contract.getBatch("ELECTION-A", 0);
+      const [rootA1] = await contract.getBatch("ELECTION-A", 1);
+      const [rootB0] = await contract.getBatch("ELECTION-B", 0);
+      expect(rootA0).to.equal(treeA1.root);
+      expect(rootA1).to.equal(treeA2.root);
+      expect(rootB0).to.equal(treeB1.root);
+    });
+
+    it("a proof anchored under one electionId does not verify under another", async () => {
+      const [owner] = await ethers.getSigners();
+      const factory = await ethers.getContractFactory("MerkleRootStorage");
+      const contract = await factory.deploy(owner.address);
+      await contract.waitForDeployment();
+
+      const leavesA = mockVoteBatch(6).map(hashVoteLeaf);
+      const treeA = buildMerkleTree(leavesA);
+      await (await contract.anchorRoot("ELECTION-A", treeA.root, 6)).wait();
+
+      // ELECTION-B never anchored anything — batchId 0 doesn't exist for it.
+      const proof = getProof(treeA, 2);
+      await expect(contract.verify("ELECTION-B", 0, leavesA[2], proof)).to.be.revertedWith(
+        "MerkleRootStorage: unknown batchId"
+      );
+
+      // Even if ELECTION-B anchors its own batch 0, election A's proof must
+      // not verify against it (different root entirely).
+      const treeB = buildMerkleTree(mockVoteBatch(6).map(hashVoteLeaf));
+      await (await contract.anchorRoot("ELECTION-B", treeB.root, 6)).wait();
+      expect(await contract.verify("ELECTION-B", 0, leavesA[2], proof)).to.equal(false);
+    });
   });
 
   // ── On-chain binding: the Solidity-stored root must equal the TS-computed
@@ -155,17 +223,17 @@ describe("MerkleRootStorage", () => {
         const leaves = votes.map(hashVoteLeaf);
         const tree = buildMerkleTree(leaves);
 
-        await (await contract.anchorRoot(tree.root, size)).wait();
+        await (await contract.anchorRoot(EID, tree.root, size)).wait();
 
         // The root Solidity stored is byte-for-byte the TS-computed root.
-        const [storedRoot] = await contract.getBatch(0);
+        const [storedRoot] = await contract.getBatch(EID, 0);
         expect(storedRoot).to.equal(tree.root);
 
         // Every off-chain proof verifies against the on-chain OZ verifier.
         for (let i = 0; i < leaves.length; i++) {
           const proof = getProof(tree, i);
           expect(verifyProof(leaves[i], proof, tree.root)).to.equal(true);
-          expect(await contract.verify(0, leaves[i], proof)).to.equal(true);
+          expect(await contract.verify(EID, 0, leaves[i], proof)).to.equal(true);
         }
       });
     }
@@ -180,11 +248,11 @@ describe("MerkleRootStorage", () => {
       const tree = buildMerkleTree([leaf]);
       expect(tree.root).to.equal(leaf); // single-leaf root is the leaf itself
 
-      await (await contract.anchorRoot(tree.root, 1)).wait();
-      const [storedRoot] = await contract.getBatch(0);
+      await (await contract.anchorRoot(EID, tree.root, 1)).wait();
+      const [storedRoot] = await contract.getBatch(EID, 0);
       expect(storedRoot).to.equal(leaf);
       // OZ MerkleProof.verify with an empty proof reduces to leaf == root.
-      expect(await contract.verify(0, leaf, [])).to.equal(true);
+      expect(await contract.verify(EID, 0, leaf, [])).to.equal(true);
     });
   });
 
@@ -206,26 +274,26 @@ describe("MerkleRootStorage", () => {
 
       const leaves = mockVoteBatch(50).map(hashVoteLeaf);
       const tree = buildMerkleTree(leaves);
-      await (await contract.anchorRoot(tree.root, 50)).wait();
+      await (await contract.anchorRoot(EID, tree.root, 50)).wait();
 
       const target = 17;
       const validProof = getProof(tree, target);
-      expect(await contract.verify(0, leaves[target], validProof)).to.equal(
+      expect(await contract.verify(EID, 0, leaves[target], validProof)).to.equal(
         true
       );
 
       // Flipped sibling hash.
       const flipped = [...validProof];
       flipped[0] = corrupt(flipped[0]);
-      expect(await contract.verify(0, leaves[target], flipped)).to.equal(false);
+      expect(await contract.verify(EID, 0, leaves[target], flipped)).to.equal(false);
 
       // Valid proof, wrong leaf.
-      expect(await contract.verify(0, leaves[4], validProof)).to.equal(false);
+      expect(await contract.verify(EID, 0, leaves[4], validProof)).to.equal(false);
 
       // Proof from a different tree.
       const otherTree = buildMerkleTree(mockVoteBatch(50).map(hashVoteLeaf));
       expect(
-        await contract.verify(0, leaves[target], getProof(otherTree, target))
+        await contract.verify(EID, 0, leaves[target], getProof(otherTree, target))
       ).to.equal(false);
     });
   });

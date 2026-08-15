@@ -11,14 +11,29 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const EID = "TEST-ELECTION";
+
 const VOTES_STATE: { count: number; oldestCreatedAt: string | null } = {
   count: 0,
   oldestCreatedAt: null,
 };
 
+/**
+ * maybeAutoAnchor() (multi-election, threat_model.md §10) first ENUMERATES
+ * distinct election_ids with unanchored votes (`select("election_id")`,
+ * data-shaped response), then per-election checks count (count-shaped
+ * response) and, if below threshold, the oldest unanchored vote's age
+ * (maybeSingle). This single-election-fixture mock distinguishes the two
+ * response shapes by whether `.select()` was called in count mode.
+ */
 function makeVotesQuery() {
+  let mode: "count" | "data" = "data";
   const builder: any = {
-    select: () => builder,
+    select: (_cols: string, opts?: { count?: string; head?: boolean }) => {
+      mode = opts?.count ? "count" : "data";
+      return builder;
+    },
+    eq: () => builder,
     is: () => builder,
     order: () => builder,
     limit: () => builder,
@@ -26,9 +41,13 @@ function makeVotesQuery() {
       data: VOTES_STATE.oldestCreatedAt ? { created_at: VOTES_STATE.oldestCreatedAt } : null,
       error: null,
     }),
-    // count-mode select resolves via `then` in the real supabase client;
-    // mimic that shape for `{ count, error }` destructuring.
-    then: (resolve: any) => resolve({ count: VOTES_STATE.count, error: null }),
+    then: (resolve: any) => {
+      if (mode === "count") {
+        resolve({ count: VOTES_STATE.count, error: null });
+      } else {
+        resolve({ data: VOTES_STATE.count > 0 ? [{ election_id: EID }] : [], error: null });
+      }
+    },
   };
   return builder;
 }

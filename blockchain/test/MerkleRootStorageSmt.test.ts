@@ -23,6 +23,8 @@ import {
   type SmtNonMembershipProof,
 } from "../../backend/src/merkle/sparseMerkleTree";
 
+const EID = "TEST-ELECTION";
+
 function randomKey(): string {
   return ethers.hexlify(ethers.randomBytes(32));
 }
@@ -78,10 +80,10 @@ describe("MerkleRootStorage — SMT additions", () => {
       const newRoot = tree.root();
 
       await expect(
-        contract.anchorSmtRoot(newRoot, ethers.ZeroHash, 1, 1)
+        contract.anchorSmtRoot(EID, newRoot, ethers.ZeroHash, 1, 1)
       ).to.be.revertedWith("MerkleRootStorage: SMT chain continuity broken");
 
-      const tx = await contract.anchorSmtRoot(newRoot, GENESIS_ROOT, 1, 1);
+      const tx = await contract.anchorSmtRoot(EID, newRoot, GENESIS_ROOT, 1, 1);
       const receipt = await tx.wait();
 
       const event = receipt!.logs
@@ -97,13 +99,13 @@ describe("MerkleRootStorage — SMT additions", () => {
       expect(event!.args.smtBatchId).to.equal(0n);
       expect(event!.args.smtRoot).to.equal(newRoot);
 
-      expect(await contract.smtBatchCount()).to.equal(1n);
+      expect(await contract.smtBatchCount(EID)).to.equal(1n);
     });
 
     it("rejects a zero SMT root", async () => {
       const { contract } = await deployContract();
       await expect(
-        contract.anchorSmtRoot(ethers.ZeroHash, GENESIS_ROOT, 1, 1)
+        contract.anchorSmtRoot(EID, ethers.ZeroHash, GENESIS_ROOT, 1, 1)
       ).to.be.revertedWith("MerkleRootStorage: SMT root cannot be zero");
     });
 
@@ -113,6 +115,7 @@ describe("MerkleRootStorage — SMT additions", () => {
       tree.insert(randomKey(), randomValue());
       await expect(
         (contract.connect(stranger) as MerkleRootStorage).anchorSmtRoot(
+          EID,
           tree.root(),
           GENESIS_ROOT,
           1,
@@ -126,8 +129,17 @@ describe("MerkleRootStorage — SMT additions", () => {
       const tree = new SparseMerkleTree();
       tree.insert(randomKey(), randomValue());
       await expect(
-        contract.anchorSmtRoot(tree.root(), GENESIS_ROOT, 1, 99)
+        contract.anchorSmtRoot(EID, tree.root(), GENESIS_ROOT, 1, 99)
       ).to.be.revertedWith("MerkleRootStorage: SMT totalKeysAnchored mismatch");
+    });
+
+    it("rejects an empty electionId", async () => {
+      const { contract } = await deployContract();
+      const tree = new SparseMerkleTree();
+      tree.insert(randomKey(), randomValue());
+      await expect(
+        contract.anchorSmtRoot("", tree.root(), GENESIS_ROOT, 1, 1)
+      ).to.be.revertedWith("MerkleRootStorage: electionId cannot be empty");
     });
   });
 
@@ -138,19 +150,19 @@ describe("MerkleRootStorage — SMT additions", () => {
       const tree = new SparseMerkleTree();
       tree.insert(randomKey(), randomValue());
       const root1 = tree.root();
-      await (await contract.anchorSmtRoot(root1, GENESIS_ROOT, 1, 1)).wait();
+      await (await contract.anchorSmtRoot(EID, root1, GENESIS_ROOT, 1, 1)).wait();
 
       tree.insert(randomKey(), randomValue());
       const root2 = tree.root();
 
       // Wrong previousRoot (using genesis again instead of root1)
       await expect(
-        contract.anchorSmtRoot(root2, GENESIS_ROOT, 1, 2)
+        contract.anchorSmtRoot(EID, root2, GENESIS_ROOT, 1, 2)
       ).to.be.revertedWith("MerkleRootStorage: SMT chain continuity broken");
 
       // Correct previousRoot succeeds
-      await (await contract.anchorSmtRoot(root2, root1, 1, 2)).wait();
-      expect(await contract.smtBatchCount()).to.equal(2n);
+      await (await contract.anchorSmtRoot(EID, root2, root1, 1, 2)).wait();
+      expect(await contract.smtBatchCount(EID)).to.equal(2n);
     });
 
     it("accepts a re-anchor with newKeysThisBatch = 0 (e.g. after a detected deletion)", async () => {
@@ -159,15 +171,15 @@ describe("MerkleRootStorage — SMT additions", () => {
       const key = randomKey();
       tree.insert(key, randomValue());
       const root1 = tree.root();
-      await (await contract.anchorSmtRoot(root1, GENESIS_ROOT, 1, 1)).wait();
+      await (await contract.anchorSmtRoot(EID, root1, GENESIS_ROOT, 1, 1)).wait();
 
       tree.delete(key);
       const root2 = tree.root();
       expect(root2).to.equal(GENESIS_ROOT); // only key deleted -> back to empty
 
-      await (await contract.anchorSmtRoot(root2, root1, 0, 1)).wait();
-      expect(await contract.smtBatchCount()).to.equal(2n);
-      const batch = await contract.smtBatches(1);
+      await (await contract.anchorSmtRoot(EID, root2, root1, 0, 1)).wait();
+      expect(await contract.smtBatchCount(EID)).to.equal(2n);
+      const batch = await contract.smtBatches(EID, 1);
       expect(batch.smtRoot).to.equal(root2);
       expect(batch.newKeysThisBatch).to.equal(0n);
       expect(batch.totalKeysAnchored).to.equal(1n); // unchanged — counts insertions, not current occupancy
@@ -186,7 +198,7 @@ describe("MerkleRootStorage — SMT additions", () => {
         tree.insert(k, randomValue());
       }
       const root = tree.root();
-      await (await contract.anchorSmtRoot(root, GENESIS_ROOT, n, n)).wait();
+      await (await contract.anchorSmtRoot(EID, root, GENESIS_ROOT, n, n)).wait();
       return { contract, tree, root, keys };
     }
 
@@ -322,7 +334,7 @@ describe("MerkleRootStorage — SMT additions", () => {
       const firstBatchKey = randomKey();
       tree.insert(firstBatchKey, randomValue());
       roots.push(tree.root());
-      await (await contract.anchorSmtRoot(roots[0], GENESIS_ROOT, 1, 1)).wait();
+      await (await contract.anchorSmtRoot(EID, roots[0], GENESIS_ROOT, 1, 1)).wait();
 
       // Capture the proof against the FIRST anchored root before more batches land.
       const historicalProof = tree.getMembershipProof(firstBatchKey);
@@ -334,11 +346,11 @@ describe("MerkleRootStorage — SMT additions", () => {
         tree.insert(randomKey(), randomValue());
         const newRoot = tree.root();
         total += 1;
-        await (await contract.anchorSmtRoot(newRoot, roots[roots.length - 1], 1, total)).wait();
+        await (await contract.anchorSmtRoot(EID, newRoot, roots[roots.length - 1], 1, total)).wait();
         roots.push(newRoot);
       }
 
-      expect(await contract.smtBatchCount()).to.equal(5n);
+      expect(await contract.smtBatchCount(EID)).to.equal(5n);
 
       // The proof captured against batch 0's root must STILL verify against
       // that historical root, even though 4 newer batches now exist —
@@ -385,8 +397,8 @@ describe("MerkleRootStorage — SMT additions", () => {
       // Both submitted against the SAME previousRoot (GENESIS_ROOT) —
       // simulating two concurrent batch-anchor processes racing.
       const results = await Promise.allSettled([
-        contract.anchorSmtRoot(rootA, GENESIS_ROOT, 1, 1),
-        contract.anchorSmtRoot(rootB, GENESIS_ROOT, 1, 1),
+        contract.anchorSmtRoot(EID, rootA, GENESIS_ROOT, 1, 1),
+        contract.anchorSmtRoot(EID, rootB, GENESIS_ROOT, 1, 1),
       ]);
 
       // Both transactions may be *submitted* successfully (no revert at
@@ -409,9 +421,49 @@ describe("MerkleRootStorage — SMT additions", () => {
       );
 
       // Exactly one batch was recorded — no silent overwrite, no double-anchor.
-      expect(await contract.smtBatchCount()).to.equal(1n);
-      const landedRoot = (await contract.smtBatches(0)).smtRoot;
+      expect(await contract.smtBatchCount(EID)).to.equal(1n);
+      const landedRoot = (await contract.smtBatches(EID, 0)).smtRoot;
       expect([rootA, rootB]).to.include(landedRoot);
+    });
+  });
+
+  // Multi-election isolation (threat_model.md §10) — the SMT-side regression
+  // test paralleling MerkleRootStorage.test.ts's dense-tree version: two
+  // elections' SMT chains on the same deployed contract must never share a
+  // batch counter or a continuity chain.
+  describe("multi-election isolation", () => {
+    it("two elections' SMT chains are independent — separate genesis, separate counters", async () => {
+      const { contract } = await deployContract();
+      const treeA = new SparseMerkleTree();
+      treeA.insert(randomKey(), randomValue());
+      const rootA = treeA.root();
+
+      const treeB = new SparseMerkleTree();
+      treeB.insert(randomKey(), randomValue());
+      treeB.insert(randomKey(), randomValue());
+      const rootB = treeB.root();
+
+      // Both elections independently start from EMPTY_TREE_ROOT — neither
+      // needs to know about the other's chain tip.
+      await (await contract.anchorSmtRoot("ELECTION-A", rootA, GENESIS_ROOT, 1, 1)).wait();
+      await (await contract.anchorSmtRoot("ELECTION-B", rootB, GENESIS_ROOT, 2, 2)).wait();
+
+      expect(await contract.smtBatchCount("ELECTION-A")).to.equal(1n);
+      expect(await contract.smtBatchCount("ELECTION-B")).to.equal(1n);
+
+      const batchA = await contract.smtBatches("ELECTION-A", 0);
+      const batchB = await contract.smtBatches("ELECTION-B", 0);
+      expect(batchA.smtRoot).to.equal(rootA);
+      expect(batchA.totalKeysAnchored).to.equal(1n);
+      expect(batchB.smtRoot).to.equal(rootB);
+      expect(batchB.totalKeysAnchored).to.equal(2n);
+
+      // Election B cannot extend election A's chain by claiming A's root as
+      // its own previousRoot — continuity is checked per electionId.
+      treeA.insert(randomKey(), randomValue());
+      await expect(
+        contract.anchorSmtRoot("ELECTION-B", treeA.root(), rootA, 1, 3)
+      ).to.be.revertedWith("MerkleRootStorage: SMT chain continuity broken");
     });
   });
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ELECTION_ID } from "../utils/nullifier";
+import { getElectionId } from "../utils/nullifier";
 import {
   checkNullifier,
   submitVote,
@@ -66,6 +66,7 @@ const VotingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const ELECTION_ID = getElectionId(location.search);
 
   const voterNid = state?.nid ?? "00000000000";
   // Fall back to the same deterministic mapping the backend uses, in case
@@ -98,7 +99,7 @@ const VotingPage = () => {
   // Load the real candidate roster (DB UUIDs) and the election's ElGamal
   // public key so the ballot can be genuinely encrypted client-side.
   useEffect(() => {
-    getCandidates(voterNid)
+    getCandidates(voterNid, ELECTION_ID)
       .then((res) => {
         setCandidates(res.candidates);
         setResolvedConstituency(res.constituency_code);

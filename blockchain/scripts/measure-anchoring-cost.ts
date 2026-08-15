@@ -38,6 +38,8 @@ function mockVoteBatch(n: number): VoteLeafInput[] {
   return votes;
 }
 
+const EID = "BENCH-ELECTION";
+
 async function main(): Promise<void> {
   const [owner] = await ethers.getSigners();
   const factory = await ethers.getContractFactory("MerkleRootStorage");
@@ -57,7 +59,7 @@ async function main(): Promise<void> {
   for (const size of batchSizes) {
     const votes = mockVoteBatch(size);
     const tree = buildMerkleTree(votes.map(hashVoteLeaf));
-    const tx = await contract.anchorRoot(tree.root, size);
+    const tx = await contract.anchorRoot(EID, tree.root, size);
     const receipt = await tx.wait();
     anchorGasBySize[size] = receipt!.gasUsed;
     console.log(`${size},${receipt!.gasUsed.toString()}`);
@@ -122,7 +124,7 @@ async function main(): Promise<void> {
     }
     const newRoot = smtTree.root();
     totalKeys += size;
-    const tx = await contract.anchorSmtRoot(newRoot, previousSmtRoot, size, totalKeys);
+    const tx = await contract.anchorSmtRoot(EID, newRoot, previousSmtRoot, size, totalKeys);
     const receipt = await tx.wait();
     smtGasBySize[size] = receipt!.gasUsed;
     console.log(`${size},${size},${totalKeys},${receipt!.gasUsed.toString()}`);

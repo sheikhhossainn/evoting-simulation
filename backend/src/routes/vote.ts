@@ -37,6 +37,7 @@ import {
 } from "../crypto/identity";
 import { verifyBallotValidity } from "../crypto/zkp";
 import { loadPublicKeyFromEnv } from "../crypto/elgamal";
+import { getElection } from "../services/electionContext";
 
 const router = Router();
 
@@ -77,13 +78,23 @@ router.post("/vote", async (req: Request, res: Response) => {
 
   const { nid, encrypted_vote, election_id, zkp_proof } = parsed.data;
 
-  // ── Derive everything server-side from the raw NID ──
-  // The raw NID is used only here, transiently, and is never persisted.
-  const nidHash = hashNidWithSalt(nid);
-  const nullifierHash = computeNullifier(nid, election_id);
-  const constituencyCode = constituencyFromNid(nid);
-
   try {
+    // ── Step -1: election must exist (threat_model.md §10) ──
+    // Everything derived below (constituency, candidate set) depends on this
+    // election's own registered shape — a typo'd/unknown election_id must
+    // fail loud here, not silently fall through to another election's data.
+    const election = await getElection(election_id);
+    if (!election) {
+      res.status(404).json({ error: `Unknown election_id: ${election_id}` });
+      return;
+    }
+
+    // ── Derive everything server-side from the raw NID ──
+    // The raw NID is used only here, transiently, and is never persisted.
+    const nidHash = hashNidWithSalt(nid);
+    const nullifierHash = computeNullifier(nid, election_id);
+    const constituencyCode = constituencyFromNid(nid, election.constituency_count);
+
     // ── Step 0: Election setup commitment must be anchored before any vote ──
     // docs/tally-verifiability-design.md §8.2.5: "POST /vote should refuse to
     // accept ballots for an election_id with no anchored electionSetupCommitment
@@ -142,6 +153,7 @@ router.post("/vote", async (req: Request, res: Response) => {
       await supabase
         .from("candidates")
         .select("id, name")
+        .eq("election_id", election_id)
         .eq("constituency_code", constituencyCode)
         .order("name", { ascending: true });
 
@@ -193,6 +205,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     const { data: voteId, error: castError } = await supabase.rpc(
       "fn_cast_vote",
       {
+        p_election_id: election_id,
         p_voter_nid_hash: nidHash,
         p_nullifier_hash: nullifierHash,
         p_constituency_code: constituencyCode,

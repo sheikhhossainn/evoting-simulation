@@ -19,18 +19,19 @@ import type { Server } from "http";
 
 process.env.ADMIN_SECRET = "test-admin-secret";
 
-const BATCH_0 = { batch_id: 0, root: "0x" + "aa".repeat(32), vote_ids: ["vote-a", "vote-b"] };
-const BATCH_2 = { batch_id: 2, root: "0x" + "bb".repeat(32), vote_ids: ["vote-x", "vote-y", "vote-z"] };
+const BATCH_0 = { election_id: "TEST-ELECTION", batch_id: 0, root: "0x" + "aa".repeat(32), vote_ids: ["vote-a", "vote-b"] };
+const BATCH_2 = { election_id: "TEST-ELECTION", batch_id: 2, root: "0x" + "bb".repeat(32), vote_ids: ["vote-x", "vote-y", "vote-z"] };
 
 const VOTES = [
-  { id: "vote-a", nullifier_hash: "n-a", encrypted_vote: { c1: "1a", c2: "2a" }, constituency_code: "CON-01", created_at: "2026-01-01T00:00:00Z" },
-  { id: "vote-b", nullifier_hash: "n-b", encrypted_vote: { c1: "1b", c2: "2b" }, constituency_code: "CON-01", created_at: "2026-01-01T00:00:01Z" },
-  { id: "vote-x", nullifier_hash: "n-x", encrypted_vote: { c1: "1x", c2: "2x" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:00Z" },
-  { id: "vote-y", nullifier_hash: "n-y", encrypted_vote: { c1: "1y", c2: "2y" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:01Z" },
-  { id: "vote-z", nullifier_hash: "n-z", encrypted_vote: { c1: "1z", c2: "2z" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:02Z" },
+  { id: "vote-a", election_id: "TEST-ELECTION", nullifier_hash: "n-a", encrypted_vote: { c1: "1a", c2: "2a" }, constituency_code: "CON-01", created_at: "2026-01-01T00:00:00Z" },
+  { id: "vote-b", election_id: "TEST-ELECTION", nullifier_hash: "n-b", encrypted_vote: { c1: "1b", c2: "2b" }, constituency_code: "CON-01", created_at: "2026-01-01T00:00:01Z" },
+  { id: "vote-x", election_id: "TEST-ELECTION", nullifier_hash: "n-x", encrypted_vote: { c1: "1x", c2: "2x" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:00Z" },
+  { id: "vote-y", election_id: "TEST-ELECTION", nullifier_hash: "n-y", encrypted_vote: { c1: "1y", c2: "2y" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:01Z" },
+  { id: "vote-z", election_id: "TEST-ELECTION", nullifier_hash: "n-z", encrypted_vote: { c1: "1z", c2: "2z" }, constituency_code: "CON-01", created_at: "2026-01-02T00:00:02Z" },
 ];
 
 const TABLES: Record<string, any[]> = {
+  elections: [{ election_id: "TEST-ELECTION", constituency_count: 8 }],
   merkle_batches: [BATCH_0, BATCH_2],
   votes: VOTES,
   partial_decryptions: [
@@ -69,8 +70,12 @@ vi.mock("../supabaseClient", () => ({
 }));
 
 vi.mock("../services/anchorSmtBatch", () => ({
-  verifyBatchSmtCoverage: vi.fn(async () => ({ allCovered: true, missing: [], smtRoot: "0x" + "ff".repeat(32) })),
-  getSmtProof: vi.fn(async (nullifierHash: string) => ({
+  verifyBatchSmtCoverage: vi.fn(async (_electionId: string, _nullifierHashes: string[]) => ({
+    allCovered: true,
+    missing: [],
+    smtRoot: "0x" + "ff".repeat(32),
+  })),
+  getSmtProof: vi.fn(async (_electionId: string, nullifierHash: string) => ({
     type: "membership" as const,
     root: "0x" + "ff".repeat(32),
     proof: { key: nullifierHash, value: "0x" + "00".repeat(32), bitmap: "0x" + "00".repeat(32), siblings: [] },

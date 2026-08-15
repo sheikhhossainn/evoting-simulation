@@ -18,6 +18,10 @@ process.env.NID_HASH_SALT = "test-salt";
 process.env.NULLIFIER_SECRET = "test-nullifier-secret";
 
 const TABLES: Record<string, any[]> = {
+  elections: [
+    { election_id: "UNCOMMITTED-ELECTION", constituency_count: 8 },
+    { election_id: "COMMITTED-ELECTION", constituency_count: 8 },
+  ],
   election_setup_commitments: [
     { election_id: "COMMITTED-ELECTION", commitment: "0x" + "cc".repeat(32) },
   ],

@@ -24,6 +24,7 @@ import {
   computeNullifier,
   constituencyFromNid,
 } from "../crypto/identity";
+import { getElection } from "../services/electionContext";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ const router = Router();
 
 const registerSchema = z.object({
   nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
+  election_id: z.string().min(1, "election_id is required"),
 });
 
 const checkNullifierSchema = z.object({
@@ -56,16 +58,27 @@ router.post("/register", async (req: Request, res: Response) => {
     return;
   }
 
-  const { nid } = parsed.data;
-  const nidHash = hashNidWithSalt(nid);
-  const constituencyCode = constituencyFromNid(nid);
-  const voterName = nameFromNid(nid);
+  const { nid, election_id } = parsed.data;
 
   try {
-    // Check if voter already exists in Supabase
+    const election = await getElection(election_id);
+    if (!election) {
+      res.status(404).json({ error: `Unknown election_id: ${election_id}` });
+      return;
+    }
+
+    const nidHash = hashNidWithSalt(nid);
+    const constituencyCode = constituencyFromNid(nid, election.constituency_count);
+    const voterName = nameFromNid(nid);
+
+    // Check if voter already exists in Supabase, FOR THIS ELECTION — the
+    // same NID may register independently across different elections
+    // (threat_model.md §10); nid_hash's uniqueness is now scoped
+    // (election_id, nid_hash), not global (schema.sql migration).
     const { data: existing, error: selectError } = await supabase
       .from("voters")
       .select("id, nid_hash, constituency_code, is_eligible, has_voted")
+      .eq("election_id", election_id)
       .eq("nid_hash", nidHash)
       .maybeSingle();
 
@@ -96,6 +109,7 @@ router.post("/register", async (req: Request, res: Response) => {
     const { data: newVoter, error: insertError } = await supabase
       .from("voters")
       .insert({
+        election_id,
         nid_hash: nidHash,
         name: voterName,
         constituency_code: constituencyCode,

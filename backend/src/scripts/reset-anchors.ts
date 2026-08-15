@@ -28,22 +28,33 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+// Multi-election isolation (threat_model.md §10): scoped to ONE election's
+// batches/votes — a redeployed contract only invalidates that election's
+// batch_id counter (each election has its own, per MerkleRootStorage.sol's
+// mapping(string => uint256) batchCount), so this must never touch other
+// elections' already-valid anchored data.
+const ELECTION_ID = process.env.CEREMONY_ELECTION_ID || "NATIONAL-2026-001";
+
 async function main() {
-  // 1. Delete all merkle_batches rows (old-contract batch_ids).
+  console.log(`Resetting anchors for election ${ELECTION_ID} only.\n`);
+
+  // 1. Delete this election's merkle_batches rows (old-contract batch_ids).
   const { error: delErr, count: delCount } = await supabase
     .from("merkle_batches")
     .delete({ count: "exact" })
+    .eq("election_id", ELECTION_ID)
     .gte("batch_id", 0);
   if (delErr) throw delErr;
   console.log(`🗑️  Deleted ${delCount ?? "?"} merkle_batches row(s)`);
 
-  // 2. Reset every anchored vote back to unanchored.
+  // 2. Reset this election's anchored votes back to unanchored.
   const { error: updErr, count: updCount } = await supabase
     .from("votes")
     .update(
       { tx_hash: null, status: "queued" },
       { count: "exact" }
     )
+    .eq("election_id", ELECTION_ID)
     .not("tx_hash", "is", null);
   if (updErr) throw updErr;
   console.log(`♻️  Reset ${updCount ?? "?"} vote(s) to unanchored`);

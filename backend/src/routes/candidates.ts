@@ -1,7 +1,9 @@
 /**
  * candidates.ts — GET /candidates
  *
- * Returns the list of candidates for the authenticated voter's constituency.
+ * Returns the list of candidates for the authenticated voter's constituency,
+ * scoped to a specific election_id (threat_model.md §10) — candidates are no
+ * longer a single global list; each election has its own.
  *
  * The voter's constituency is derived server-side from the NID supplied in
  * the `x-voter-nid` header — the same pattern used by /vote and
@@ -15,10 +17,23 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabaseClient";
 import { constituencyFromNid } from "../crypto/identity";
+import { getElection } from "../services/electionContext";
 
 const router = Router();
 
 router.get("/candidates", async (req: Request, res: Response) => {
+  const electionId = req.query.election_id as string | undefined;
+  if (!electionId) {
+    res.status(400).json({ error: "election_id query parameter is required" });
+    return;
+  }
+
+  const election = await getElection(electionId);
+  if (!election) {
+    res.status(404).json({ error: `Unknown election_id: ${electionId}` });
+    return;
+  }
+
   // ── Derive constituency from voter NID (preferred) ──
   const voterNid = req.header("x-voter-nid");
   let constituency: string;
@@ -29,7 +44,7 @@ router.get("/candidates", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Invalid x-voter-nid header. NID must be exactly 11 digits." });
       return;
     }
-    constituency = constituencyFromNid(voterNid);
+    constituency = constituencyFromNid(voterNid, election.constituency_count);
   } else {
     // ── Backwards compatibility: query param (deprecated) ──
     const queryConstituency = req.query.constituency as string | undefined;
@@ -46,7 +61,7 @@ router.get("/candidates", async (req: Request, res: Response) => {
       "Use the x-voter-nid header instead."
     );
 
-    // Validate format: CON-01 through CON-08
+    // Validate format: CON-01 through CON-<constituency_count>
     if (!/^CON-\d{2}$/.test(queryConstituency)) {
       res.status(400).json({
         error: "Invalid constituency format. Expected CON-XX (e.g. CON-01)",
@@ -61,6 +76,7 @@ router.get("/candidates", async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from("candidates")
       .select("id, name, party, symbol, constituency_code")
+      .eq("election_id", electionId)
       .eq("constituency_code", constituency)
       .order("name", { ascending: true });
 
@@ -71,6 +87,7 @@ router.get("/candidates", async (req: Request, res: Response) => {
     }
 
     res.json({
+      election_id: electionId,
       constituency_code: constituency,
       candidates: data || [],
     });

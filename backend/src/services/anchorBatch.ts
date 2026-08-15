@@ -2,10 +2,16 @@
  * anchorBatch.ts — Core batch-anchoring logic
  *
  * Shared by the manual admin route (POST /anchor/batch in
- * routes/anchor.ts) and the automatic every-50-votes trigger called
- * from routes/vote.ts after each successful vote. Kept here, not in
- * routes/anchor.ts, so vote.ts doesn't have to import another route
- * file to reuse it.
+ * routes/anchor.ts) and the periodic auto-anchor sweep (maybeAutoAnchor(),
+ * called from index.ts's timer). Kept here, not in routes/anchor.ts, so
+ * other callers don't have to import a route file to reuse it.
+ *
+ * Multi-election isolation (threat_model.md §10): `runAnchorBatch` takes an
+ * explicit `electionId` and only ever touches that election's unanchored
+ * votes/batches. `maybeAutoAnchor` has no single "the election" to check
+ * anymore — it enumerates every election with at least one unanchored vote
+ * and evaluates the threshold/age trigger independently per election, so
+ * one election's vote volume can never mask or delay another's anchor.
  */
 
 import { supabase } from "../supabaseClient";
@@ -13,7 +19,7 @@ import { buildMerkleTree, hashVoteLeaf } from "../merkle/merkleTree";
 import { getWritableMerkleContract } from "../blockchain/merkleContract";
 import { runAnchorSmtBatch, type AnchorSmtBatchResult } from "./anchorSmtBatch";
 
-/** Auto-anchor triggers once this many votes are waiting, unanchored. */
+/** Auto-anchor triggers once this many votes are waiting, unanchored (per election). */
 export const AUTO_ANCHOR_THRESHOLD = 50;
 
 /**
@@ -46,18 +52,19 @@ export interface AnchorBatchResult {
 }
 
 /**
- * Anchor all currently-unanchored votes (tx_hash IS NULL) as one batch.
- * Returns null if anchoring isn't configured or there's nothing to
- * anchor — both are normal, expected states for the auto-trigger to see
- * on most vote casts, not errors.
+ * Anchor all of `electionId`'s currently-unanchored votes (tx_hash IS NULL)
+ * as one batch. Returns null if anchoring isn't configured or there's
+ * nothing to anchor — both are normal, expected states for the auto-trigger
+ * to see on most vote casts, not errors.
  */
-export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
+export async function runAnchorBatch(electionId: string): Promise<AnchorBatchResult | null> {
   const contract = getWritableMerkleContract();
   if (!contract) return null;
 
   const { data: votes, error } = await supabase
     .from("votes")
     .select("id, nullifier_hash, encrypted_vote, created_at")
+    .eq("election_id", electionId)
     .is("tx_hash", null)
     .order("created_at", { ascending: true });
 
@@ -76,7 +83,7 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
   );
   const tree = buildMerkleTree(leaves);
 
-  const tx = await contract.anchorRoot(tree.root, voteRows.length);
+  const tx = await contract.anchorRoot(electionId, tree.root, voteRows.length);
   const receipt = await tx.wait();
 
   const event = receipt.logs
@@ -100,6 +107,7 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
   const { error: batchInsertError } = await supabase
     .from("merkle_batches")
     .insert({
+      election_id: electionId,
       batch_id: batchId,
       root: tree.root,
       tx_hash: tx.hash,
@@ -133,7 +141,7 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
   // throughout this file.
   let smtResult: AnchorSmtBatchResult | null = null;
   try {
-    smtResult = await runAnchorSmtBatch(voteRows);
+    smtResult = await runAnchorSmtBatch(electionId, voteRows);
   } catch (err) {
     console.error("SMT batch anchor failed (dense-tree anchor already committed!):", err);
   }
@@ -147,26 +155,46 @@ export async function runAnchorBatch(): Promise<AnchorBatchResult | null> {
   };
 }
 
-// Simple in-process guard against overlapping auto-anchor runs. This is a
-// single-instance Express app; if this ever scales horizontally, replace
-// with a DB-level advisory lock instead.
-let autoAnchorInFlight = false;
+// Simple in-process guard against overlapping auto-anchor runs, PER
+// ELECTION — a single-instance Express app; if this ever scales
+// horizontally, replace with a DB-level advisory lock instead.
+const autoAnchorInFlight = new Set<string>();
 
 /**
- * Check whether unanchored votes have crossed AUTO_ANCHOR_THRESHOLD, OR the
- * oldest unanchored vote has aged past AUTO_ANCHOR_MAX_AGE_MS, and if so,
- * kick off a batch anchor. Called fire-and-forget after each vote is cast —
- * never throws, never blocks/delays the voter's response. Also called
- * periodically by index.ts's timer so the age-based trigger still fires
- * even when no new vote comes in to invoke this function at all.
+ * Check every election with at least one unanchored vote: has it crossed
+ * AUTO_ANCHOR_THRESHOLD, OR has its oldest unanchored vote aged past
+ * AUTO_ANCHOR_MAX_AGE_MS — and if so, kick off that election's batch anchor.
+ * Called fire-and-forget (never throws, never blocks/delays a caller) by
+ * index.ts's periodic timer, so the age-based trigger fires even when no new
+ * vote comes in for a given election to prompt a check.
  */
 export async function maybeAutoAnchor(): Promise<void> {
-  if (autoAnchorInFlight) return;
+  try {
+    const { data: unanchored, error } = await supabase
+      .from("votes")
+      .select("election_id")
+      .is("tx_hash", null);
+
+    if (error || !unanchored || unanchored.length === 0) return;
+
+    const electionIds = [...new Set(unanchored.map((v) => v.election_id as string))];
+
+    for (const electionId of electionIds) {
+      await maybeAutoAnchorElection(electionId);
+    }
+  } catch (err) {
+    console.error("Auto-anchor sweep failed:", err);
+  }
+}
+
+async function maybeAutoAnchorElection(electionId: string): Promise<void> {
+  if (autoAnchorInFlight.has(electionId)) return;
 
   try {
     const { count, error } = await supabase
       .from("votes")
       .select("id", { count: "exact", head: true })
+      .eq("election_id", electionId)
       .is("tx_hash", null);
 
     if (error || !count) return;
@@ -178,6 +206,7 @@ export async function maybeAutoAnchor(): Promise<void> {
       const { data: oldest, error: oldestErr } = await supabase
         .from("votes")
         .select("created_at")
+        .eq("election_id", electionId)
         .is("tx_hash", null)
         .order("created_at", { ascending: true })
         .limit(1)
@@ -192,19 +221,19 @@ export async function maybeAutoAnchor(): Promise<void> {
 
     if (!reason) return;
 
-    autoAnchorInFlight = true;
-    console.log(`Auto-anchor: ${reason}, anchoring batch...`);
+    autoAnchorInFlight.add(electionId);
+    console.log(`Auto-anchor: [${electionId}] ${reason}, anchoring batch...`);
 
-    const result = await runAnchorBatch();
+    const result = await runAnchorBatch(electionId);
 
     if (result) {
       console.log(
-        `Auto-anchor: batch ${result.batch_id} anchored (tx ${result.tx_hash}, ${result.vote_count} votes)`
+        `Auto-anchor: [${electionId}] batch ${result.batch_id} anchored (tx ${result.tx_hash}, ${result.vote_count} votes)`
       );
     }
   } catch (err) {
-    console.error("Auto-anchor failed:", err);
+    console.error(`Auto-anchor failed for election ${electionId}:`, err);
   } finally {
-    autoAnchorInFlight = false;
+    autoAnchorInFlight.delete(electionId);
   }
 }

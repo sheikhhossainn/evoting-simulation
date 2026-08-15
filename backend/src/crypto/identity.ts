@@ -39,11 +39,17 @@ export function computeNullifier(nid: string, electionId: string): string {
 
 /**
  * Derive constituency code from NID.
- * First 4 digits mod 8 → CON-01 through CON-08.
- * Deterministic — no DB lookup needed.
+ * First 4 digits mod `constituencyCount` → CON-01 through CON-<constituencyCount>.
+ * Deterministic — no DB lookup needed beyond the caller already having
+ * resolved the election's `constituency_count` (elections table).
+ *
+ * `constituencyCount` was previously hardcoded to 8 — baked-in assumption
+ * that made this function inherently single-election (a different election
+ * with a different constituency count couldn't be expressed at all). Now a
+ * required parameter, sourced from the requested election's row.
  */
-export function constituencyFromNid(nid: string): string {
+export function constituencyFromNid(nid: string, constituencyCount: number): string {
   const firstFour = parseInt(nid.slice(0, 4)) || 0;
-  const id = (firstFour % 8) + 1;
+  const id = (firstFour % constituencyCount) + 1;
   return `CON-${String(id).padStart(2, "0")}`;
 }

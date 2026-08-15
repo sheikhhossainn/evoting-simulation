@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ApiError } from "../utils/api";
 import { computeAllPartials, type GroupParams } from "../utils/keyholderCrypto";
+import { getElectionId } from "../utils/nullifier";
 
 // ── Keyholder demo config (matches setup-shamir output) ──
 const DEMO_KEYHOLDERS = [
@@ -19,11 +20,15 @@ const DEMO_KEYHOLDERS = [
   { id: "KH-004", role: "Civil Society Observer", shareIndex: 4 },
 ];
 
-const ELECTION_ID = "NATIONAL-2026-001";
-
 const KeyShareSubmit = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Multi-election isolation (threat_model.md §10): read from ?election_id=
+  // so this page targets whichever election it was linked into, not a value
+  // hardcoded at build time — same pattern as BATCH_ID below, and as
+  // getElectionId() already uses for VotingPage.tsx.
+  const ELECTION_ID = getElectionId(location.search);
 
   // Explicit, not "latest" — batch 2 (32 votes) is confirmed contaminated
   // (test/fixture data anchored alongside real ballots). GET
@@ -201,7 +206,7 @@ const KeyShareSubmit = () => {
 
           <div className="flex flex-col gap-3 opacity-0-init animate-fade-in-up-delayed">
             <button
-              onClick={() => navigate("/keyholder/status")}
+              onClick={() => navigate(`/keyholder/status${location.search}`)}
               className="btn-navy w-full text-sm"
             >
               View Submission Status →

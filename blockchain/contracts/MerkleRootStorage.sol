@@ -17,13 +17,23 @@ contract MerkleRootStorage is Ownable {
         uint256 timestamp;
     }
 
-    /// @dev batchId => Batch. batchId is assigned sequentially starting at 0.
-    mapping(uint256 => Batch) public batches;
+    /// @dev electionId => batchId => Batch. batchId is assigned sequentially
+    /// starting at 0, INDEPENDENTLY per electionId — each election has its
+    /// own batch counter, so two elections anchoring concurrently never
+    /// collide or interleave. Multi-election isolation (threat_model.md §10):
+    /// electionId is caller-supplied and not validated against any registry
+    /// here (this contract has no concept of "known elections") — the
+    /// backend's `elections` table is the source of truth for which
+    /// electionId strings are legitimate; this contract only guarantees that
+    /// whatever electionId is used, its batches/roots never mix with any
+    /// other electionId's.
+    mapping(string => mapping(uint256 => Batch)) public batches;
 
-    /// @notice Total number of batches anchored so far.
-    uint256 public batchCount;
+    /// @notice Total number of batches anchored so far, per election.
+    mapping(string => uint256) public batchCount;
 
     event BatchAnchored(
+        string indexed electionId,
         uint256 indexed batchId,
         bytes32 indexed root,
         uint256 voteCount,
@@ -32,53 +42,58 @@ contract MerkleRootStorage is Ownable {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    /// @notice Anchor a new batch's Merkle root. Only the Election
-    /// Commission's backend service (the contract owner) may anchor —
-    /// anchoring is a write operation that must come from the trusted
-    /// tallying pipeline, but verification below is fully public.
+    /// @notice Anchor a new batch's Merkle root for a specific election. Only
+    /// the Election Commission's backend service (the contract owner) may
+    /// anchor — anchoring is a write operation that must come from the
+    /// trusted tallying pipeline, but verification below is fully public.
+    /// @param electionId The election this batch belongs to.
     /// @param root The Merkle root computed off-chain over the batch's vote leaves.
     /// @param voteCount Number of votes included in this batch (for auditability).
-    /// @return batchId The sequential id assigned to this batch.
-    function anchorRoot(bytes32 root, uint256 voteCount)
+    /// @return batchId The sequential id assigned to this batch, scoped to `electionId`.
+    function anchorRoot(string calldata electionId, bytes32 root, uint256 voteCount)
         external
         onlyOwner
         returns (uint256 batchId)
     {
+        require(bytes(electionId).length > 0, "MerkleRootStorage: electionId cannot be empty");
         require(root != bytes32(0), "MerkleRootStorage: root cannot be zero");
         require(voteCount > 0, "MerkleRootStorage: voteCount must be > 0");
 
-        batchId = batchCount;
-        batches[batchId] = Batch({
+        batchId = batchCount[electionId];
+        batches[electionId][batchId] = Batch({
             root: root,
             voteCount: voteCount,
             timestamp: block.timestamp
         });
-        batchCount += 1;
+        batchCount[electionId] += 1;
 
-        emit BatchAnchored(batchId, root, voteCount, block.timestamp);
+        emit BatchAnchored(electionId, batchId, root, voteCount, block.timestamp);
     }
 
-    /// @notice Verify that `leaf` was included in the batch identified by `batchId`.
+    /// @notice Verify that `leaf` was included in the batch identified by
+    /// `(electionId, batchId)`.
+    /// @param electionId The election the batch belongs to.
     /// @param batchId The batch to check against.
     /// @param leaf The vote's leaf hash (see backend/src/merkle/merkleTree.ts:hashVoteLeaf).
     /// @param proof The Merkle proof (sibling hashes) for `leaf`.
     function verify(
+        string calldata electionId,
         uint256 batchId,
         bytes32 leaf,
         bytes32[] calldata proof
     ) external view returns (bool) {
-        require(batchId < batchCount, "MerkleRootStorage: unknown batchId");
-        return MerkleProof.verify(proof, batches[batchId].root, leaf);
+        require(batchId < batchCount[electionId], "MerkleRootStorage: unknown batchId");
+        return MerkleProof.verify(proof, batches[electionId][batchId].root, leaf);
     }
 
     /// @notice Fetch a batch's stored root, vote count, and anchor timestamp.
-    function getBatch(uint256 batchId)
+    function getBatch(string calldata electionId, uint256 batchId)
         external
         view
         returns (bytes32 root, uint256 voteCount, uint256 timestamp)
     {
-        require(batchId < batchCount, "MerkleRootStorage: unknown batchId");
-        Batch storage b = batches[batchId];
+        require(batchId < batchCount[electionId], "MerkleRootStorage: unknown batchId");
+        Batch storage b = batches[electionId][batchId];
         return (b.root, b.voteCount, b.timestamp);
     }
 
@@ -97,11 +112,13 @@ contract MerkleRootStorage is Ownable {
         uint256 timestamp;
     }
 
-    /// @dev smtBatchId => SmtBatch. Sequential, starting at 0, independent of `batchId` above.
-    mapping(uint256 => SmtBatch) public smtBatches;
+    /// @dev electionId => smtBatchId => SmtBatch. Sequential per electionId,
+    /// starting at 0, independent of `batchId` above and independent across
+    /// elections — same multi-election isolation rationale as `batches`.
+    mapping(string => mapping(uint256 => SmtBatch)) public smtBatches;
 
-    /// @notice Total number of SMT batches anchored so far.
-    uint256 public smtBatchCount;
+    /// @notice Total number of SMT batches anchored so far, per election.
+    mapping(string => uint256) public smtBatchCount;
 
     /// @notice Root of the fully empty 256-level SMT (docs/smt-design.md §4/§7).
     /// H[0] = keccak256(0x00); H[i] = hashPair(H[i-1], H[i-1]) for i = 1..256.
@@ -111,6 +128,7 @@ contract MerkleRootStorage is Ownable {
         0x42234dc3a0fdc4bd8bcd57d6a3d333c2ff2ca3965feb82e12b68ed0b110787fd;
 
     event SmtBatchAnchored(
+        string indexed electionId,
         uint256 indexed smtBatchId,
         bytes32 indexed smtRoot,
         bytes32 previousSmtRoot,
@@ -119,52 +137,58 @@ contract MerkleRootStorage is Ownable {
         uint256 timestamp
     );
 
-    /// @notice Anchor the SMT's new cumulative root. Chain-continuity is
-    /// enforced: `previousRoot` must equal the last anchored `smtRoot` (or
-    /// `EMPTY_TREE_ROOT` for the first call), so a batch cannot anchor a root
-    /// that isn't a direct successor of the one before it. `newKeysThisBatch`
+    /// @notice Anchor the SMT's new cumulative root for a specific election.
+    /// Chain-continuity is enforced PER ELECTION: `previousRoot` must equal
+    /// the last anchored `smtRoot` for THIS `electionId` (or `EMPTY_TREE_ROOT`
+    /// for that election's first call) — one election's chain can never be
+    /// extended using another election's previous root. `newKeysThisBatch`
     /// may be 0 (e.g. re-anchoring after a detected deletion, docs/smt-design.md
     /// §9) — this contract does not itself validate that `newRoot` is the
     /// correct result of adding exactly `newKeysThisBatch` keys to
     /// `previousRoot`; that check happens off-chain against the shared
     /// hashing implementation (same trust boundary as `anchorRoot` above).
+    /// @param electionId The election this SMT batch belongs to.
     /// @param newRoot The new SMT root computed off-chain.
-    /// @param previousRoot Must equal the previous SmtBatch's `smtRoot`.
+    /// @param previousRoot Must equal this election's previous SmtBatch's `smtRoot`.
     /// @param newKeysThisBatch Count of genuinely new keys inserted this batch.
     /// @param totalKeysAnchored Running total; must equal the previous batch's
     ///   `totalKeysAnchored` + `newKeysThisBatch`.
-    /// @return smtBatchId The sequential id assigned to this SMT batch.
+    /// @return smtBatchId The sequential id assigned to this SMT batch, scoped to `electionId`.
     function anchorSmtRoot(
+        string calldata electionId,
         bytes32 newRoot,
         bytes32 previousRoot,
         uint256 newKeysThisBatch,
         uint256 totalKeysAnchored
     ) external onlyOwner returns (uint256 smtBatchId) {
-        bytes32 expectedPrevious = smtBatchCount == 0
+        require(bytes(electionId).length > 0, "MerkleRootStorage: electionId cannot be empty");
+
+        uint256 count = smtBatchCount[electionId];
+        bytes32 expectedPrevious = count == 0
             ? EMPTY_TREE_ROOT
-            : smtBatches[smtBatchCount - 1].smtRoot;
+            : smtBatches[electionId][count - 1].smtRoot;
         require(previousRoot == expectedPrevious, "MerkleRootStorage: SMT chain continuity broken");
         require(newRoot != bytes32(0), "MerkleRootStorage: SMT root cannot be zero");
 
-        uint256 expectedTotal = smtBatchCount == 0
+        uint256 expectedTotal = count == 0
             ? 0
-            : smtBatches[smtBatchCount - 1].totalKeysAnchored;
+            : smtBatches[electionId][count - 1].totalKeysAnchored;
         require(
             totalKeysAnchored == expectedTotal + newKeysThisBatch,
             "MerkleRootStorage: SMT totalKeysAnchored mismatch"
         );
 
-        smtBatchId = smtBatchCount;
-        smtBatches[smtBatchId] = SmtBatch({
+        smtBatchId = count;
+        smtBatches[electionId][smtBatchId] = SmtBatch({
             smtRoot: newRoot,
             previousSmtRoot: previousRoot,
             newKeysThisBatch: newKeysThisBatch,
             totalKeysAnchored: totalKeysAnchored,
             timestamp: block.timestamp
         });
-        smtBatchCount += 1;
+        smtBatchCount[electionId] += 1;
 
-        emit SmtBatchAnchored(smtBatchId, newRoot, previousRoot, newKeysThisBatch, totalKeysAnchored, block.timestamp);
+        emit SmtBatchAnchored(electionId, smtBatchId, newRoot, previousRoot, newKeysThisBatch, totalKeysAnchored, block.timestamp);
     }
 
     /// @dev Position-aware internal-node hash: keccak256(left ‖ right), NOT

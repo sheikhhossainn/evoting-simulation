@@ -1,6 +1,14 @@
 /**
  * deploy.ts — Deploy MerkleRootStorage
  *
+ * Multi-election isolation (threat_model.md §10): this contract is scoped
+ * internally by an `electionId` mapping key (see MerkleRootStorage.sol), so
+ * ONE deployment is shared across every election on this backend — deploy
+ * once, record the address as `elections.merkle_contract_address` for each
+ * election (same address every time), do not redeploy per election. This
+ * differs from ElectionSetupCommitment.sol (deploy-election-setup.ts),
+ * which deliberately deploys a fresh instance PER election.
+ *
  * Local (in-memory Hardhat network):
  *   npm run deploy:local --workspace blockchain
  *

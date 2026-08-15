@@ -12,6 +12,8 @@
  * any identity-derived hashes itself.
  */
 
+import { DEFAULT_ELECTION_ID } from "./nullifier";
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:3000";
 
 // ── Error class ──
@@ -66,6 +68,7 @@ export interface Candidate {
 }
 
 export interface CandidatesResponse {
+  election_id: string;
   constituency_code: string;
   candidates: Candidate[];
 }
@@ -116,9 +119,12 @@ async function apiGet<T>(path: string, headers?: Record<string, string>): Promis
  * Register a voter by NID. If they already exist, returns the
  * existing record (upsert semantics).
  */
-export async function registerVoter(nid: string): Promise<RegisterVoterResponse> {
+export async function registerVoter(
+  nid: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<RegisterVoterResponse> {
   try {
-    return await apiFetch<RegisterVoterResponse>("/voter/register", { nid });
+    return await apiFetch<RegisterVoterResponse>("/voter/register", { nid, election_id: electionId });
   } catch (err) {
     if (err instanceof TypeError) {
       await new Promise(r => setTimeout(r, 600));
@@ -225,11 +231,12 @@ export async function getElectionPublicKey(): Promise<ElGamalPublicKeyResponse> 
  * `candidates` table so decrypted tallies can be joined back to names.
  */
 export async function getCandidates(
-  voterNid: string
+  voterNid: string,
+  electionId: string
 ): Promise<CandidatesResponse> {
   try {
     return await apiGet<CandidatesResponse>(
-      `/candidates`,
+      `/candidates?election_id=${encodeURIComponent(electionId)}`,
       { "x-voter-nid": voterNid }
     );
   } catch (err) {
@@ -240,6 +247,7 @@ export async function getCandidates(
       const constId = (firstFour % 8) + 1;
       const constituencyCode = `CON-${String(constId).padStart(2, "0")}`;
       return {
+        election_id: electionId,
         constituency_code: constituencyCode,
         candidates: all
           .filter((c: any) => c.constituencyId === constId)
@@ -288,11 +296,10 @@ export interface PublicStatsResponse {
 }
 
 export async function getPublicStats(
-  electionId?: string
+  electionId: string = DEFAULT_ELECTION_ID
 ): Promise<PublicStatsResponse> {
   try {
-    const qs = electionId ? `?election_id=${encodeURIComponent(electionId)}` : "";
-    return await apiGet<PublicStatsResponse>(`/public/stats${qs}`);
+    return await apiGet<PublicStatsResponse>(`/public/stats?election_id=${encodeURIComponent(electionId)}`);
   } catch (err) {
     if (err instanceof TypeError) {
       // Backend unreachable — return realistic mock data for demo
@@ -344,9 +351,14 @@ export interface VoteVerifyResponse {
   included_on_chain: boolean | null;
 }
 
-export async function verifyVoteAnchor(voteId: string): Promise<VoteVerifyResponse> {
+export async function verifyVoteAnchor(
+  voteId: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<VoteVerifyResponse> {
   try {
-    return await apiGet<VoteVerifyResponse>(`/anchor/verify/${encodeURIComponent(voteId)}`);
+    return await apiGet<VoteVerifyResponse>(
+      `/anchor/verify/${encodeURIComponent(voteId)}?election_id=${encodeURIComponent(electionId)}`
+    );
   } catch (err) {
     if (err instanceof TypeError) {
       // Backend unreachable — return mock verification for demo
@@ -446,9 +458,11 @@ export interface PublicResultsResponse {
  * already been performed. Otherwise returns { status: "not_tallied" }.
  * This is a public endpoint — no auth required.
  */
-export async function getPublicResults(): Promise<PublicResultsResponse> {
+export async function getPublicResults(
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<PublicResultsResponse> {
   try {
-    return await apiGet<PublicResultsResponse>("/public/results");
+    return await apiGet<PublicResultsResponse>(`/public/results?election_id=${encodeURIComponent(electionId)}`);
   } catch (err) {
     if (err instanceof TypeError) {
       // Backend unreachable — return mock tallied results for demo
@@ -527,8 +541,10 @@ export interface LatestBatchResponse {
 }
 
 /** Latest anchored batch + a sample vote id, for the anchor-status zone. */
-export async function getLatestBatch(): Promise<LatestBatchResponse> {
-  return apiGet<LatestBatchResponse>("/anchor/latest");
+export async function getLatestBatch(
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<LatestBatchResponse> {
+  return apiGet<LatestBatchResponse>(`/anchor/latest?election_id=${encodeURIComponent(electionId)}`);
 }
 
 /**
@@ -547,10 +563,13 @@ export type VerifyOutcome =
  * verifyVoteAnchor's raw endpoint but maps 409 → "tampered" and 404 →
  * "not_anchored" rather than throwing.
  */
-export async function verifyVoteOutcome(voteId: string): Promise<VerifyOutcome> {
+export async function verifyVoteOutcome(
+  voteId: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<VerifyOutcome> {
   try {
     const res = await fetch(
-      `${API_BASE}/anchor/verify/${encodeURIComponent(voteId)}`
+      `${API_BASE}/anchor/verify/${encodeURIComponent(voteId)}?election_id=${encodeURIComponent(electionId)}`
     );
     const data = await res.json();
 
@@ -630,17 +649,159 @@ export interface TamperBallotResponse {
   note: string;
 }
 
+// ── Elections registry (admin) ──
+// threat_model.md §10 multi-election isolation — the actual entry point
+// for "set this system up for a different election."
+
+export interface ElectionResponse {
+  election_id: string;
+  name: string;
+  constituency_count: number;
+  status: string;
+  created_at: string;
+}
+
+export interface ElectionListResponse {
+  elections: Omit<ElectionResponse, "merkle_contract_address" | "election_setup_contract_address">[];
+}
+
+export function createElection(
+  adminSecret: string,
+  electionId: string,
+  name: string,
+  constituencyCount: number
+): Promise<ElectionResponse> {
+  return adminPost<ElectionResponse>("/elections", adminSecret, {
+    election_id: electionId,
+    name,
+    constituency_count: constituencyCount,
+  });
+}
+
+export async function listElections(): Promise<ElectionListResponse> {
+  return apiGet<ElectionListResponse>("/elections");
+}
+
 /** Vector 1: edit the anchored root in the DB (defaults to latest batch). */
-export function tamperRoot(adminSecret: string): Promise<TamperRootResponse> {
-  return adminPost<TamperRootResponse>("/anchor/tamper/root", adminSecret);
+export function tamperRoot(
+  adminSecret: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<TamperRootResponse> {
+  return adminPost<TamperRootResponse>("/anchor/tamper/root", adminSecret, { election_id: electionId });
 }
 
 /** Undo vector 1: recompute and write back the true root (repeatable). */
-export function restoreRoot(adminSecret: string): Promise<RestoreRootResponse> {
-  return adminPost<RestoreRootResponse>("/anchor/restore/root", adminSecret);
+export function restoreRoot(
+  adminSecret: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<RestoreRootResponse> {
+  return adminPost<RestoreRootResponse>("/anchor/restore/root", adminSecret, { election_id: electionId });
 }
 
 /** Vector 2: attempt an encrypted_vote edit; the DB trigger should block it. */
-export function tamperBallot(adminSecret: string): Promise<TamperBallotResponse> {
-  return adminPost<TamperBallotResponse>("/anchor/tamper/ballot", adminSecret);
+export function tamperBallot(
+  adminSecret: string,
+  electionId: string = DEFAULT_ELECTION_ID
+): Promise<TamperBallotResponse> {
+  return adminPost<TamperBallotResponse>("/anchor/tamper/ballot", adminSecret, { election_id: electionId });
+}
+
+// ── Distributed key generation (DKG) ceremony ──
+// Replaces the trusted-dealer setup-shamir-zq.ts script — every route here
+// only ever sees public Feldman commitments or values it cannot decrypt
+// (backend/src/routes/dkg.ts).
+
+export interface DkgInitResponse {
+  election_id: string;
+  group_params: { p: string; g: string };
+  status: string;
+}
+
+export function initDkgCeremony(adminSecret: string, electionId: string): Promise<DkgInitResponse> {
+  return adminPost<DkgInitResponse>("/dkg/init", adminSecret, { election_id: electionId });
+}
+
+export interface DkgRound1Participant {
+  index: number;
+  commitments: string[];
+  ecdh_pubkey: string;
+}
+
+export interface DkgRound1Response {
+  election_id: string;
+  participants: DkgRound1Participant[];
+  complete: boolean;
+}
+
+export function submitDkgRound1(params: {
+  election_id: string;
+  keyholder_id: string;
+  passphrase: string;
+  commitments: string[];
+  ecdh_pubkey: string;
+}): Promise<{ election_id: string; keyholder_id: string; index: number }> {
+  return apiFetch("/dkg/round1", params);
+}
+
+export function getDkgRound1(electionId: string): Promise<DkgRound1Response> {
+  return apiGet<DkgRound1Response>(`/dkg/round1?election_id=${encodeURIComponent(electionId)}`);
+}
+
+export function submitDkgRound2(params: {
+  election_id: string;
+  keyholder_id: string;
+  passphrase: string;
+  shares: { to_index: number; ciphertext: string; iv: string }[];
+}): Promise<{ election_id: string; keyholder_id: string; index: number }> {
+  return apiFetch("/dkg/round2", params);
+}
+
+export interface DkgRound2InboxEntry {
+  from_index: number;
+  ciphertext: string;
+  iv: string;
+}
+
+export interface DkgRound2InboxResponse {
+  election_id: string;
+  keyholder_id: string;
+  index: number;
+  inbox: DkgRound2InboxEntry[];
+  complete: boolean;
+}
+
+export function getDkgRound2Inbox(params: {
+  election_id: string;
+  keyholder_id: string;
+  passphrase: string;
+}): Promise<DkgRound2InboxResponse> {
+  return apiFetch("/dkg/round2/inbox", params);
+}
+
+export function submitDkgRound3(params: {
+  election_id: string;
+  keyholder_id: string;
+  passphrase: string;
+}): Promise<{ election_id: string; keyholder_id: string; index: number; confirmed_count: number; qualified: boolean }> {
+  return apiFetch("/dkg/round3", params);
+}
+
+export interface DkgKeyholderStatus {
+  index: number;
+  keyholder_id: string;
+  role: string;
+  round1_submitted: boolean;
+  round2_submitted: boolean;
+  round3_confirmed: boolean;
+}
+
+export interface DkgStatusResponse {
+  election_id: string;
+  status: "pending" | "round1" | "round2" | "qualified";
+  group_params: { p: string; g: string };
+  keyholders: DkgKeyholderStatus[];
+}
+
+export function getDkgStatus(electionId: string): Promise<DkgStatusResponse> {
+  return apiGet<DkgStatusResponse>(`/dkg/status?election_id=${encodeURIComponent(electionId)}`);
 }

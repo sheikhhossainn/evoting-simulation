@@ -57,11 +57,14 @@ function loadPubKey() {
   return { p, g, y };
 }
 
+const EID = "NATIONAL-2026-001";
+
 async function buildValidBallot(nid: string) {
-  const constituency = constituencyFromNid(nid);
+  const constituency = constituencyFromNid(nid, 8);
   const { data, error } = await supabase
     .from("candidates")
     .select("id, name")
+    .eq("election_id", EID)
     .eq("constituency_code", constituency)
     .order("name", { ascending: true });
   if (error || !data || data.length === 0) {
@@ -101,12 +104,12 @@ async function castOneRealVote(): Promise<{ voteId: string; nullifierHash: strin
   // prefix so it's identifiable as synthetic data if ever audited). vote.ts
   // requires exactly 11 digits (/^\d{11}$/) — a hex string would fail that.
   const nid = "77" + String(crypto.randomInt(0, 1_000_000_000)).padStart(9, "0");
-  await fetchPost("/voter/register", { nid });
+  await fetchPost("/voter/register", { nid, election_id: EID });
 
   const ballot = await buildValidBallot(nid);
   const res = await fetchPost("/vote", {
     nid,
-    election_id: "NATIONAL-2026-001",
+    election_id: EID,
     encrypted_vote: ballot.encrypted_vote,
     zkp_proof: ballot.zkp_proof,
   });
@@ -115,7 +118,7 @@ async function castOneRealVote(): Promise<{ voteId: string; nullifierHash: strin
 
   const nullifierHash = crypto
     .createHash("sha256")
-    .update(nid + "NATIONAL-2026-001" + process.env.NULLIFIER_SECRET!)
+    .update(nid + EID + process.env.NULLIFIER_SECRET!)
     .digest("hex");
 
   return { voteId, nullifierHash };
@@ -130,13 +133,13 @@ describe("SMT integration (live backend + Supabase + Sepolia)", () => {
 
       const anchorRes = await fetchPost(
         "/anchor/batch",
-        {},
+        { election_id: EID },
         { "x-admin-secret": ADMIN_SECRET }
       );
       expect(anchorRes.status).toBe(201);
       expect((anchorRes.body as any).smt).not.toBeNull();
 
-      const verifyRes = await fetchJson(`/anchor/verify-smt/${voteId}`);
+      const verifyRes = await fetchJson(`/anchor/verify-smt/${voteId}?election_id=${EID}`);
       expect(verifyRes.status).toBe(200);
       const body = verifyRes.body as any;
       expect(body.type).toBe("membership");
@@ -154,12 +157,12 @@ describe("SMT integration (live backend + Supabase + Sepolia)", () => {
 
       const anchorRes = await fetchPost(
         "/anchor/batch",
-        {},
+        { election_id: EID },
         { "x-admin-secret": ADMIN_SECRET }
       );
       expect(anchorRes.status).toBe(201);
 
-      const beforeRes = await fetchJson(`/anchor/verify-smt/${voteId}`);
+      const beforeRes = await fetchJson(`/anchor/verify-smt/${voteId}?election_id=${EID}`);
       expect(beforeRes.status).toBe(200);
       const beforeBody = beforeRes.body as any;
       expect(beforeBody.type).toBe("membership");
@@ -169,7 +172,7 @@ describe("SMT integration (live backend + Supabase + Sepolia)", () => {
 
       const deleteRes = await fetchPost(
         "/anchor/tamper/delete-vote",
-        { vote_id: voteId },
+        { election_id: EID, vote_id: voteId },
         { "x-admin-secret": ADMIN_SECRET }
       );
       expect(deleteRes.status).toBe(200);
@@ -191,7 +194,7 @@ describe("SMT integration (live backend + Supabase + Sepolia)", () => {
 
       // (b) the vote row is gone — GET /anchor/verify-smt/:voteId 404s now
       // (vote lookup fails before the SMT is even consulted).
-      const afterRes = await fetchJson(`/anchor/verify-smt/${voteId}`);
+      const afterRes = await fetchJson(`/anchor/verify-smt/${voteId}?election_id=${EID}`);
       expect(afterRes.status).toBe(404);
 
       // (c) a fresh non-membership proof for the SAME key verifies against
@@ -201,7 +204,7 @@ describe("SMT integration (live backend + Supabase + Sepolia)", () => {
       // one GET /anchor/verify-smt/:voteId uses internally), not via the
       // now-404ing HTTP route.
       const { getSmtProof } = await import("../services/anchorSmtBatch");
-      const afterProof = await getSmtProof(nullifierHash);
+      const afterProof = await getSmtProof(EID, nullifierHash);
       expect(afterProof.type).toBe("non-membership");
       expect(afterProof.root).toBe(rootAfterDeletion);
       expect(

@@ -27,6 +27,9 @@ dotenv.config({ path: path.join(__dirname, "../../.env") });
 const supabaseUrl = process.env.SUPABASE_URL!;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const BASE = process.env.BASE_URL || "http://localhost:3000";
+// Multi-election isolation (threat_model.md §10) — GET /anchor/verify now
+// requires an explicit election_id (no silent default).
+const ELECTION_ID = process.env.CEREMONY_ELECTION_ID || "NATIONAL-2026-001";
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
   console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env");
@@ -38,7 +41,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 async function verify(voteId: string): Promise<{ status: number; body: any }> {
-  const res = await fetch(`${BASE}/anchor/verify/${voteId}`);
+  const res = await fetch(`${BASE}/anchor/verify/${voteId}?election_id=${encodeURIComponent(ELECTION_ID)}`);
   return { status: res.status, body: await res.json() };
 }
 
@@ -63,6 +66,7 @@ async function main() {
   const { data: batch, error } = await supabase
     .from("merkle_batches")
     .select("batch_id, root, vote_ids")
+    .eq("election_id", ELECTION_ID)
     .contains("vote_ids", JSON.stringify([voteId]))
     .maybeSingle();
 

@@ -2,6 +2,18 @@
  * setup-shamir-zq.ts — Z_q + Feldman VSS key ceremony
  * (docs/tally-verifiability-design.md §2, §14)
  *
+ * DEV/SIMULATION-ONLY — NOT the production ceremony path. This script is a
+ * trusted-dealer design: it loads the FULL private key x into this one
+ * process before splitting it, so whoever runs it (or whatever can read
+ * its memory/shell history at that moment) can copy the whole key — the
+ * exact single-point-of-compromise the 3-of-4 threshold is supposed to
+ * remove. Kept only as a fast local-iteration shortcut when you don't want
+ * to run 4 browser tabs. The real ceremony is the 4-party, browser-native
+ * DKG at POST /dkg/init + /dkg/round1..3 (backend/src/routes/dkg.ts) run
+ * through frontend/src/pages/KeyCeremony.tsx, where each keyholder
+ * generates their own share locally and the full key never exists in one
+ * place, not even momentarily.
+ *
  * Replaces setup-shamir.ts's role for the verifiable-tally flow. Splits the
  * existing ElGamal private key over Z_q (not GF(2^8) — incompatible with
  * partial-decryption combination, docs §1.2), publishes Feldman commitments,

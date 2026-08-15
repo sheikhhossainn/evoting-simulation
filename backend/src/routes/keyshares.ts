@@ -24,10 +24,9 @@ import { decodeCandidateId } from "../crypto/elgamal";
 import { verifyDleq, combinePartialDecryptions, type ValidPartial } from "../crypto/dleq";
 import { requireAdminSecret } from "../middleware/adminAuth";
 import { verifyBatchSmtCoverage, getSmtProof } from "../services/anchorSmtBatch";
+import { resolveElectionId, getElection } from "../services/electionContext";
 
 const router = Router();
-
-const DEFAULT_ELECTION_ID = "NATIONAL-2026-001";
 
 // ── Explicit batch_id resolution — NO "latest batch" fallback ──
 // docs/tally-verifiability-design.md §8 requires the tally be scoped to a
@@ -35,7 +34,9 @@ const DEFAULT_ELECTION_ID = "NATIONAL-2026-001";
 // whatever was anchored most recently, including a contaminated batch —
 // found the hard way when the live "latest" batch turned out to be ~80%
 // test/fixture data (see the session's live-smoke-test audit). Every route
-// below requires the caller to name the batch explicitly.
+// below requires the caller to name the batch explicitly, WITHIN an
+// explicitly named election (threat_model.md §10 — election_id has no
+// silent default either, via resolveElectionId).
 interface ResolvedBatch {
   batch_id: number;
   root: string;
@@ -49,10 +50,11 @@ function parseBatchId(raw: unknown): number | null {
   return Number(s);
 }
 
-async function loadBatchById(batchId: number): Promise<ResolvedBatch | null> {
+async function loadBatchById(electionId: string, batchId: number): Promise<ResolvedBatch | null> {
   const { data, error } = await supabase
     .from("merkle_batches")
     .select("batch_id, root, vote_ids")
+    .eq("election_id", electionId)
     .eq("batch_id", batchId)
     .maybeSingle();
   if (error) throw error;
@@ -62,16 +64,19 @@ async function loadBatchById(batchId: number): Promise<ResolvedBatch | null> {
 
 /**
  * Verify that every ballot in `batch` is actually covered by the current
- * anchored SMT commitment (docs §8 "internal consistency"). Does NOT assume
- * a 1:1 dense-batch <-> smt-batch pairing — see verifyBatchSmtCoverage's
- * comment for why that assumption is wrong for this project's own data.
+ * anchored SMT commitment for `electionId` (docs §8 "internal consistency").
+ * Does NOT assume a 1:1 dense-batch <-> smt-batch pairing — see
+ * verifyBatchSmtCoverage's comment for why that assumption is wrong for this
+ * project's own data.
  */
 async function checkBatchSmtConsistency(
+  electionId: string,
   batch: ResolvedBatch
 ): Promise<{ ok: true } | { ok: false; error: string; missing: string[] }> {
   const { data: votes, error } = await supabase
     .from("votes")
     .select("id, nullifier_hash")
+    .eq("election_id", electionId)
     .in("id", batch.vote_ids);
   if (error) throw error;
 
@@ -86,7 +91,7 @@ async function checkBatchSmtConsistency(
   }
 
   const nullifierHashes = (votes ?? []).map((v) => v.nullifier_hash as string);
-  const coverage = await verifyBatchSmtCoverage(nullifierHashes);
+  const coverage = await verifyBatchSmtCoverage(electionId, nullifierHashes);
   if (!coverage.allCovered) {
     return {
       ok: false,
@@ -101,7 +106,12 @@ async function checkBatchSmtConsistency(
 // Public. Group params + Feldman coefficient commitments + each keyholder's
 // public commitment y_i. All non-secret by construction (docs §2.1).
 router.get("/commitments", async (req: Request, res: Response) => {
-  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
 
   try {
     const [ceremonyRes, keyholdersRes] = await Promise.all([
@@ -144,7 +154,12 @@ router.get("/commitments", async (req: Request, res: Response) => {
 
 // ── GET /keyshares/status ──
 router.get("/status", async (req: Request, res: Response) => {
-  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
   const batchId = parseBatchId(req.query.batch_id);
   if (batchId === null) {
     res.status(400).json({
@@ -154,9 +169,9 @@ router.get("/status", async (req: Request, res: Response) => {
   }
 
   try {
-    const batch = await loadBatchById(batchId);
+    const batch = await loadBatchById(election_id, batchId);
     if (!batch) {
-      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId}` });
+      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId} in election ${election_id}` });
       return;
     }
     const ballotIds = batch.vote_ids;
@@ -229,18 +244,23 @@ router.post("/submit-partial", async (req: Request, res: Response) => {
   }
   const { election_id, keyholder_id, passphrase, partials } = parsed.data;
 
-  if (!verifyKeyholderPassphrase(keyholder_id, passphrase)) {
-    res.status(401).json({ error: "Invalid keyholder id or passphrase" });
-    return;
-  }
-
-  const index = getKeyholderIndex(keyholder_id);
-  if (index === null) {
-    res.status(400).json({ error: "Unknown keyholder_id" });
-    return;
-  }
-
   try {
+    if (!(await getElection(election_id))) {
+      res.status(404).json({ error: `Unknown election_id: ${election_id}` });
+      return;
+    }
+
+    if (!(await verifyKeyholderPassphrase(election_id, keyholder_id, passphrase))) {
+      res.status(401).json({ error: "Invalid keyholder id or passphrase" });
+      return;
+    }
+
+    const index = await getKeyholderIndex(election_id, keyholder_id);
+    if (index === null) {
+      res.status(400).json({ error: "Unknown keyholder_id for this election" });
+      return;
+    }
+
     const [ceremonyRes, keyholderRes] = await Promise.all([
       supabase
         .from("election_key_ceremony")
@@ -272,6 +292,7 @@ router.post("/submit-partial", async (req: Request, res: Response) => {
     const { data: votes, error: votesErr } = await supabase
       .from("votes")
       .select("id, encrypted_vote")
+      .eq("election_id", election_id)
       .in("id", ballotIds);
     if (votesErr) throw votesErr;
     const voteById = new Map((votes ?? []).map((v) => [v.id, v.encrypted_vote as { c1: string; c2: string }]));
@@ -341,7 +362,12 @@ router.post("/submit-partial", async (req: Request, res: Response) => {
 // contaminated batch — this project's own latest batch turned out to be
 // ~80% test/fixture data; see the session's live audit).
 router.post("/tally", requireAdminSecret, async (req: Request, res: Response) => {
-  const election_id = (req.body?.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
   const batchId = parseBatchId(req.body?.batch_id);
   if (batchId === null) {
     res.status(400).json({
@@ -365,13 +391,13 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
       return;
     }
 
-    const batch = await loadBatchById(batchId);
+    const batch = await loadBatchById(election_id, batchId);
     if (!batch) {
-      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId}` });
+      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId} in election ${election_id}` });
       return;
     }
 
-    const consistency = await checkBatchSmtConsistency(batch);
+    const consistency = await checkBatchSmtConsistency(election_id, batch);
     if (!consistency.ok) {
       res.status(409).json({ error: consistency.error, missing: consistency.missing });
       return;
@@ -401,8 +427,8 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
     const yByIndex = new Map((keyholders ?? []).map((k) => [k.share_index, k.public_commitment as string]));
 
     const [votesRes, candidatesRes, partialsRes] = await Promise.all([
-      supabase.from("votes").select("id, encrypted_vote, constituency_code").in("id", ballotIds),
-      supabase.from("candidates").select("id, name, party, constituency_code"),
+      supabase.from("votes").select("id, encrypted_vote, constituency_code").eq("election_id", election_id).in("id", ballotIds),
+      supabase.from("candidates").select("id, name, party, constituency_code").eq("election_id", election_id),
       supabase.from("partial_decryptions").select("*").eq("election_id", election_id).in("ballot_id", ballotIds),
     ]);
     if (votesRes.error) throw votesRes.error;
@@ -571,7 +597,12 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
 // Public. Everything an independent verifier needs (docs §9) — no secrets,
 // no admin access required to fetch this.
 router.get("/verification-bundle", async (req: Request, res: Response) => {
-  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
   const batchId = parseBatchId(req.query.batch_id);
   if (batchId === null) {
     res.status(400).json({
@@ -581,12 +612,12 @@ router.get("/verification-bundle", async (req: Request, res: Response) => {
   }
 
   try {
-    const batch = await loadBatchById(batchId);
+    const batch = await loadBatchById(election_id, batchId);
     if (!batch) {
-      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId}` });
+      res.status(404).json({ error: `No merkle_batches row for batch_id=${batchId} in election ${election_id}` });
       return;
     }
-    const consistency = await checkBatchSmtConsistency(batch);
+    const consistency = await checkBatchSmtConsistency(election_id, batch);
 
     const [
       ceremonyRes,
@@ -609,6 +640,7 @@ router.get("/verification-bundle", async (req: Request, res: Response) => {
       supabase
         .from("smt_batches")
         .select("smt_batch_id, smt_root, total_keys_anchored")
+        .eq("election_id", election_id)
         .order("smt_batch_id", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -618,7 +650,7 @@ router.get("/verification-bundle", async (req: Request, res: Response) => {
         .eq("election_id", election_id)
         .maybeSingle(),
       supabase.from("tally_results").select("*").eq("election_id", election_id).maybeSingle(),
-      supabase.from("voters").select("has_voted"),
+      supabase.from("voters").select("has_voted").eq("election_id", election_id),
     ]);
 
     if (ceremonyRes.error) throw ceremonyRes.error;
@@ -629,10 +661,10 @@ router.get("/verification-bundle", async (req: Request, res: Response) => {
 
     const ballotIds: string[] = batch.vote_ids;
     const [votesRes, partialsRes, candidatesRes, constituenciesRes] = await Promise.all([
-      supabase.from("votes").select("id, encrypted_vote, constituency_code, created_at, nullifier_hash").in("id", ballotIds),
+      supabase.from("votes").select("id, encrypted_vote, constituency_code, created_at, nullifier_hash").eq("election_id", election_id).in("id", ballotIds),
       supabase.from("partial_decryptions").select("*").eq("election_id", election_id).in("ballot_id", ballotIds),
-      supabase.from("candidates").select("id, name, party, symbol, constituency_code"),
-      supabase.from("constituencies").select("code, name"),
+      supabase.from("candidates").select("id, name, party, symbol, constituency_code").eq("election_id", election_id),
+      supabase.from("constituencies").select("code, name").eq("election_id", election_id),
     ]);
     if (votesRes.error) throw votesRes.error;
     if (partialsRes.error) throw partialsRes.error;
@@ -665,7 +697,7 @@ router.get("/verification-bundle", async (req: Request, res: Response) => {
     const smtProofs = await Promise.all(
       orderedVotes.map(async (v) => {
         try {
-          const result = await getSmtProof(v.nullifier_hash as string);
+          const result = await getSmtProof(election_id, v.nullifier_hash as string);
           return { ballot_id: v.id, nullifier_hash: v.nullifier_hash, type: result.type, proof: result.proof };
         } catch (err) {
           return { ballot_id: v.id, nullifier_hash: v.nullifier_hash, type: "error" as const, proof: null, error: `${err}` };

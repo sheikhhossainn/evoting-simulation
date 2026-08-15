@@ -14,13 +14,23 @@
  */
 
 /**
- * The hardcoded election ID for this simulation.
- * Must match the id used across the keyholder/tallying flow
- * (KeyShareSubmit.tsx, KeyShareStatus.tsx) — votes and key shares are
- * both keyed by election_id, so a mismatch here would silently split
- * them into two unrelated "elections" and break tallying.
+ * Default election id, used when no `?election_id=` is present in the URL.
+ * Multi-election isolation (threat_model.md §10): the frontend previously
+ * hardcoded this as a module-level constant, duplicated across five files —
+ * a mismatch between any two of them would silently split votes/key-shares
+ * into two unrelated "elections." getElectionId() below is now the single
+ * place every page reads it from, sourced from the URL (same pattern
+ * already used for ?batch_id= in the Key Holder Portal), falling back to
+ * this default so existing links/bookmarks with no election_id keep
+ * working unchanged.
  */
-export const ELECTION_ID = "NATIONAL-2026-001";
+export const DEFAULT_ELECTION_ID = "NATIONAL-2026-001";
+
+/** Read `election_id` from a `location.search` string, or fall back to the default. */
+export function getElectionId(search: string): string {
+  const fromUrl = new URLSearchParams(search).get("election_id");
+  return fromUrl && fromUrl.trim().length > 0 ? fromUrl : DEFAULT_ELECTION_ID;
+}
 
 /**
  * Hash an NID to its SHA-256 hex digest.

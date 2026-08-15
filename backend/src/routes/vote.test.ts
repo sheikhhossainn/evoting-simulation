@@ -49,12 +49,15 @@ function loadPubKey() {
   return { p, g, y };
 }
 
+const EID = 'NATIONAL-2026-001';
+
 async function buildValidBallot(nid: string) {
-  const constituency = constituencyFromNid(nid);
+  const constituency = constituencyFromNid(nid, 8);
   // Same query + ordering the server uses to build the valid candidate set.
   const { data, error } = await supabase
     .from('candidates')
     .select('id, name')
+    .eq('election_id', EID)
     .eq('constituency_code', constituency)
     .order('name', { ascending: true });
   if (error || !data || data.length === 0) {
@@ -107,7 +110,7 @@ describe('Vote Casting Adversarial Tests', () => {
 
   it('rejects ineligible voter (403)', async () => {
     const inelNid = '10001000001';
-    await fetchPost('/voter/register', { nid: inelNid });
+    await fetchPost('/voter/register', { nid: inelNid, election_id: EID });
     const inelHash = crypto.createHash('sha256').update(inelNid + process.env.NID_HASH_SALT!).digest('hex');
 
     const inelUpdate = await supabase.from('voters').update({ is_eligible: false }).eq('nid_hash', inelHash);
@@ -224,7 +227,7 @@ describe('Vote Casting Adversarial Tests', () => {
       // is no longer possible; giving every trial its own voter is cleaner
       // anyway — fully independent trials, nothing to reset.
       const trialNid = `1000100${String(9000 + trial)}`; // 11 digits total
-      await fetchPost('/voter/register', { nid: trialNid });
+      await fetchPost('/voter/register', { nid: trialNid, election_id: electionId });
       const trialNullifier = crypto
         .createHash('sha256')
         .update(trialNid + electionId + process.env.NULLIFIER_SECRET!)

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createElection, initDkgCeremony, ApiError } from "../utils/api";
 
 // ── Sample data ──
 const CONSTITUENCIES = [
@@ -39,7 +40,7 @@ const SAMPLE_CANDIDATES: Candidate[] = [
   { id: "C-008", name: "Anika Rahman", partyCode: "DA", symbol: "🤝", constituency: "Sylhet-1" },
 ];
 
-type Tab = "add" | "list";
+type Tab = "add" | "list" | "elections";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -57,6 +58,77 @@ const AdminDashboard = () => {
     candParty !== "" &&
     candSymbol.trim().length > 0 &&
     candConstituency !== "";
+
+  // ── New Election form state (threat_model.md §10 — the real entry point
+  // for setting this system up for a different election; wired to the
+  // actual POST /elections route, unlike the candidate form above which is
+  // still a UI mock over sample data) ──
+  const [electionAdminSecret, setElectionAdminSecret] = useState("");
+  const [newElectionId, setNewElectionId] = useState("");
+  const [newElectionName, setNewElectionName] = useState("");
+  const [newConstituencyCount, setNewConstituencyCount] = useState(8);
+  const [electionSubmitting, setElectionSubmitting] = useState(false);
+  const [electionError, setElectionError] = useState<string | null>(null);
+  const [electionSuccess, setElectionSuccess] = useState<string | null>(null);
+
+  const isElectionFormValid =
+    electionAdminSecret.trim().length > 0 &&
+    /^[A-Za-z0-9_-]+$/.test(newElectionId.trim()) &&
+    newElectionName.trim().length > 0 &&
+    newConstituencyCount > 0;
+
+  // ── DKG ceremony initialization — establishes the election's public
+  // group params (p, g). Not secret, so this is a normal admin action, not
+  // a trusted-dealer step — the private key itself is never generated here
+  // (see frontend/src/pages/KeyCeremony.tsx for the actual 4-party ceremony). ──
+  const [dkgElectionId, setDkgElectionId] = useState("");
+  const [dkgSubmitting, setDkgSubmitting] = useState(false);
+  const [dkgError, setDkgError] = useState<string | null>(null);
+  const [dkgSuccess, setDkgSuccess] = useState<string | null>(null);
+
+  const handleInitDkg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!electionAdminSecret.trim() || !dkgElectionId.trim()) return;
+    setDkgSubmitting(true);
+    setDkgError(null);
+    setDkgSuccess(null);
+    try {
+      const result = await initDkgCeremony(electionAdminSecret.trim(), dkgElectionId.trim());
+      setDkgSuccess(
+        `Ceremony initialized for "${result.election_id}". Keyholders can now use "Join Key Generation Ceremony" on the Key Holder Portal login page.`
+      );
+    } catch (err) {
+      setDkgError(err instanceof ApiError ? err.message : "Failed to initialize ceremony.");
+    } finally {
+      setDkgSubmitting(false);
+    }
+  };
+
+  const handleCreateElection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isElectionFormValid) return;
+    setElectionSubmitting(true);
+    setElectionError(null);
+    setElectionSuccess(null);
+    try {
+      const created = await createElection(
+        electionAdminSecret.trim(),
+        newElectionId.trim(),
+        newElectionName.trim(),
+        newConstituencyCount
+      );
+      setElectionSuccess(
+        `Election "${created.election_id}" created (status: ${created.status}). Next: deploy contracts and seed candidates/constituencies/keyholders for it.`
+      );
+      setNewElectionId("");
+      setNewElectionName("");
+      setNewConstituencyCount(8);
+    } catch (err) {
+      setElectionError(err instanceof ApiError ? err.message : "Failed to create election.");
+    } finally {
+      setElectionSubmitting(false);
+    }
+  };
 
   const filteredCandidates =
     filterConstituency === "all"
@@ -89,7 +161,7 @@ const AdminDashboard = () => {
               />
             </svg>
             <span className="text-sm font-semibold text-white">
-              EC Admin Dashboard · NATIONAL-2026-001
+              EC Admin Dashboard
             </span>
           </div>
           <div className="px-6 py-2 w-full sm:w-auto flex items-center justify-between sm:justify-end gap-4">
@@ -165,6 +237,22 @@ const AdminDashboard = () => {
               >
                 {SAMPLE_CANDIDATES.length}
               </span>
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("elections")}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300"
+            style={{
+              background: activeTab === "elections" ? "#ffffff" : "transparent",
+              color: activeTab === "elections" ? "#0A2540" : "#627d98",
+              boxShadow: activeTab === "elections" ? "var(--shadow-card)" : "none",
+            }}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A8.959 8.959 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+              </svg>
+              New Election
             </span>
           </button>
         </div>
@@ -436,6 +524,169 @@ const AdminDashboard = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════
+            TAB: New Election (threat_model.md §10 — real entry point for
+            replicating this system for a different election; the only tab
+            on this page wired to an actual write route, POST /elections)
+            ═══════════════════════════════════════════ */}
+        {activeTab === "elections" && (
+          <div className="glass-card overflow-hidden opacity-0-init animate-scale-in">
+            <div className="flex items-center gap-2 px-6 py-3.5" style={{ background: "#0A2540" }}>
+              <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span className="text-sm font-semibold text-white">Register a New Election</span>
+            </div>
+
+            <form onSubmit={handleCreateElection} className="space-y-5 p-6 md:p-8">
+              <p className="text-sm" style={{ color: "#627d98" }}>
+                Creates the registry row every other table (voters, candidates, constituencies,
+                anchored batches, keyholders) requires before it can reference this election.
+                Deploying contracts and seeding candidates/constituencies/keyholders for it are
+                separate steps (see backend/src/scripts/).
+              </p>
+
+              {electionError && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(244,42,65,0.05)", border: "1px solid rgba(244,42,65,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#F42A41" }}>⚠ {electionError}</p>
+                </div>
+              )}
+              {electionSuccess && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(0,106,78,0.06)", border: "1px solid rgba(0,106,78,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#0F6E56" }}>✓ {electionSuccess}</p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="election-id" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                  Election ID
+                </label>
+                <input
+                  id="election-id"
+                  type="text"
+                  value={newElectionId}
+                  onChange={(e) => setNewElectionId(e.target.value)}
+                  placeholder="e.g. NATIONAL-2027-001"
+                  className="input-field font-mono"
+                />
+                <p className="mt-1.5 text-xs" style={{ color: "#9fb3c8" }}>
+                  Alphanumeric, - and _ only. This is the value every page's ?election_id= must match.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="election-name" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                    Election Name
+                  </label>
+                  <input
+                    id="election-name"
+                    type="text"
+                    value={newElectionName}
+                    onChange={(e) => setNewElectionName(e.target.value)}
+                    placeholder="e.g. National Election 2027"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="election-constituencies" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                    Constituency Count
+                  </label>
+                  <input
+                    id="election-constituencies"
+                    type="number"
+                    min={1}
+                    value={newConstituencyCount}
+                    onChange={(e) => setNewConstituencyCount(Number(e.target.value) || 0)}
+                    className="input-field font-mono"
+                  />
+                  <p className="mt-1.5 text-xs" style={{ color: "#9fb3c8" }}>
+                    Replaces the old hardcoded 8-constituency assumption — each election declares its own.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="election-admin-secret" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                  Admin Secret
+                </label>
+                <input
+                  id="election-admin-secret"
+                  type="password"
+                  value={electionAdminSecret}
+                  onChange={(e) => setElectionAdminSecret(e.target.value)}
+                  placeholder="x-admin-secret"
+                  className="input-field"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t" style={{ borderColor: "rgba(10, 37, 64, 0.08)" }}>
+                <button type="submit" disabled={!isElectionFormValid || electionSubmitting} className="btn-navy flex-1 text-sm shadow-sm">
+                  {electionSubmitting ? "Creating…" : "Create Election"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════
+            TAB: Initialize Key Ceremony — establishes public group params
+            (p, g) so keyholders can then run the 4-party DKG ceremony
+            (KeyCeremony.tsx). Uses the same admin secret entered above.
+            ═══════════════════════════════════════════ */}
+        {activeTab === "elections" && (
+          <div className="glass-card overflow-hidden opacity-0-init animate-scale-in mt-6">
+            <div className="flex items-center gap-2 px-6 py-3.5" style={{ background: "#0A2540" }}>
+              <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+              <span className="text-sm font-semibold text-white">Initialize Key Ceremony</span>
+            </div>
+
+            <form onSubmit={handleInitDkg} className="space-y-4 p-6 md:p-8">
+              <p className="text-sm" style={{ color: "#627d98" }}>
+                Publishes fresh public domain parameters (p, g) for an election so its 4 keyholders
+                can run the distributed key generation ceremony themselves — no single party ever
+                generates the private key. Uses the admin secret entered above.
+              </p>
+
+              {dkgError && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(244,42,65,0.05)", border: "1px solid rgba(244,42,65,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#F42A41" }}>⚠ {dkgError}</p>
+                </div>
+              )}
+              {dkgSuccess && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(0,106,78,0.06)", border: "1px solid rgba(0,106,78,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#0F6E56" }}>✓ {dkgSuccess}</p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="dkg-election-id" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                  Election ID
+                </label>
+                <input
+                  id="dkg-election-id"
+                  type="text"
+                  value={dkgElectionId}
+                  onChange={(e) => setDkgElectionId(e.target.value)}
+                  placeholder="e.g. NATIONAL-2027-001"
+                  className="input-field font-mono"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!electionAdminSecret.trim() || !dkgElectionId.trim() || dkgSubmitting}
+                className="btn-navy w-full text-sm shadow-sm"
+              >
+                {dkgSubmitting ? "Initializing…" : "Initialize Ceremony"}
+              </button>
+            </form>
           </div>
         )}
 

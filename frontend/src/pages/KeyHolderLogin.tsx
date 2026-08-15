@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getElectionId, DEFAULT_ELECTION_ID } from "../utils/nullifier";
 
 const KeyHolderLogin = () => {
   const navigate = useNavigate();
@@ -8,19 +9,46 @@ const KeyHolderLogin = () => {
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  // Multi-election isolation (threat_model.md §10): the dropdown below was
+  // previously decorative — no value/onChange — so it never actually
+  // controlled anything; whatever election a keyholder "selected" was
+  // silently ignored. Initialize from the URL (same source every other
+  // page reads election_id from) so a direct link still works, and let the
+  // dropdown override it from here on.
+  const [electionId, setElectionId] = useState(() => getElectionId(location.search));
 
   const isValid = keyholderId.trim().length > 0 && passphrase.length > 0;
 
-  // Forward ?batch_id= through to the submit page (methodology-audit
-  // finding, live: this page previously dropped the query string entirely,
-  // so navigating here via the login form always silently fell back to
-  // batch_id=0 regardless of which batch's link the keyholder actually
-  // opened — a real submission landed on the wrong, already-tallied batch
-  // because of this).
+  // Forward ?batch_id=&election_id= through to the submit page
+  // (methodology-audit finding, live: this page previously dropped the
+  // query string entirely, so navigating here via the login form always
+  // silently fell back to batch_id=0 regardless of which batch's link the
+  // keyholder actually opened — a real submission landed on the wrong,
+  // already-tallied batch because of this. election_id has the same
+  // failure shape if left unforwarded).
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
-    navigate(`/keyholder/submit${location.search}`, { state: { keyholderId } });
+    const params = new URLSearchParams(location.search);
+    params.set("election_id", electionId);
+    navigate(`/keyholder/submit?${params.toString()}`, { state: { keyholderId } });
+  };
+
+  const statusHref = (() => {
+    const params = new URLSearchParams(location.search);
+    params.set("election_id", electionId);
+    return `/keyholder/status?${params.toString()}`;
+  })();
+
+  // Distributed key generation ceremony — separate entry point from the
+  // decrypt-time submit flow above. Same passphrase re-entered there (not
+  // forwarded, matching the existing submit-page pattern) — this only
+  // needs the keyholder id up front to resume the right ceremony session.
+  const handleJoinCeremony = () => {
+    if (!isValid) return;
+    const params = new URLSearchParams(location.search);
+    params.set("election_id", electionId);
+    navigate(`/keyholder/ceremony?${params.toString()}`, { state: { keyholderId } });
   };
 
   return (
@@ -200,11 +228,12 @@ const KeyHolderLogin = () => {
               </label>
               <select
                 id="kh-election"
+                value={electionId}
+                onChange={(e) => setElectionId(e.target.value)}
                 className="input-field appearance-none bg-white cursor-pointer"
               >
-                <option>Select active election</option>
-                <option>NATIONAL-2026-001</option>
-                <option>NATIONAL-2026-002 (test)</option>
+                <option value={DEFAULT_ELECTION_ID}>{DEFAULT_ELECTION_ID}</option>
+                <option value="NATIONAL-2026-002">NATIONAL-2026-002 (test)</option>
               </select>
             </div>
 
@@ -228,6 +257,16 @@ const KeyHolderLogin = () => {
                 />
               </svg>
               Authenticate &amp; Continue
+            </button>
+
+            <button
+              type="button"
+              onClick={handleJoinCeremony}
+              disabled={!isValid}
+              className="w-full text-sm font-medium rounded-lg border py-2.5 transition-colors disabled:opacity-40"
+              style={{ borderColor: "rgba(200, 146, 10, 0.4)", color: "#B45309" }}
+            >
+              Join Key Generation Ceremony instead
             </button>
           </form>
 
@@ -306,7 +345,7 @@ const KeyHolderLogin = () => {
         {/* ── Public status link ── */}
         <div className="mt-4 flex justify-center gap-4 text-sm">
           <button
-            onClick={() => navigate(`/keyholder/status${location.search}`)}
+            onClick={() => navigate(statusHref)}
             className="font-medium transition-colors text-amber-600 hover:text-amber-700"
           >
             View public submission status →

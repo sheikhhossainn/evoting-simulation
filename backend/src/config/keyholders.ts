@@ -1,45 +1,58 @@
 /**
- * keyholders.ts — Keyholder passphrase verification
+ * keyholders.ts — Keyholder identity/passphrase verification, per election
+ *
+ * Multi-election isolation (threat_model.md §10): this used to be a static,
+ * global map (DEMO_PASSPHRASES / KEYHOLDER_INDEX) — the same 4 keyholder ids
+ * with the same passphrases and indices applied to every election, so two
+ * concurrent elections would collide entirely on keyholder identity. Now
+ * backed by the `keyholders` DB table (schema.sql), keyed by
+ * (election_id, keyholder_id) — each election can have its own, disjoint
+ * set of 4 keyholders.
  *
  * POST /keyshares/submit previously accepted ANY non-empty passphrase for
  * ANY keyholder_id — nothing tied a submitted share to the person who was
- * supposed to hold it. That let anyone squat on a keyholder slot (submit
- * garbage before the real holder does) and corrupt the 3-of-4
- * reconstruction, or silently swap in a bogus share.
- *
- * This module verifies the passphrase against a salted hash per keyholder.
- * Demo defaults match the credentials shown on the Key Holder Portal UI
- * (KH-001/share001 ... KH-004/share004) so the out-of-box demo still
- * works. For a real deployment, override via KEYHOLDER_PASSPHRASE_HASH_1..4
- * in .env (sha256(passphrase + KEYHOLDER_PASSPHRASE_SALT) hex digest) so
- * the actual passphrases are never stored in the repo.
+ * supposed to hold it. This module verifies the passphrase against a salted
+ * hash per (election, keyholder). Seed rows via
+ * backend/src/scripts/seed-keyholders.ts.
  */
 
 import { createHash, timingSafeEqual } from "crypto";
+import { supabase } from "../supabaseClient";
 
-const DEMO_PASSPHRASES: Record<string, string> = {
-  "KH-001": "share001",
-  "KH-002": "share002",
-  "KH-003": "share003",
-  "KH-004": "share004",
-};
+interface KeyholderRow {
+  keyholder_id: string;
+  role: string;
+  share_index: number;
+  passphrase_hash: string;
+}
+
+async function loadKeyholder(
+  electionId: string,
+  keyholderId: string
+): Promise<KeyholderRow | null> {
+  const { data, error } = await supabase
+    .from("keyholders")
+    .select("keyholder_id, role, share_index, passphrase_hash")
+    .eq("election_id", electionId)
+    .eq("keyholder_id", keyholderId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as KeyholderRow | null;
+}
 
 /**
- * Server-side keyholder_id -> share index mapping. The old /keyshares/submit
- * trusted a client-supplied share_index field (validated only for range,
- * not correctness) — the new verifiable-tally flow derives it server-side
- * instead, so a keyholder cannot claim a different index than the one they
- * were actually issued.
+ * Server-side (election_id, keyholder_id) -> share index mapping. The old
+ * /keyshares/submit trusted a client-supplied share_index field (validated
+ * only for range, not correctness) — the verifiable-tally flow derives it
+ * server-side instead, so a keyholder cannot claim a different index than
+ * the one they were actually issued.
  */
-const KEYHOLDER_INDEX: Record<string, number> = {
-  "KH-001": 1,
-  "KH-002": 2,
-  "KH-003": 3,
-  "KH-004": 4,
-};
-
-export function getKeyholderIndex(keyholderId: string): number | null {
-  return KEYHOLDER_INDEX[keyholderId] ?? null;
+export async function getKeyholderIndex(
+  electionId: string,
+  keyholderId: string
+): Promise<number | null> {
+  const row = await loadKeyholder(electionId, keyholderId);
+  return row?.share_index ?? null;
 }
 
 function hashPassphrase(passphrase: string): string {
@@ -47,28 +60,20 @@ function hashPassphrase(passphrase: string): string {
   return createHash("sha256").update(passphrase + salt).digest("hex");
 }
 
-function envHashKeyFor(keyholderId: string): string {
-  const index = keyholderId.replace(/^KH-0*/, "");
-  return `KEYHOLDER_PASSPHRASE_HASH_${index}`;
-}
-
 /**
- * Verify that `passphrase` is the one assigned to `keyholderId`.
- * Falls back to the documented demo passphrase if no
- * KEYHOLDER_PASSPHRASE_HASH_<n> override is configured in .env.
+ * Verify that `passphrase` is the one assigned to `keyholderId` for
+ * `electionId`.
  */
-export function verifyKeyholderPassphrase(
+export async function verifyKeyholderPassphrase(
+  electionId: string,
   keyholderId: string,
   passphrase: string
-): boolean {
-  const configuredHash = process.env[envHashKeyFor(keyholderId)];
-  const demoPassphrase = DEMO_PASSPHRASES[keyholderId];
-
-  const expectedHash = configuredHash || (demoPassphrase ? hashPassphrase(demoPassphrase) : null);
-  if (!expectedHash) return false;
+): Promise<boolean> {
+  const row = await loadKeyholder(electionId, keyholderId);
+  if (!row) return false;
 
   const actual = Buffer.from(hashPassphrase(passphrase), "hex");
-  const expected = Buffer.from(expectedHash, "hex");
+  const expected = Buffer.from(row.passphrase_hash, "hex");
   if (actual.length !== expected.length) return false;
 
   return timingSafeEqual(actual, expected);
