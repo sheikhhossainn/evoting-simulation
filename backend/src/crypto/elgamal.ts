@@ -333,31 +333,3 @@ export function decryptCandidateId(
 
   return decodeCandidateId(m);
 }
-
-/**
- * Load an ElGamal public key from environment variables.
- * Returns null if any key component is missing.
- */
-export function loadPublicKeyFromEnv(): ElGamalPublicKey | null {
-  const p = process.env.ELGAMAL_P;
-  const g = process.env.ELGAMAL_G;
-  const y = process.env.ELGAMAL_PUBLIC_KEY;
-
-  if (!p || !g || !y) return null;
-
-  return { p, g, y };
-}
-
-/**
- * Load an ElGamal private key from environment variables.
- * Returns null if any key component is missing.
- */
-export function loadPrivateKeyFromEnv(): ElGamalPrivateKey | null {
-  const p = process.env.ELGAMAL_P;
-  const g = process.env.ELGAMAL_G;
-  const x = process.env.ELGAMAL_PRIVATE_KEY;
-
-  if (!p || !g || !x) return null;
-
-  return { p, g, x };
-}

@@ -36,8 +36,7 @@ import {
   constituencyFromNid,
 } from "../crypto/identity";
 import { verifyBallotValidity } from "../crypto/zkp";
-import { loadPublicKeyFromEnv } from "../crypto/elgamal";
-import { getElection } from "../services/electionContext";
+import { getElection, getElectionPublicKey } from "../services/electionContext";
 
 const router = Router();
 
@@ -176,10 +175,11 @@ router.post("/vote", async (req: Request, res: Response) => {
     // revealing which — this is now the ONLY mechanism that establishes
     // ballot validity; there is no separate plaintext candidate_id guard to
     // bypass or spoof, because there is no plaintext candidate_id at all.
-    const elgamalPubKey = loadPublicKeyFromEnv();
+    const elgamalPubKey = await getElectionPublicKey(election_id);
     if (!elgamalPubKey) {
-      console.error("ZKP verification failed: ElGamal public key not configured");
-      res.status(500).json({ error: "Internal server error" });
+      res.status(503).json({
+        error: `DKG ceremony not yet qualified for ${election_id} — the election has no encryption key yet.`,
+      });
       return;
     }
 

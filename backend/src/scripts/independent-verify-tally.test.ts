@@ -219,4 +219,35 @@ describe("independent-verify-tally: rejection paths (docs §13 tests 14/15/16 �
     const { checks } = await verifyBundle(bundle, {});
     expect(findCheck(checks, "1c. per-ballot SMT membership proof verification").ok).toBe(false);
   });
+
+  it("rejects a bundle where the SMT proof genuinely verifies against smt_root but belongs to a DIFFERENT, unrelated leaf (security-audit finding: hash-only attack — proof isn't content-bound to the ballot it's attached to)", async () => {
+    const bundle = buildGenuineBundle();
+
+    // A second, genuinely-anchored leaf under a different nullifier — this
+    // simulates a server substituting an unrelated-but-real proof onto
+    // ballot-1's entry instead of ballot-1's own proof. verifySmtMembershipProof
+    // alone would pass (the decoy leaf really is in the tree); only the
+    // recomputed-value cross-check introduced by this fix catches the swap.
+    const decoyLeaf = hashVoteLeaf({
+      voteId: "ballot-decoy",
+      c1: "deadbeef",
+      c2: "cafebabe",
+      createdAt: "2026-01-02T00:00:00.000Z",
+    });
+    const decoyNullifier = "0x" + "cd".repeat(32);
+    const smt = new SparseMerkleTree();
+    const realNullifier = bundle.smt_membership_proofs![0].nullifier_hash;
+    const realProof = bundle.smt_membership_proofs![0].proof as { value: string };
+    smt.insert(realNullifier, realProof.value);
+    smt.insert(decoyNullifier, decoyLeaf);
+
+    bundle.anchored_batch_ref.smt_root = smt.root();
+    bundle.smt_membership_proofs![0].proof = smt.getMembershipProof(decoyNullifier);
+
+    const { checks, allOk } = await verifyBundle(bundle, {});
+    const check = findCheck(checks, "1c. per-ballot SMT membership proof verification");
+    expect(check.ok).toBe(false);
+    expect(check.detail).toMatch(/does not match this ballot's own ciphertext/);
+    expect(allOk).toBe(false);
+  });
 });

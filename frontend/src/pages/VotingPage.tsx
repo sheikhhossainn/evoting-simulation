@@ -109,7 +109,7 @@ const VotingPage = () => {
         setLoadError("Unable to load candidates. Please ensure the backend is running.");
       });
 
-    getElectionPublicKey()
+    getElectionPublicKey(ELECTION_ID)
       .then(setPublicKey)
       .catch((err) => {
         console.error("Failed to load election public key", err);

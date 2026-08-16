@@ -1300,3 +1300,28 @@ ALTER TABLE dkg_confirmations ENABLE ROW LEVEL SECURITY;
 --     the documented production ceremony path anymore.
 -- =============================================================
 
+-- =============================================================
+-- Migration: partial_decryptions immutability (security audit follow-up)
+--
+-- POST /submit-partial previously upserted on (election_id, ballot_id,
+-- keyholder_index) — a keyholder could submit, have it flagged invalid at
+-- verification, then silently resubmit and erase that evidence with no
+-- audit trail, or overwrite a previously-valid d_i after tally already ran.
+-- votes has both an immutability guard and a no-delete guard; this table had
+-- neither. No legitimate code path ever UPDATEs this table (only INSERT),
+-- so — matching votes' fn_votes_immutable_guard pattern — block UPDATE
+-- outright. The route-level fix (INSERT instead of UPSERT, 409 on conflict)
+-- lives in keyshares.ts; this trigger is the DB-level backstop.
+-- =============================================================
+CREATE OR REPLACE FUNCTION fn_partial_decryptions_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'partial_decryptions rows are immutable and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_partial_decryptions_no_update ON partial_decryptions;
+CREATE TRIGGER trg_partial_decryptions_no_update
+    BEFORE UPDATE ON partial_decryptions
+    FOR EACH ROW EXECUTE FUNCTION fn_partial_decryptions_no_update();
+

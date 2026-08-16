@@ -114,6 +114,7 @@ async function main() {
       p_hex: pHex,
       g_hex: gHex,
       feldman_commitments: commitments.map((c) => c.toString(16)),
+      status: "qualified",
     },
     { onConflict: "election_id" }
   );

@@ -207,6 +207,7 @@ export async function verifyBundle(bundle: Bundle, opts: VerifyOptions): Promise
       );
     } else {
       const ballotIds = new Set(bundle.ballots.map((b) => b.ballot_id));
+      const ballotById = new Map(bundle.ballots.map((b) => [b.ballot_id, b]));
       let validCount = 0;
       let invalidCount = 0;
       const failures: string[] = [];
@@ -217,12 +218,38 @@ export async function verifyBundle(bundle: Bundle, opts: VerifyOptions): Promise
           failures.push(`${entry.ballot_id}: not a membership proof (type=${entry.type})`);
           continue;
         }
-        const ok = verifySmtMembershipProof(smtRoot, entry.proof as SmtMembershipProof);
-        if (ok) validCount++;
-        else {
+        const proof = entry.proof as SmtMembershipProof;
+        const ok = verifySmtMembershipProof(smtRoot, proof);
+        if (!ok) {
           invalidCount++;
           failures.push(`${entry.ballot_id}: membership proof failed to verify against smt_root`);
+          continue;
         }
+        // Root verification above only proves SOME leaf at this key is in the
+        // tree — it says nothing about whether that leaf actually belongs to
+        // THIS ballot's ciphertext. A compromised server could substitute a
+        // different ballot's ciphertext while attaching a genuine-but-unrelated
+        // proof; without this check the substitution would still pass because
+        // the unrelated leaf really is anchored. Recompute the leaf value from
+        // the ballot's own fields and require it to match what the proof claims.
+        const ballot = ballotById.get(entry.ballot_id);
+        if (!ballot) {
+          invalidCount++;
+          failures.push(`${entry.ballot_id}: no matching ballot in ballots[] to bind this proof to`);
+          continue;
+        }
+        const expectedValue = hashVoteLeaf({
+          voteId: ballot.ballot_id,
+          c1: ballot.c1,
+          c2: ballot.c2,
+          createdAt: ballot.created_at,
+        });
+        if (proof.value.toLowerCase() !== expectedValue.toLowerCase()) {
+          invalidCount++;
+          failures.push(`${entry.ballot_id}: SMT proof value does not match this ballot's own ciphertext (leaf substitution)`);
+          continue;
+        }
+        validCount++;
       }
 
       const provenBallotIds = new Set(proofs.map((p) => p.ballot_id));

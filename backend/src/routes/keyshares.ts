@@ -318,22 +318,28 @@ router.post("/submit-partial", async (req: Request, res: Response) => {
         q
       );
 
-      const { error: insertErr } = await supabase.from("partial_decryptions").upsert(
-        {
-          election_id,
-          ballot_id: partial.ballot_id,
-          keyholder_index: index,
-          d_i: partial.d_i,
-          proof_t1: partial.proof.t1,
-          proof_t2: partial.proof.t2,
-          proof_z: partial.proof.z,
-          verified,
-        },
-        { onConflict: "election_id,ballot_id,keyholder_index" }
-      );
+      // INSERT, not upsert — a keyholder's submission for a given ballot is
+      // write-once. Upserting would let a keyholder quietly overwrite a
+      // flagged-invalid submission (erasing the accountability trail, docs
+      // §10) or a valid one after tally already ran, with no audit trail and
+      // no DB-level guard (trg_partial_decryptions_no_update backs this up).
+      const { error: insertErr } = await supabase.from("partial_decryptions").insert({
+        election_id,
+        ballot_id: partial.ballot_id,
+        keyholder_index: index,
+        d_i: partial.d_i,
+        proof_t1: partial.proof.t1,
+        proof_t2: partial.proof.t2,
+        proof_z: partial.proof.z,
+        verified,
+      });
       if (insertErr) {
-        console.error("Supabase error inserting partial_decryptions row:", insertErr);
-        results.push({ ballot_id: partial.ballot_id, verified: false, reason: "storage_error" });
+        if (insertErr.code === "23505") {
+          results.push({ ballot_id: partial.ballot_id, verified: false, reason: "already_submitted" });
+        } else {
+          console.error("Supabase error inserting partial_decryptions row:", insertErr);
+          results.push({ ballot_id: partial.ballot_id, verified: false, reason: "storage_error" });
+        }
         continue;
       }
 

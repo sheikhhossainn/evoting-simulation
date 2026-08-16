@@ -209,9 +209,11 @@ export async function submitVote(
  * Fetch the election's ElGamal public key, used to encrypt the ballot
  * client-side before it ever leaves the browser.
  */
-export async function getElectionPublicKey(): Promise<ElGamalPublicKeyResponse> {
+export async function getElectionPublicKey(electionId: string): Promise<ElGamalPublicKeyResponse> {
   try {
-    return await apiGet<ElGamalPublicKeyResponse>("/election/public-key");
+    return await apiGet<ElGamalPublicKeyResponse>(
+      `/election/public-key?election_id=${encodeURIComponent(electionId)}`
+    );
   } catch (err) {
     if (err instanceof TypeError) {
       // Need a valid prime > 128 bits for UUID encryption mock

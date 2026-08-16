@@ -14,13 +14,13 @@ import dotenv from "dotenv";
 import voterRouter from "./routes/voter";
 import voteRouter from "./routes/vote";
 import candidatesRouter from "./routes/candidates";
-import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 import keySharesRouter from "./routes/keyshares";
 import anchorRouter from "./routes/anchor";
 import publicRouter from "./routes/public";
 import electionsRouter from "./routes/elections";
 import dkgRouter from "./routes/dkg";
 import { maybeAutoAnchor } from "./services/anchorBatch";
+import { resolveElectionId, getElectionPublicKey } from "./services/electionContext";
 
 
 dotenv.config();
@@ -54,31 +54,34 @@ app.get("/health", (_req, res) => {
 });
 
 // ── ElGamal public key endpoint ──
-// Frontend fetches this to encrypt votes client-side
-app.get("/election/public-key", (_req, res) => {
-  const pubKey = loadPublicKeyFromEnv();
-  if (!pubKey) {
-    res.status(503).json({
-      error: "ElGamal keys not configured. Run: npx ts-node src/scripts/setup-keys.ts",
-    });
+// Frontend fetches this to encrypt votes client-side. Sourced entirely from
+// the election's DKG ceremony (election_key_ceremony), never from env — see
+// electionContext.ts's getElectionPublicKey doc comment.
+app.get("/election/public-key", async (req, res) => {
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
     return;
   }
-  res.json(pubKey);
+
+  try {
+    const pubKey = await getElectionPublicKey(resolved.electionId);
+    if (!pubKey) {
+      res.status(503).json({
+        error: `DKG ceremony not yet qualified for ${resolved.electionId} — run the key ceremony first.`,
+      });
+      return;
+    }
+    res.json(pubKey);
+  } catch (err) {
+    console.error("Unexpected error in GET /election/public-key:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-
-  // Verify ElGamal keys are loaded
-  const pubKey = loadPublicKeyFromEnv();
-  if (pubKey) {
-    console.log(`🔐 ElGamal public key loaded (p=${pubKey.p.slice(0, 12)}...)`);
-  } else {
-    console.warn(
-      "⚠️  ElGamal keys not found in .env — run: npx ts-node src/scripts/setup-keys.ts"
-    );
-  }
 
   // Verify NID salt
   if (process.env.NID_HASH_SALT) {
