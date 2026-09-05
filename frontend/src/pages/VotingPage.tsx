@@ -212,12 +212,13 @@ const VotingPage = () => {
         voterNid, encryptedVote, ELECTION_ID, zkpProof
       );
 
-      // 4. Success — navigate to confirmation
+      // 4. Success — navigate to confirmation.
+      // Ballot secrecy: deliberately do NOT pass the candidate name/party.
+      // The confirmation screen must never echo the choice back (coercion
+      // receipt). Only the vote_id (verification code) and status travel.
       navigate("/voter/confirmation", {
         state: {
           nid: voterNid,
-          candidateName: selectedCandidate.name,
-          candidateParty: selectedCandidate.party,
           voteId: result.vote_id,
           status: result.status,
         },
