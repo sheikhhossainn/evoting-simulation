@@ -19,7 +19,7 @@ Key properties of the measurement harness:
 
 - The script imports the **same** Merkle module the backend uses in production — `buildMerkleTree`, `getProof`, `hashVoteLeaf`, `verifyProof` from [backend/src/merkle/merkleTree.ts](../backend/src/merkle/merkleTree.ts). The measured off-chain build/proof timings are therefore the real production code path, not a re-implementation that could drift.
 - Gas is read from the actual transaction receipt (`receipt.gasUsed`) after deploying [MerkleRootStorage.sol](../blockchain/contracts/MerkleRootStorage.sol) and calling `anchorRoot`.
-- The deployed contract on Ethereum Sepolia is `0x7f228912a2a709010F9419582d021485B5F4d928`; a real anchored batch is referenced in §4.
+- The deployed contract on Ethereum Sepolia is `0x4b5C381c62876d34bBDDefDe02e872E5a93401b6`; a real anchored batch is referenced in §4.
 
 Gas is a property of the EVM, not of the network, so the gas counts measured on the in-memory EVM are identical to what Sepolia or Ethereum mainnet would charge for the same calldata and state writes. USD figures depend on live gas price and ETH price and are treated as parameters in §3.
 
@@ -31,7 +31,7 @@ Gas is a property of the EVM, not of the network, so the gas counts measured on 
 
 | Operation | Gas | Frequency |
 |-----------|-----|-----------|
-| Deploy `MerkleRootStorage` | 444,854 | Once, ever |
+| Deploy `MerkleRootStorage` | 1,171,809 | Once, ever |
 
 Deployment is paid a single time at system setup and is not part of per-batch or per-vote cost.
 
@@ -41,25 +41,25 @@ The core result. Each row is **one** `anchorRoot(bytes32 root, uint256 voteCount
 
 | Batch size | `anchorRoot` gas | Note |
 |-----------:|-----------------:|------|
-| 10  | 115,176 | first anchor — pays cold-storage surcharge |
-| 30  | 98,076  | steady state |
-| 50  | 98,076  | steady state |
-| 100 | 98,076  | steady state |
+| 10  | 117,029 | first anchor — pays cold-storage surcharge |
+| 30  | 99,929  | steady state |
+| 50  | 99,929  | steady state |
+| 100 | 99,929  | steady state |
 
 **The critical observation: on-chain gas is independent of batch size N.** Anchoring 100 votes costs exactly the same gas as anchoring 30. This is structural, not coincidental — `anchorRoot` always writes the same three storage words (`root`, `voteCount`, `timestamp`; see [MerkleRootStorage.sol:14-18](../blockchain/contracts/MerkleRootStorage.sol)) and emits one event, regardless of how many votes the root summarises. The batch size N is recorded as a plain `uint256` and never touches per-vote storage.
 
-The 115,176 figure for the first anchor reflects a one-time cold-storage surcharge (writing to never-before-touched slots costs more under EIP-2929). Every subsequent anchor is **98,076 gas** — the representative steady-state figure used everywhere below.
+The 117,029 figure for the first anchor reflects a one-time cold-storage surcharge (writing to never-before-touched slots costs more under EIP-2929). Every subsequent anchor is **99,929 gas** — the representative steady-state figure used everywhere below.
 
 ### 2.3 Per-vote (naive) vs batched
 
-If the system anchored every vote in its own transaction, each vote would pay a full `anchorRoot` (98,076 gas steady-state). Comparison:
+If the system anchored every vote in its own transaction, each vote would pay a full `anchorRoot` (99,929 gas steady-state). Comparison:
 
 | Votes | Per-vote anchoring | Batched anchoring | Transactions saved | Gas ratio |
 |------:|-------------------:|------------------:|-------------------:|----------:|
-| 10  | ~980,760 gas (10 txns)  | 115,176 gas (1 txn) | 9   | ~8.5× (cold) / ~10× steady |
-| 30  | ~2,942,280 gas (30 txns) | 98,076 gas (1 txn)  | 29  | ~30× |
-| 50  | ~4,903,800 gas (50 txns) | 98,076 gas (1 txn)  | 49  | ~50× |
-| 100 | ~9,807,600 gas (100 txns) | 98,076 gas (1 txn)  | 99  | ~100× |
+| 10  | ~999,290 gas (10 txns)  | 117,029 gas (1 txn) | 9   | ~8.5× (cold) / ~10× steady |
+| 30  | ~2,997,870 gas (30 txns) | 99,929 gas (1 txn)  | 29  | ~30× |
+| 50  | ~4,996,450 gas (50 txns) | 99,929 gas (1 txn)  | 49  | ~50× |
+| 100 | ~9,992,900 gas (100 txns) | 99,929 gas (1 txn)  | 99  | ~100× |
 
 **The gas savings from batching scale linearly with batch size and are unbounded.** A batch of N votes costs N× less gas than anchoring each vote separately, because batching collapses N transactions into 1 while the single transaction's cost stays flat.
 
@@ -75,13 +75,13 @@ cost_USD = gasUsed × gasPrice_gwei × 1e-9 × ETH_price_USD
 
 **ETH price:** $1,898.33 USD (CoinGecko, https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd).
 
-Gas price is volatile and is treated as a parameter. The table shows the steady-state batch anchor (98,076 gas) and the 30-vote per-vote baseline (2,942,280 gas) across three gas-price scenarios:
+Gas price is volatile and is treated as a parameter. The table shows the steady-state batch anchor (99,929 gas) and the 30-vote per-vote baseline (2,997,870 gas) across three gas-price scenarios:
 
-| Gas price | 1 batched anchor (98,076 gas) | 30 per-vote anchors (2,942,280 gas) | Savings on a 30-batch |
+| Gas price | 1 batched anchor (99,929 gas) | 30 per-vote anchors (2,997,870 gas) | Savings on a 30-batch |
 |----------:|------------------------------:|------------------------------------:|-----------------------:|
-| 0.16 gwei (current low) | ~$0.03 | ~$0.89 | ~$0.86 |
-| 10 gwei (moderate) | ~$1.86 | ~$55.85 | ~$53.99 |
-| 30 gwei (busy network) | ~$5.59 | ~$167.55 | ~$161.96 |
+| 0.16 gwei (current low) | ~$0.03 | ~$0.91 | ~$0.88 |
+| 10 gwei (moderate) | ~$1.90 | ~$56.91 | ~$55.01 |
+| 30 gwei (busy network) | ~$5.70 | ~$170.73 | ~$165.03 |
 
 > The production system anchors on **Sepolia (testnet)**, where gas is free. These USD figures are what the identical gas usage would cost **if run on Ethereum mainnet**, included to make the batching argument concrete for cost-sensitive deployment decisions. The savings multiplier (30×, 50×, 100×) holds regardless of gas price.
 
@@ -93,8 +93,8 @@ Gas price is volatile and is treated as a parameter. The table shows the steady-
 
 | Votes | Merkle build time | Proof length | Single-proof verify |
 |------:|------------------:|-------------:|--------------------:|
-| 1,000  | 185.3 ms   | 10 hashes | 0.447 ms |
-| 10,000 | 2,872.5 ms | 14 hashes | 0.594 ms |
+| 1,000  | 198.3 ms   | 10 hashes | 0.494 ms |
+| 10,000 | 1,935.2 ms | 14 hashes | 0.263 ms |
 
 Notes:
 
@@ -115,7 +115,7 @@ Confirmation latency **cannot** be measured on the in-memory EVM — it mines bl
 
 ## 5. Key findings
 
-1. **On-chain gas is flat in N.** One anchor is 98,076 gas (steady state) whether the batch is 30 or 100 votes.
+1. **On-chain gas is flat in N.** One anchor is 99,929 gas (steady state) whether the batch is 30 or 100 votes.
 2. **Batching beats per-vote anchoring by exactly N×** in both gas and transaction count. At 100 votes that is a ~100× reduction.
 3. **Off-chain scaling is comfortable.** 10k votes build in <3 s; inclusion proofs are 14 hashes and verify in <1 ms.
 4. **Latency does not degrade with scale** — one batch is one ~12 s transaction regardless of vote count.
