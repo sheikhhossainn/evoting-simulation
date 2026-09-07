@@ -69,9 +69,11 @@ While running live smoke tests against real anchored ballots, DLEQ proof generat
 
 | Classification | Count |
 |---|---|
-| Genuine, valid ciphertext | 8 |
-| Well-formed hex but fails subgroup check | 9 |
-| Not valid hex at all (`"fake_c1"`, `"c1"`, `"0x01"`, etc.) | 17 |
+| Genuine, valid ciphertext (valid 64-hex-char, passes `c1^q ≡ 1 mod p` subgroup check) | 6 |
+| Well-formed 64-hex-char but fails subgroup check | 11 |
+| Not valid hex at all (`"fake_c1"`, `"c1"`, `"0x01"`, 16-byte short values, etc.) | 15 |
+
+(Independently re-queried: `SELECT id, encrypted_vote FROM votes WHERE id IN (merkle_batches.vote_ids WHERE batch_id=2)` → 32 rows; each `encrypted_vote->>'c1'` classified. Counts sum to 32, matching the batch size.)
 
 Root cause traced to `vote.test.ts`: it had no working `.env.test` isolation and silently fell back to writing directly into the production Supabase project, with no cleanup — self-documented in its own now-`it.skip`'d concurrency test and the committed `testing/concurrency_stress_output.json` evidence. Because `votes` has a `trg_votes_no_delete` trigger, these rows cannot be cleaned up through ordinary means.
 
