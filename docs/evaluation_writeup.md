@@ -10,8 +10,8 @@ This document compiles the evidence from Tasks 1, 3, 4, 8A, 8B, and 8C to valida
 - **Command:** `curl -s http://localhost:3000/anchor/verify/vote-12345`
 - **Response:** `409 Conflict`, `{"error": "Recomputed root does not match the anchored root — possible data tampering"}`
 - **Evidence:** 
-  - **Contract Address:** `0x7f228912a2a709010F9419582d021485B5F4d928`
-  - **Etherscan Link:** [Contract on Sepolia](https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928)
+  - **Contract Address:** `0x4b5C381c62876d34bBDDefDe02e872E5a93401b6`
+  - **Etherscan Link:** [Contract on Sepolia](https://sepolia.etherscan.io/address/0x4b5C381c62876d34bBDDefDe02e872E5a93401b6)
   - The off-chain and on-chain roots diverge, successfully catching the tamper attempt. See [tamper-proof-demo.md](./tamper-proof-demo.md) for full transaction evidence.
 
 ## 2. Ballot Secrecy & Nullifier Unlinkability (Task 3)
@@ -26,6 +26,15 @@ This document compiles the evidence from Tasks 1, 3, 4, 8A, 8B, and 8C to valida
 
 ## 3. Threshold Decryption & Key Ceremony (Task 4)
 
+> **Superseded — see [tally-verifiability-implementation-report.md](./tally-verifiability-implementation-report.md)**
+>
+> The flow described below (raw share submission, wrong-passphrase→401, under-threshold-reconstruction→400,
+> server-side key reconstruction) no longer exists. The system now uses client-side partial decryption
+> with Chaum-Pedersen DLEQ proofs (`keyshares.ts`, `dleq.ts`, `keyholderCrypto.ts`): the raw share
+> never leaves the browser; only `(d_i, proof)` is submitted; `POST /keyshares/tally` re-verifies
+> every DLEQ proof independently before combining; the private key is never reconstructed anywhere.
+> Live end-to-end evidence: `tally-verifiability-implementation-report.md §9`.
+
 **Property Claimed:** No single party can decrypt votes; a 3-of-4 threshold of key shares is strictly required. No key material leaks during partial submissions.
 **Attacks Attempted:**
 1. **Wrong Passphrase:** Submitted share with an invalid passphrase. (Result: 401 Unauthorized)
@@ -33,6 +42,7 @@ This document compiles the evidence from Tasks 1, 3, 4, 8A, 8B, and 8C to valida
 3. **Under-Threshold Reconstruction:** Attempted reconstruction with only 2 shares. (Result: 400 Bad Request, zero key material leaked)
 4. **Corrupted Ciphertext Tallying:** Manually corrupted an `encrypted_vote` blob in Supabase, then ran 3-of-4 tallying. (Result: 200 OK, the corrupted vote gracefully binned into `invalid_votes`).
 **Observed Result:** **PASS**
+
 
 ## 4. Double-Vote Prevention
 
