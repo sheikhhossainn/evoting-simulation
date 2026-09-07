@@ -61,15 +61,16 @@ Generate Shamir shares: `npx ts-node src/scripts/setup-shamir.ts`
 
 `SEPOLIA_RPC_URL` (default: public `https://ethereum-sepolia-rpc.publicnode.com`), `DEPLOYER_PRIVATE_KEY` (a **testnet-only** wallet — free Sepolia ETH from https://learnweb3.io/faucets/ethereum_sepolia or Google Cloud's faucet).
 
-## Deployed Contract (live)
+## Deployed Contracts (Live Sepolia Testnet)
 
-- **Contract**: `MerkleRootStorage.sol`
-- **Network**: Ethereum Sepolia (testnet, no real money)
-- **Address**: `0x7f228912a2a709010F9419582d021485B5F4d928`
-- **Explorer**: https://sepolia.etherscan.io/address/0x7f228912a2a709010F9419582d021485B5F4d928
-- **Deployed**: 2026-07-26 by wallet `0xA7D73f178Dc431659b6d865955caEB3967237229` (redeployed after the previous anchor key was rotated; old contract `0x312621075076Eb379fbE81760A76B5a8E56b95a7` abandoned)
-- Deploy command: `npm run contracts:deploy:sepolia` (root) / `deploy:sepolia` (blockchain/)
-- Backend anchoring config lives in `backend/.env`: `MERKLE_CONTRACT_ADDRESS`, `AMOY_RPC_URL` (legacy var name, holds the Sepolia RPC URL), `ANCHOR_PRIVATE_KEY`
+- **`MerkleRootStorage.sol`**:
+  - **Address**: `0x4b5C381c62876d34bBDDefDe02e872E5a93401b6`
+  - **Explorer**: https://sepolia.etherscan.io/address/0x4b5C381c62876d34bBDDefDe02e872E5a93401b6
+  - **Functions**: `anchorRoot()`, `anchorSmtRoot()`, `verify()`, `verifySmtMembership()`, `verifySmtNonMembership()`, `getBatch()`, `smtBatches()`
+- **`ElectionSetupCommitment.sol`**:
+  - **Address**: `0xf6354205CB4FCE5b80DF01FaC650FDA29a94079C`
+  - **Explorer**: https://sepolia.etherscan.io/address/0xf6354205CB4FCE5b80DF01FaC650FDA29a94079C`
+  - **Function**: Write-once `anchor(bytes32 setupCommitment)` pinning candidate & constituency configuration on-chain.
 
 ## Database (Supabase)
 
@@ -82,7 +83,10 @@ Schema: `backend/src/schema.sql`. Tables:
 | `candidates` | Candidates per constituency |
 | `nullifiers` | Double-vote prevention hashes |
 | `key_shares` | Shamir's Secret Sharing shares for tallying |
-| `merkle_batches` | Anchored vote batches: on-chain `batch_id`, `root`, `tx_hash`, ordered `vote_ids` (for regenerating proofs) |
+| `partial_decryptions` | Keyholder partial decryptions `d_i` with Chaum-Pedersen DLEQ proofs |
+| `merkle_batches` | Anchored dense batches: on-chain `batch_id`, `root`, `tx_hash`, ordered `vote_ids` |
+| `smt_batches` | Anchored Sparse Merkle Tree batches: `smt_root`, `total_keys_anchored`, `tx_hash` |
+| `election_key_ceremony`| Distributed key generation & Feldman VSS state machine |
 
 Stored proc: `fn_cast_vote(p_voter_nid_hash, p_nullifier_hash, p_constituency_code, p_encrypted_vote, p_zkp_proof)` — atomic vote casting. `p_voter_nid_hash` is used only to check eligibility and flip `has_voted`; the vote row itself stores only the nullifier + constituency.
 
@@ -92,16 +96,18 @@ Stored proc: `fn_cast_vote(p_voter_nid_hash, p_nullifier_hash, p_constituency_co
 |--------|------|------|--------|
 | `POST` | `/voter/register` | none | ✅ Salted SHA-256 hash NID, upsert into Supabase |
 | `POST` | `/voter/check-nullifier` | none | ✅ Check nullifier existence |
-| `POST` | `/vote` | none | ✅ ElGamal ciphertext `{c1,c2}` → `fn_cast_vote` RPC |
-| `GET` | `/candidates?constituency=CON-XX` | none | ✅ Filtered candidate list (real UUIDs — frontend fetches this, no longer reads a static JSON) |
-| `GET` | `/election/public-key` | none | ✅ Returns ElGamal `{p,g,y}` — frontend encrypts ballots with this |
-| `POST` | `/keyshares/submit` | passphrase | ✅ Key holder submits Shamir share (passphrase now verified server-side) |
-| `GET` | `/keyshares/status` | none | ✅ Public: submission counts per keyholder |
-| `GET` | `/keyshares/reconstruct` | none | ✅ Public diagnostic: confirms shares are consistent (never returns key material) |
-| `POST` | `/keyshares/tally` | `x-admin-secret` | ✅ Reconstructs private key **in memory only**, decrypts all votes, returns results grouped by constituency/candidate |
-| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds a Merkle tree from unanchored votes, anchors root on Ethereum Sepolia, flips votes to `confirmed` |
-| `GET` | `/anchor/verify/:voteId` | none | ✅ Public: regenerates + verifies a vote's Merkle inclusion proof, locally and on-chain |
-| `GET` | `/public/stats` | none | ✅ Public Watchdog data: turnout per constituency, key-ceremony progress, anchoring progress |
+| `POST` | `/vote` | none | ✅ ElGamal ciphertext `{c1,c2}` + ZKP → `fn_cast_vote` RPC |
+| `GET` | `/candidates?constituency=CON-XX` | none | ✅ Filtered candidate list (real UUIDs) |
+| `GET` | `/election/public-key` | none | ✅ Returns ElGamal `{p,g,y}` from qualified ceremony |
+| `GET` | `/keyshares/commitments` | none | ✅ Public Feldman & keyholder commitments |
+| `GET` | `/keyshares/status` | none | ✅ Public submission counts per keyholder |
+| `POST` | `/keyshares/submit-partial` | passphrase | ✅ Keyholder submits `(d_i, proof)`; verified against ballot ciphertext |
+| `POST` | `/keyshares/tally` | `x-admin-secret` | ✅ Verifies all DLEQ proofs, combines partials; private key never reconstructed |
+| `GET` | `/keyshares/verification-bundle` | none | ✅ Complete export bundle for standalone verifier |
+| `POST` | `/dkg/init`, `/round1`, `/round2` | admin/keyholder | ✅ Pedersen-style DKG ceremony |
+| `POST` | `/anchor/batch` | `x-admin-secret` | ✅ Builds dense tree + SMT, anchors roots on Sepolia |
+| `GET` | `/anchor/verify/:voteId` | none | ✅ Verifies Merkle inclusion locally and on-chain |
+| `GET` | `/public/stats` | none | ✅ Public Watchdog data: turnout, ceremony, anchoring |
 | `GET` | `/health` | none | ✅ Health check |
 
 ## Backend Source Structure
@@ -110,14 +116,20 @@ Stored proc: `fn_cast_vote(p_voter_nid_hash, p_nullifier_hash, p_constituency_co
 backend/src/
 ├── index.ts                  ← Express entry, mounts all routes
 ├── supabaseClient.ts         ← Supabase client (service role)
-├── schema.sql                ← Full DB schema incl. merkle_batches
+├── schema.sql                ← Full DB schema incl. triggers, SMT, DKG tables
 ├── crypto/
-│   ├── elgamal.ts             ← ElGamal keygen, encrypt/decrypt, + encryptCandidateId/decryptCandidateId (UUID-safe encoding)
-│   └── shamir.ts             ← Shamir split/reconstruct (3-of-4)
+│   ├── elgamal.ts             ← ElGamal group arithmetic, safe prime generation
+│   ├── zkp.ts                 ← Chaum-Pedersen OR-proof of ballot validity (CDS94)
+│   ├── shamirZq.ts            ← Shamir over Z_q + Feldman VSS
+│   ├── dleq.ts                ← Chaum-Pedersen DLEQ proof of partial decryption
+│   ├── candidateCommitment.ts ← TLV canonical serialization & hash commitment
+│   ├── identity.ts            ← Salted NID hashing and server-side nullifier derivation
+│   └── dkg.ts                 ← Distributed Key Generation crypto primitives
 ├── merkle/
-│   └── merkleTree.ts          ← Canonical Merkle tree (keccak256, OZ-compatible) — imported directly by blockchain/ tests, single source of truth
+│   ├── merkleTree.ts          ← Canonical dense Merkle tree (keccak256, OZ-compatible)
+│   └── sparseMerkleTree.ts    ← 256-bit Sparse Merkle Tree with non-membership proofs
 ├── blockchain/
-│   └── merkleContract.ts      ← ethers.js bindings for MerkleRootStorage (read/write)
+│   └── merkleContract.ts      ← ethers.js bindings for MerkleRootStorage & SetupCommitment
 ├── config/
 │   └── keyholders.ts          ← Keyholder passphrase verification (salted hash)
 ├── middleware/
@@ -126,91 +138,72 @@ backend/src/
 │   ├── voter.ts               ← /voter/register, /voter/check-nullifier
 │   ├── vote.ts                ← POST /vote
 │   ├── candidates.ts          ← GET /candidates
-│   ├── keyshares.ts           ← submit/status/reconstruct/tally
+│   ├── keyshares.ts           ← commitments/status/submit-partial/tally/bundle
+│   ├── dkg.ts                 ← /dkg ceremony state machine
+│   ├── elections.ts           ← Multi-election isolation
 │   ├── anchor.ts              ← POST /anchor/batch, GET /anchor/verify/:voteId
 │   └── public.ts              ← GET /public/stats
 └── scripts/
-    ├── setup-keys.ts          ← Generate ElGamal keypair + NID salt → .env
-    ├── setup-shamir.ts        ← Split ElGamal key into 4 Shamir shares
-    ├── seed-voters.ts         ← 20 mock voters across 8 constituencies
-    ├── seed-candidates.ts     ← 48 candidates from candidates.json
-    ├── run-schema.ts          ← Apply schema.sql to Supabase
-    ├── test-merkle-batch.ts   ← Standalone Merkle sanity check (no chain/DB needed)
-    └── (backend/src/db.ts and root db.json removed — dead pre-Supabase leftovers)
+    ├── independent-verify-tally.ts ← Standalone auditor verifier (zero backend/DB trust)
+    ├── run-schema.ts               ← Apply schema.sql to Supabase
+    ├── seed-voters.ts              ← Seed test voters
+    ├── seed-candidates.ts          ← Seed candidates
+    └── setup-keys.ts               ← Setup helper
 ```
 
 ## Blockchain Package (blockchain/)
 
 ```
 blockchain/
-├── contracts/MerkleRootStorage.sol   ← Ownable; anchorRoot(), verify() via OZ MerkleProof, getBatch()
-├── test/MerkleRootStorage.test.ts     ← Anchors mock vote batches on local Hardhat network, verifies proofs
-├── scripts/deploy.ts                 ← Deploy to Sepolia or local network
+├── contracts/
+│   ├── MerkleRootStorage.sol       ← Ownable; anchorRoot, anchorSmtRoot, verify, verifySmtNonMembership
+│   └── ElectionSetupCommitment.sol ← Write-once candidate/constituency commitment
+├── test/
+│   ├── MerkleRootStorage.test.ts   ← Anchoring, multi-batch, SMT verification, access control (35 passing)
+│   └── ElectionSetupCommitment.test.ts
+├── scripts/
+│   ├── deploy.ts                   ← Deploy contracts to Sepolia or local network
+│   ├── measure-anchoring-cost.ts   ← Gas and build time measurement harness
+│   └── scalability-benchmark.ts    ← 50k ballot benchmark
 ├── hardhat.config.ts
 └── .env.example
 ```
-
-`npm run contracts:test` passes today (4/4) — anchoring, multi-batch, non-owner rejection, zero-root rejection, all using the exact same `merkleTree.ts` module the backend uses for real batches.
 
 ## Frontend Routes
 
 | Route | Component | Auth | Status |
 |-------|-----------|------|--------|
 | `/` | `LandingPage` | none | Built |
-| `/watchdog` | `PublicWatchdog` | none | **New** — live turnout, key-ceremony & anchoring status, vote-anchor verification tool |
+| `/watchdog` | `PublicWatchdog` | none | Live turnout, ceremony & anchoring status, proof verifier |
 | `/voter/login` | `VoterLogin` | none | Built |
-| `/voter/vote` | `VotingPage` | none | Now does **real** client-side ElGamal encryption + fetches real candidates from the backend |
+| `/voter/vote` | `VotingPage` | none | Real client-side ElGamal encryption + ZKP generation |
 | `/voter/confirmation` | `VoteConfirmation` | none | Built |
 | `/keyholder/login` | `KeyHolderLogin` | passphrase (UI only) | Built |
-| `/keyholder/submit` | `KeyShareSubmit` | passphrase | Built — passphrase now actually verified server-side |
-| `/keyholder/status` | `KeyShareStatus` | none | Built — links to `/tally` once threshold is met |
-| `/tally` | `TallyingPage` | admin secret | **New** — triggers `POST /keyshares/tally`, shows results grouped by constituency/candidate |
+| `/keyholder/submit` | `KeyShareSubmit` | passphrase | Client-side partial decryption with DLEQ proof |
+| `/keyholder/status` | `KeyShareStatus` | none | Live submission tracking |
+| `/tally` | `TallyingPage` | admin secret | Triggers `POST /keyshares/tally`, displays verifiable results |
 | `/admin` | `AdminDashboard` | none (UI mock) | Built |
-
-Frontend API helpers: `frontend/src/utils/api.ts`
-Frontend ElGamal encryption: `frontend/src/utils/elgamal.ts` (mirrors backend's encrypt-side logic)
-
-## Seeded Data
-
-- **20 voters**: NIDs `10001234567`–`10231234567`, spread across CON-01 to CON-08
-- **48 candidates**: 6 per constituency, from `frontend/public/candidates.json` (seeded into Supabase with real UUIDs — the frontend now fetches these from the backend rather than reading the JSON file directly)
-- **Constituency format**: `CON-01` through `CON-08`
 
 ## Key Decisions
 
-- **Module systems**: Frontend = ESM, Backend = CommonJS, Blockchain = CommonJS (ts-node/Hardhat)
-- **NID hashing**: `SHA-256(nid + NID_HASH_SALT)` — salt in `.env`
-- **Nullifier (PR #17 redesign)**: `SHA-256(nid + election_id + NULLIFIER_SECRET)` computed **server-side only** (`backend/src/crypto/identity.ts`) — the secret never reaches the client, so nullifiers can't be recomputed from public info. The nullifier (not the voter's NID hash) is the vote row's identity key.
-- **ElGamal**: 256-bit safe prime (simulation-grade), Node.js `crypto` BigInt. Candidate ids (UUIDs, 128 bits) are encoded by parsing hex digits directly rather than UTF-8 byte encoding, so they always fit under the 256-bit modulus — see `encryptCandidateId`/`decryptCandidateId`.
-- **Vote storage**: ElGamal ciphertext `{c1, c2}` as JSONB in `votes` table
-- **Atomic voting**: `fn_cast_vote` PostgreSQL function (locks row, checks eligibility, inserts vote, flips `has_voted`)
-- **Election id**: single hardcoded `NATIONAL-2026-001` used consistently across voter/nullifier flow and keyholder/tally flow (previously mismatched — see Fixes below)
-- **Merkle hashing scheme**: leaf = double-`keccak256` of `abi.encode(voteId, c1, c2, createdAt)`; internal nodes = `keccak256(sorted(left, right))` (commutative, OpenZeppelin-`MerkleProof`-compatible); odd nodes self-duplicate. One canonical implementation in `backend/src/merkle/merkleTree.ts`, imported directly by the Hardhat test suite — there is no second implementation to drift out of sync.
-- **Admin auth interim**: sensitive routes (`/anchor/batch`, `/keyshares/tally`) require an `x-admin-secret` header until real session-based admin auth exists.
-- **Dev tools**: Backend uses `nodemon` + `ts-node`, Frontend uses `oxlint`, Blockchain uses Hardhat + ts-node
-- **No root node_modules**: Each sub-project independent (frontend/backend/blockchain each have their own)
+- **Dual Merkle Structure**: Dense Merkle tree for batch inclusion proofs + 256-bit Sparse Merkle Tree (SMT) with position-aware hashing for ballot non-membership proofs (closing the deletion-after-anchor gap).
+- **Verifiable Decryption**: Keyholders never reveal raw shares to the server. Each computes $d_i = c_1^{s_i}$ on-device and generates a non-interactive Chaum-Pedersen DLEQ proof. Tallying reconstructs the plaintext homomorphically without ever assembling the private key.
+- **On-Chain Candidate Pinned Setup**: Candidate lists and constituencies are canonically serialized via TLV and hashed into an on-chain `ElectionSetupCommitment`.
+- **Ballot Validity**: Client generates a non-interactive Chaum-Pedersen OR-proof (CDS94) proving the encrypted value is one of the valid candidates in the constituency, preventing malformed ballots before database entry.
+- **Nullifier Privacy**: `SHA-256(nid + election_id + NULLIFIER_SECRET)` computed server-side only; votes are decoupled from voter identity.
 
 ## Historical Fixes (kept for context — all merged)
 
-1. **Votes were not actually encrypted** — `VotingPage.tsx` built a base64-encoded mock ciphertext (`btoa(...)`) instead of using the ElGamal module that already existed in the backend. Anyone with DB read access could trivially decode exactly who voted for whom. Fixed: frontend now fetches `/election/public-key` and does real client-side ElGamal encryption (`frontend/src/utils/elgamal.ts`).
-2. **Candidate id mismatch** — the ballot used a static `frontend/public/candidates.json` with ids like `"c1-3"`, disconnected from the real `candidates` table (UUIDs). Decrypted votes could never be joined back to real candidate rows for tallying. Fixed: `VotingPage` now calls the real `GET /candidates` endpoint and encrypts the DB's UUID.
-3. **Keyholder passphrase was never checked** — `POST /keyshares/submit` accepted any non-empty string as the passphrase for any `keyholder_id`, so anyone could squat on a keyholder slot before the real holder submitted, corrupting the 3-of-4 ceremony. Fixed: added `backend/src/config/keyholders.ts` (salted-hash verification, demo defaults match the UI's documented demo credentials, overridable via `KEYHOLDER_PASSPHRASE_HASH_1..4`).
-4. **`/keyshares/reconstruct` leaked key material** — it returned a 16-char preview of the reconstructed private key over an unauthenticated GET. Fixed: now only confirms reconstruction succeeds (boolean), never serializes any part of the key. Real decryption now lives behind admin-gated `POST /keyshares/tally`.
-5. **Mismatched election ids** — the voter/nullifier flow used `ELECTION_ID = "election-2026"` while the keyholder flow used `"NATIONAL-2026-001"`. Votes and key shares would have silently belonged to two unrelated "elections," and tallying would never find matching votes. Fixed: unified on `NATIONAL-2026-001`.
-6. **Dead code removed**: `backend/src/db.ts` (an unused local-JSON-file DB from before the Supabase migration) and the stale `db.json` data file it operated on (now git-ignored too).
+1. **Votes were not actually encrypted** — fixed via real client-side ElGamal.
+2. **Candidate id mismatch** — fixed by binding real UUIDs from backend.
+3. **Keyholder passphrase checking** — fixed with salted hash verification.
+4. **Key reconstruction leakage** — fixed; raw keys are never returned or reconstructed.
+5. **Election id mismatch** — unified across voter, DKG, and tallying flows.
+6. **Deletion completeness gap** — resolved via Sparse Merkle Tree non-membership proofs and on-chain batch counts.
 
-## Known Limitations
+## Known Limitations & Boundaries
 
-- ~~**Ballot secrecy**: `votes.voter_nid_hash` directly linked votes to voters~~ — **FIXED** (PR #17, nullifier redesign): votes now store only `nullifier_hash = SHA-256(nid + election_id + NULLIFIER_SECRET)` + `constituency_code`. The server-side `NULLIFIER_SECRET` means nobody can recompute a voter's nullifier from public info, and the `votes` table has no voter FK. See `backend/src/crypto/identity.ts` and `backend/src/schema.sql`.
-- ~~**No ZKP of vote validity yet**~~ — **FIXED** (PR #37 + follow-up): `POST /vote` now requires a ZKP of ballot validity (`backend/src/crypto/zkp.ts`, `proveBallotValidity`/`verifyBallotValidity`), mandatory and derived server-side against the candidate set. `POST /keyshares/tally` still additionally rejects any ballot that doesn't decode to a real candidate at decrypt time as defense-in-depth.
-- **Admin/EC login is still a UI mock** (`AdminLogin.tsx` navigates with no real auth). Sensitive admin routes are protected by `ADMIN_SECRET` instead — good enough for a simulation, not for production.
-- **RLS policies**: tables have RLS enabled but no policies yet (all access goes through the backend's service-role key).
+- **Pre-anchor window**: A vote is tamper-evident on-chain once its batch is anchored. Bounded by anchoring cadence.
+- **Admin/EC UI**: Admin portal uses `ADMIN_SECRET` rather than full multi-admin RBAC session auth (intentional simulation scope).
+- **RLS policies**: Supabase tables rely on DB triggers and service-role access (intentional simulation scope).
 
-## Not Yet Implemented
-
-- Benaloh challenge (cast-or-audit voter verifiability) — LEFTWORK.md Task 5
-- Session-based EC Admin authentication (currently `x-admin-secret` header + UI-mock login) — intentional, out of scope
-- RLS policies — intentional, out of scope (all access via backend service-role key)
-- ~~Live testnet deployment~~ — **DONE**: contract live on Ethereum Sepolia since 2026-07-15 (see "Deployed Contract" above). What remains is exercising it end-to-end: anchor a real batch, verify on-chain, run the tamper-detection test — LEFTWORK.md Task 1.
-
-See `LEFTWORK.md` for the full remaining-work plan with owners.

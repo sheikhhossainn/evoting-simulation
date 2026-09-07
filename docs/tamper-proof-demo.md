@@ -17,7 +17,7 @@
 | Backend | `npm run dev:backend` → `http://localhost:3000` |
 | Anchoring config | `backend/.env`: `AMOY_RPC_URL` (legacy var name, holds the Sepolia RPC URL), `MERKLE_CONTRACT_ADDRESS`, `ANCHOR_PRIVATE_KEY`, `ADMIN_SECRET` |
 
-> **Safety note (per `testing_guidance.md` rule #1):** anchoring is irreversible.
+> **Safety note:** anchoring is irreversible.
 > This entire run used seeded/mock voters only (`seed-voters.ts`) — never live data.
 
 ## What this demonstrates
@@ -246,7 +246,7 @@ Postgres then failed to parse as JSON (`invalid input syntax for type json — T
 See [anchor.ts](../backend/src/routes/anchor.ts). Without this fix the entire
 verification flow — and this demo — was impossible.
 
-## Known boundaries (not failures — see `testing_guidance.md` §8)
+## Known boundaries (not failures — see threat_model.md §5-6)
 
 - **Completeness vs inclusion:** the root proves a vote is *included*, not that the
   batch is *complete*. A consistent deletion (remove the vote row *and* its id from

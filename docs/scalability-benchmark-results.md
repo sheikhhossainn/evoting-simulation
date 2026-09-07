@@ -101,4 +101,4 @@ Cost is linear in the **constituency's candidate count** (one OR-branch per cand
 
 ## References
 
-Companion documents: [anchoring-cost-analysis.md](anchoring-cost-analysis.md), [batching-vs-per-vote.md](batching-vs-per-vote.md), [smt-design.md](smt-design.md), [related-work-positioning.md](related-work-positioning.md).
+Companion documents: [anchoring-cost-analysis.md](anchoring-cost-analysis.md), [smt-design.md](smt-design.md), [related-work-positioning.md](related-work-positioning.md).

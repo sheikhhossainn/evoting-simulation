@@ -1,8 +1,7 @@
 # Sparse Merkle Tree (SMT) Construction — Design Document
 
-Follows the recommendation in
-[deletion-completeness-design-options.md §6](./deletion-completeness-design-options.md#6-recommendation)
-(Option C + Option B's batch-chaining folded in). **Design only — no production code is touched by
+Follows the recommendation in [threat_model.md §5](./threat_model.md#5-deletion-completeness-gap-detail)
+(Sparse Merkle Tree / authenticated set). **Design only — no production code is touched by
 this document.** Implementation is a separate phase once this is reviewed.
 
 ## 1. Scope and relationship to the existing dense tree
@@ -11,7 +10,7 @@ The existing per-batch dense Merkle tree
 ([merkleTree.ts](../backend/src/merkle/merkleTree.ts)) is **not replaced**. It continues to answer
 "was this specific ballot in this specific anchored batch, unmodified?" — that guarantee, and its
 test coverage (19 off-chain + 11 on-chain assertions per
-[evaluation_writeup.md §8](./evaluation_writeup.md#8-merkle-tree-integrity)), stays as-is.
+[system-overview-and-evaluation.md §5](./system-overview-and-evaluation.md)), stays as-is.
 
 The SMT is a **second, additive structure**: one global, election-scoped authenticated set, keyed by
 `nullifier_hash`, updated incrementally at every batch anchor. It answers the question the dense tree
@@ -63,9 +62,8 @@ introduce a second pairing convention.
 
 `H[0]` uses a single fixed input byte (`0x00`), never a key — because it represents "no leaf exists
 here," which must hash identically regardless of position, so the same 256 precomputed values work
-for every path in the tree. This is the standard technique for making sparse trees tractable (per
-[deletion-completeness-design-options.md §3](./deletion-completeness-design-options.md#3-option-c--sparse-merkle-tree--authenticated-set),
-citing the Dahlberg/Pulls/Peeters construction and its use in CONIKS/Key Transparency-style systems).
+for every path in the tree. This is the standard technique for making sparse trees tractable (citing
+the Dahlberg/Pulls/Peeters construction and its use in CONIKS/Key Transparency-style systems).
 
 `H[256]` is therefore the **root of the fully empty tree** — the canonical starting root before any
 vote has ever been anchored (§7).
@@ -170,7 +168,7 @@ the tree — sparse-tree updates are always path-local.
 **Deletion** (a vote row is removed from the DB, honestly or maliciously, before or after its key was
 ever inserted): if the key had never been inserted, nothing changes — deletion of a never-anchored
 row is the pre-commitment-window gap already scoped out in
-[deletion-completeness-design-options.md §4](./deletion-completeness-design-options.md#4-cross-cutting-finding-none-of-the-three-solves-the-pre-commitment-window-alone)
+[threat_model.md §6](./threat_model.md#6-pre-anchor-integrity-window-detail)
 and is **not** solved by this design (needs its own follow-up). If the key **had** already been
 inserted at a prior anchor and is now removed, the SMT rebuild for the next batch resets that leaf
 position back to `H[0]` and recomputes the root — producing a new root under which that key is
@@ -190,11 +188,9 @@ In an honestly-run election, **every key transition is monotonic: `H[0]` (absent
 occupied → `H[0]`.** This monotonicity is the property a watchdog audit checks (§9), and it is the
 precise, checkable form of "deletion completeness" this design delivers — **scoped strictly to keys
 that have already been anchored at least once.** Deletion of a vote row before its key is ever
-inserted into the SMT (the pre-commitment-window gap, §8 above) is invisible to this mechanism and
-to every other option compared in
-[deletion-completeness-design-options.md](./deletion-completeness-design-options.md). The SMT does
-not deliver global deletion completeness on its own; it delivers non-membership-provable completeness
-for the already-anchored set, which is a narrower and precisely bounded claim.
+inserted into the SMT (the pre-commitment-window gap, §8 above) is invisible to this mechanism.
+The SMT delivers non-membership-provable completeness for the already-anchored set, which is a narrower
+and precisely bounded claim.
 
 ## 9. Batch chaining (folding in Option B)
 
@@ -318,8 +314,8 @@ drift apart.
 ## 12. Contract verification changes
 
 **Additive, not replacing.** `MerkleRootStorage.sol`'s existing `anchorRoot`/`verify`/`getBatch`
-stay exactly as they are — the dense per-batch tree keeps working unchanged, and the 11 existing
-Hardhat assertions ([evaluation_writeup.md §8](./evaluation_writeup.md#8-merkle-tree-integrity))
+stay exactly as they are — the dense per-batch tree keeps working unchanged, and the existing
+Hardhat assertions ([system-overview-and-evaluation.md §5.2](./system-overview-and-evaluation.md))
 keep passing untouched.
 
 New additions (illustrative signatures, not final Solidity — a implementation-phase task):
@@ -407,13 +403,11 @@ words per batch, same flat-cost shape as today's `anchorRoot`
 6. **Forgery rejection** — for a valid membership proof: flip one bitmap bit → rejected; swap one
    sibling hash → rejected; alter the claimed value → rejected; alter the key → rejected (mirrors
    the forgery coverage already proven for the dense tree in
-   [evaluation_writeup.md §8](./evaluation_writeup.md#8-merkle-tree-integrity), applied to the new
+   [system-overview-and-evaluation.md §5](./system-overview-and-evaluation.md), applied to the new
    structure).
 7. **Order independence** — insert the same set of keys in several different orders; final root
    must be identical every time (a key-addressed structure has no "leaf position" dependent on
-   insertion order, unlike the dense tree's array-index leaves — this test is the concrete evidence
-   for the "reordering is a non-issue" claim in
-   [deletion-completeness-design-options.md](./deletion-completeness-design-options.md)).
+   insertion order, unlike the dense tree's array-index leaves — order independence is inherent).
 8. **Incremental vs. from-scratch equivalence** — property test (fast-check, matching the existing
    style in [elgamal.test.ts](../backend/src/crypto/elgamal.test.ts)): for randomized sequences of
    insert/delete operations, the root produced by incremental path-local updates must equal the root
@@ -468,7 +462,7 @@ words per batch, same flat-cost shape as today's `anchorRoot`
 20. **Concurrent batch anchoring** — two `anchorSmtRoot` calls racing against the same
     `previousRoot` must serialize (second one reverts with the continuity error, does not silently
     overwrite), the contract-level analogue of the existing DB-level concurrency test in
-    [evaluation_writeup.md §4](./evaluation_writeup.md#4-double-vote-prevention).
+    [system-overview-and-evaluation.md §3](./system-overview-and-evaluation.md).
 21. **Backfill migration check** — for the existing pre-SMT anchored votes (already committed via
     the dense tree before this feature existed), a one-time backfill batch inserts all of them into
     the SMT; confirm `totalKeysAnchored` after backfill equals the actual count of confirmed vote

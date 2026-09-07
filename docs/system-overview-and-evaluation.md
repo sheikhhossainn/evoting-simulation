@@ -152,11 +152,12 @@ Four layers, deliberately not collapsed into one:
    was never applied" class of problem that unit/mock tests structurally cannot catch — which is
    exactly what happened this session (§5.3).
 
-Adversarial testing specifically (attack attempted → observed result) is compiled separately in
-[evaluation_writeup.md](evaluation_writeup.md) — forged ZKP, modified ciphertext, replayed ballot,
-wrong passphrase, duplicate submission, under-threshold reconstruction, corrupted-ciphertext
-tallying, concurrent double-vote, direct SQL UPDATE — all **PASS**, each with the exact attack
-command and observed response in that document.
+Adversarial testing specifically (attack attempted → observed result) is verified across the
+test suites and live test reports ([tamper-proof-demo.md](tamper-proof-demo.md),
+[tally-verifiability-implementation-report.md](tally-verifiability-implementation-report.md)) — forged ZKP,
+modified ciphertext, replayed ballot, wrong passphrase, duplicate submission, under-threshold
+reconstruction, corrupted-ciphertext tallying, concurrent double-vote, direct SQL UPDATE — all **PASS**,
+each with exact commands and observed responses documented.
 
 ---
 
@@ -231,8 +232,9 @@ documented as a known optimization target — batched insertion — not implemen
 
 ### 5.5 Adversarial test matrix
 
-Compiled in [evaluation_writeup.md](evaluation_writeup.md) with exact attack commands and observed
-responses. Summary: forged ZKP, tampered ciphertext post-anchor, replayed/duplicated ballot, wrong
+Compiled across the test suites and live reports ([tamper-proof-demo.md](tamper-proof-demo.md),
+[tally-verifiability-implementation-report.md](tally-verifiability-implementation-report.md)) with exact
+attack commands and observed responses. Summary: forged ZKP, tampered ciphertext post-anchor, replayed/duplicated ballot, wrong
 keyholder passphrase, duplicate share submission, under-threshold reconstruction attempt, corrupted-
 ciphertext tallying, concurrent double-vote race, direct SQL UPDATE bypass attempt — all **PASS**.
 Two items remain explicitly open, stated as such rather than silently passed over: deletion of a
@@ -302,7 +304,7 @@ verifiable cast confirmation (Benaloh-style audit — explicit design boundary, 
 | How does the DKG ceremony work, and what does it prove? | [dkg-security-analysis.md](dkg-security-analysis.md) |
 | What's the full protocol spec for partial decryption / DLEQ / verifiability? | [tally-verifiability-design.md](tally-verifiability-design.md) |
 | How does the Sparse Merkle Tree / deletion-detection mechanism work? | [smt-design.md](smt-design.md) |
-| What attacks were actually attempted, and what happened? | [evaluation_writeup.md](evaluation_writeup.md) |
+| What attacks were actually attempted, and what happened? | [tamper-proof-demo.md](tamper-proof-demo.md), [tally-verifiability-implementation-report.md](tally-verifiability-implementation-report.md) |
 | What are the actor/trust assumptions and open gaps? | [threat_model.md](threat_model.md) (see §7 above for known staleness) |
 | What does this system explicitly not attempt, and why? | [explicit-assumptions-and-nongoals.md](explicit-assumptions-and-nongoals.md) |
 | How does this compare to published academic/real-world systems? | [related-work-positioning.md](related-work-positioning.md) |

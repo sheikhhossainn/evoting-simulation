@@ -2,7 +2,7 @@
 
 **Scope:** gas and cost of anchoring confirmed votes on-chain, comparing the naive "one transaction per vote" approach against the batched single-Merkle-root approach this system uses, plus off-chain scaling behaviour at 1k and 10k votes.
 
-**Companion document:** [batching-vs-per-vote.md](batching-vs-per-vote.md) holds the design rationale (the tradeoff answer) and the architecture diagram. This document holds the measured numbers.
+**Companion document:** [scalability-benchmark-results.md](scalability-benchmark-results.md) holds extended 50k-ballot benchmarks. This document holds the measured gas, cost, and scaling numbers.
 
 ---
 
