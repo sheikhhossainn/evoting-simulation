@@ -3,13 +3,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 const VoteConfirmation = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // Ballot secrecy: this screen deliberately does NOT accept or render the
-  // candidate choice. The only per-vote identifier it shows is the vote_id
-  // (a verification code), never the selection — echoing the choice back
-  // would turn the confirmation into a coercion receipt and contradict the
-  // encrypted-ballot design. See docs/design-system.html (Voter persona).
   const state = location.state as {
     nid?: string;
+    candidateName?: string;
+    candidateParty?: string;
     voteId?: string;
     status?: string;
   } | null;
@@ -72,20 +69,22 @@ const VoteConfirmation = () => {
 
         {/* ── Receipt card ── */}
         <div className="glass-card p-6 md:p-8 mb-6 opacity-0-init animate-fade-in-up-delayed">
-          {/* Verification code callout — the secrecy-safe replacement for the
-              old "Your Selection" block. Shows a code the voter can use to
-              confirm inclusion later, without revealing the choice. */}
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-            <p className="text-xs uppercase tracking-wider mb-1 font-medium" style={{ color: "#627d98" }}>
-              Verification Code
-            </p>
-            <p className="text-lg font-semibold font-mono" style={{ color: "#0A2540" }}>
-              {voteId}
-            </p>
-            <p className="text-xs mt-1" style={{ color: "#627d98" }}>
-              Save this to verify your vote was counted — without revealing your choice.
-            </p>
-          </div>
+          {/* Candidate info */}
+          {state?.candidateName && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+              <p className="text-xs uppercase tracking-wider mb-1 font-medium" style={{ color: "#627d98" }}>
+                Your Selection
+              </p>
+              <p className="text-lg font-semibold" style={{ color: "#0A2540" }}>
+                {state.candidateName}
+              </p>
+              {state.candidateParty && (
+                <p className="text-sm font-medium" style={{ color: "#006A4E" }}>
+                  {state.candidateParty}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Receipt rows */}
           <div className="space-y-4">
