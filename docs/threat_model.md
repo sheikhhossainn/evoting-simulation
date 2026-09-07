@@ -49,8 +49,7 @@ Full flow: [README.md#the-voting-flow](../README.md#the-voting-flow).
    ballots is detectable by an independent verifier, *for the full ballot set*, not just for ballots
    an auditor happens to already hold a proof for. (§5 below — this is currently **not fully met**.)
 6. **Tally correctness** — the published result is verifiably the correct decryption of exactly the
-   accepted ballot set. (Currently: decryption happens, but no proof *of correct decryption* is
-   published — §7 below.)
+   accepted ballot set.
 7. **Coercion-resistance vs. voter-verifiability tension** — a voter should be able to gain some
    assurance their ballot was recorded as cast, without gaining a receipt that lets a coercer verify
    how they voted. Explicitly *not* solved here (§8) — stated as a boundary, not a gap to silently
@@ -147,7 +146,7 @@ Each row should map to a property in §3 and a concrete automated test.
 | Insufficient Shamir shares | Tally correctness (confidentiality side) | Covered — [evaluation_writeup.md §3](./evaluation_writeup.md#3-threshold-decryption--key-ceremony-task-4) |
 | Malicious guardian share (wrong partial decryption) | Tally correctness | Covered — DLEQ proof verification rejects an incorrect partial decryption at submission ([dkg-security-analysis.md §6](./dkg-security-analysis.md)); closed per §7 |
 | Concurrent double voting | Uniqueness | Covered — [evaluation_writeup.md §4](./evaluation_writeup.md#4-double-vote-prevention) |
-| Backend/database direct manipulation (DELETE bypass) | Tamper-evidence (completeness) | **Not covered** — trigger blocks UPDATE only |
+| Backend/database direct manipulation (DELETE bypass) | Tamper-evidence (completeness) | **Not covered** — trigger blocks both UPDATE and DELETE (`trg_votes_immutable` and `trg_votes_no_delete`; the only bypass is the SECURITY DEFINER `fn_admin_delete_vote()`, used solely for the tamper demo) |
 
 ## 10. Non-goals (explicitly out of scope)
 
