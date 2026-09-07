@@ -165,8 +165,8 @@ command and observed response in that document.
 ### 5.1 Backend unit + integration suite
 
 ```
-Test Files  16 passed, 2 gated (18)
-Tests       172 passed, 2 skipped (174)
+Test Files  2 failed | 16 passed (18)
+Tests       173 passed, 2 skipped (175)
 ```
 
 Run: `cd backend && npx vitest run`, this session, after applying the multi-election + DKG
@@ -182,6 +182,7 @@ not-null violation first.
 dedicated test Supabase project (`backend/.env.test`) before they run at all — this project
 deliberately refuses to run write-heavy integration tests against the production database. Not
 configured for this session; these are the project's pre-existing, documented gate, not a new gap.
+They fail-closed (0 tests each) rather than silently passing.
 
 ### 5.2 Blockchain contract suite
 
