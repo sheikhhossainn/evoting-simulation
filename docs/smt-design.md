@@ -467,3 +467,10 @@ words per batch, same flat-cost shape as today's `anchorRoot`
     the dense tree before this feature existed), a one-time backfill batch inserts all of them into
     the SMT; confirm `totalKeysAnchored` after backfill equals the actual count of confirmed vote
     rows in the DB at that point, independently cross-checked.
+
+---
+
+## References
+
+1. R. Dahlberg, T. Pulls, and R. Peeters, "Efficient Sparse Merkle Trees: Caching Strategies and Secure (Non-)Membership Proofs," in Proc. 21st Nordic Conference on Secure IT Systems (NordSec), 2016, pp. 199–215.
+2. M. S. Melara, A. Blankstein, J. Bonneau, E. W. Felten, and M. J. Freedman, "CONIKS: Bringing Key Transparency to End Users," in Proc. 24th USENIX Security Symposium, Washington, D.C., USA, 2015, pp. 383–398.
