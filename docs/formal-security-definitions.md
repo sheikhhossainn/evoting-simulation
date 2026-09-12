@@ -278,6 +278,7 @@ layer.
 6. D. Bernhard, O. Pereira, B. Warinschi, "How Not to Prove Yourself: Pitfalls of the Fiat-Shamir Heuristic and Applications to Helios," ASIACRYPT 2012.
 7. V. Cortier, D. Galindo, R. Küsters, J. Müller, T. Truderung, "SoK: Verifiability Notions for E-Voting Protocols," IEEE Symposium on Security and Privacy 2016.
 8. V. Cortier, P. Gaudry, Q. Yang, "Is the JCJ voting system really coercion-resistant?" IACR ePrint 2022/430 (modern restatement of verifiability/coercion-resistance framing; also cited in [related-work-positioning.md](related-work-positioning.md)).
+9. A. Fiat and A. Shamir, "How to Prove Yourself: Practical Solutions to Identification and Signature Problems," in Advances in Cryptology — CRYPTO '86, pp. 186–194, 1987.
 
 Companion documents: [tally-verifiability-design.md](tally-verifiability-design.md) (full protocol
 spec these definitions formalize), [threat_model.md](threat_model.md) (actor model and non-goals
