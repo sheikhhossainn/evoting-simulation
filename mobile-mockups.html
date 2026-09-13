@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Voting Mobile App UI/UX Architecture & 9-Screen Flow Mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #090D16;
+      --bg-panel: #111827;
+      --bg-panel-border: rgba(255, 255, 255, 0.08);
+      --text-main: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --brand-green: #006A4E;
+      --brand-green-light: #059669;
+      --brand-green-glow: rgba(5, 150, 105, 0.25);
+      --brand-navy: #0A2540;
+      --brand-gold: #C8920A;
+      --brand-red: #E11D48;
+      --brand-blue: #2563EB;
+      --phone-w: 380px;
+      --phone-h: 780px;
+      --phone-radius: 46px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Top Control Bar */
+    header.workbench-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--bg-panel-border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #006A4E, #10B981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 4px 12px var(--brand-green-glow);
+    }
+
+    .nav-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .view-toggle-group {
+      display: inline-flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--bg-panel-border);
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-btn.active {
+      background: #1F2937;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .screen-pills-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0;
+      max-width: 650px;
+      scrollbar-width: thin;
+    }
+
+    .screen-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .screen-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .screen-pill.active {
+      background: var(--brand-green);
+      border-color: #34D399;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Layout Containers */
+    main.workbench-container {
+      padding: 24px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+
+    /* Canvas / Storyboard Flow View */
+    .flow-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* Device Simulator Single View */
+    .simulator-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0 60px;
+    }
+
+    .simulator-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .sim-nav-btn {
+      background: #1F2937;
+      border: 1px solid var(--bg-panel-border);
+      color: #fff;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sim-nav-btn:hover:not(:disabled) {
+      background: var(--brand-green-light);
+      transform: scale(1.08);
+    }
+
+    .sim-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .sim-details-panel {
+      max-width: 440px;
+      background: var(--bg-panel);
+      border: 1px solid var(--bg-panel-border);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spec-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #34D399;
+      background: rgba(5, 150, 105, 0.15);
+      border: 1px solid rgba(5, 150, 105, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    /* Phone Shell Styling */
+    .phone-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .phone-meta-header {
+      width: 100%;
+      max-width: var(--phone-w);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+    }
+
+    .phone-step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #10B981;
+      background: rgba(16, 185, 129, 0.12);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .phone-step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #E5E7EB;
+    }
+
+    .phone-chassis {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: #030712;
+      border-radius: var(--phone-radius);
+      padding: 12px;
+      position: relative;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8),
+                  0 0 0 1px rgba(255, 255, 255, 0.12),
+                  inset 0 0 0 2px #1E293B;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    /* Outer Buttons & Antennas on Chassis */
+    .phone-chassis::before {
+      content: '';
+      position: absolute;
+      left: -3px;
+      top: 110px;
+      height: 48px;
+      width: 3px;
+      background: #374151;
+      border-radius: 2px 0 0 2px;
+    }
+
+    .phone-chassis::after {
+      content: '';
+      position: absolute;
+      right: -3px;
+      top: 130px;
+      height: 64px;
+      width: 3px;
+      background: #374151;
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* Screen Viewport */
+    .phone-viewport {
+      width: 100%;
+      height: 100%;
+      background: #F8FAFC;
+      border-radius: 36px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      color: #0A2540;
+      scrollbar-width: none;
+    }
+
+    .phone-viewport::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Dark theme variation for screen viewport if needed */
+    .phone-viewport.theme-dark {
+      background: #0B132B;
+      color: #F8FAFC;
+    }
+
+    /* iOS Status Bar */
+    .phone-status-bar {
+      height: 44px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0A2540;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: inherit;
+    }
+
+    .phone-viewport.theme-dark .phone-status-bar {
+      color: #F8FAFC;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      width: 105px;
+      height: 26px;
+      background: #000;
+      border-radius: 18px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 10px;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+    }
+
+    .island-cam {
+      width: 10px;
+      height: 10px;
+      background: #111827;
+      border-radius: 50%;
+      box-shadow: inset 0 0 2px #374151;
+    }
+
+    .island-sensor {
+      width: 8px;
+      height: 8px;
+      background: #0a0f1d;
+      border-radius: 50%;
+    }
+
+    /* Bottom Home Indicator */
+    .home-indicator-bar {
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: sticky;
+      bottom: 0;
+      background: inherit;
+      z-index: 50;
+    }
+
+    .home-indicator-pill {
+      width: 130px;
+      height: 4px;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
+    }
+
+    .phone-viewport.theme-dark .home-indicator-pill {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    /* Mobile Screen Inner Body */
+    .screen-body {
+      flex: 1;
+      padding: 16px 20px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Component Styles for Mobile Screens */
+    .app-top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .app-back-btn {
+      background: rgba(0, 0, 0, 0.05);
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #0A2540;
+    }
+
+    .gov-seal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(0, 106, 78, 0.08);
+      border: 1px solid rgba(0, 106, 78, 0.2);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--brand-green);
+    }
+
+    .screen-heading {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0A2540;
+      line-height: 1.25;
+      margin-bottom: 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .screen-subheading {
+      font-size: 13px;
+      color: #627D98;
+      line-height: 1.45;
+      margin-bottom: 20px;
+    }
+
+    /* Form Inputs */
+    .mobile-form-group {
+      margin-bottom: 16px;
+    }
+
+    .mobile-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #486581;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .mobile-input-box {
+      width: 100%;
+      height: 52px;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 14px;
+      background: #FFFFFF;
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 600;
+      color: #0A2540;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      transition: all 0.2s;
+    }
+
+    .mobile-input-box.focus {
+      border-color: var(--brand-green);
+      box-shadow: 0 0 0 3px rgba(0, 106, 78, 0.15);
+    }
+
+    /* Privacy Banner Specific to Screen 1 */
+    .privacy-callout-card {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      margin-bottom: 22px;
+    }
+
+    .privacy-icon {
+      flex-shrink: 0;
+      color: var(--brand-green);
+      margin-top: 1px;
+    }
+
+    .privacy-text {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #166534;
+    }
+
+    .privacy-text strong {
+      font-weight: 700;
+      color: #14532D;
+    }
+
+    /* Primary Action Buttons */
+    .mobile-btn-primary {
+      width: 100%;
+      height: 52px;
+      background: linear-gradient(135deg, #006A4E, #059669);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 106, 78, 0.3);
+      transition: all 0.2s;
+      margin-top: auto;
+    }
+
+    .mobile-btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .mobile-btn-secondary {
+      width: 100%;
+      height: 48px;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      color: #334155;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    /* OTP Code Boxes */
+    .otp-digits-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .otp-box {
+      width: 48px;
+      height: 56px;
+      border: 2px solid #CBD5E1;
+      border-radius: 12px;
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0A2540;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    .otp-box.filled {
+      border-color: var(--brand-green);
+      background: #F0FDF4;
+    }
+
+    .otp-box.active-cursor {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      position: relative;
+    }
+
+    .otp-box.active-cursor::after {
+      content: '';
+      width: 2px;
+      height: 24px;
+      background: #2563EB;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Passkey WebAuthn Prompt Simulator */
+    .biometric-hero-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: rgba(5, 150, 105, 0.1);
+      border: 2px dashed #059669;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 16px auto;
+      position: relative;
+      animation: pulseGlow 2.5s infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+      50% { transform: scale(1.05); box-shadow: 0 0 20px 8px rgba(5, 150, 105, 0.2); }
+    }
+
+    .webauthn-sheet {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 16px;
+      margin-top: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Camera Liveness Screen */
+    .camera-frame-container {
+      flex: 1;
+      background: #020617;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 16px;
+      border: 1px solid #1E293B;
+    }
+
+    .face-oval-guide {
+      width: 190px;
+      height: 250px;
+      border: 3px solid #10B981;
+      border-radius: 50% 50% 45% 45%;
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.3), inset 0 0 20px rgba(16, 185, 129, 0.2);
+      position: relative;
+      margin-top: 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scanner-line {
+      position: absolute;
+      width: 90%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #34D399, transparent);
+      box-shadow: 0 0 12px #34D399;
+      animation: scanAnim 2.2s ease-in-out infinite;
+    }
+
+    @keyframes scanAnim {
+      0% { top: 15%; opacity: 0.3; }
+      50% { top: 85%; opacity: 1; }
+      100% { top: 15%; opacity: 0.3; }
+    }
+
+    .liveness-badge-pill {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Candidate Radio Cards */
+    .candidate-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .candidate-card {
+      background: #FFFFFF;
+      border: 2px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 68px;
+    }
+
+    .candidate-card.selected {
+      border-color: var(--brand-green);
+      background: #F0FDF4;
+      box-shadow: 0 4px 12px rgba(0, 106, 78, 0.12);
+    }
+
+    .cand-symbol-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .cand-info {
+      flex: 1;
+    }
+
+    .cand-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0A2540;
+    }
+
+    .cand-party {
+      font-size: 12px;
+      font-weight: 500;
+      color: #627D98;
+    }
+
+    .radio-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #CBD5E1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .candidate-card.selected .radio-circle {
+      border-color: var(--brand-green);
+      background: var(--brand-green);
+    }
+
+    .candidate-card.selected .radio-circle::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    /* Cryptographic Receipt Card */
+    .receipt-ticket {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 18px;
+      padding: 18px;
+      position: relative;
+      box-shadow: 0 8px 20px -4px rgba(0,0,0,0.06);
+    }
+
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 9px 0;
+      border-bottom: 1px dashed #E2E8F0;
+      font-size: 12.5px;
+    }
+
+    .receipt-row:last-child {
+      border-bottom: none;
+    }
+
+    .receipt-label {
+      color: #627D98;
+      font-weight: 500;
+    }
+
+    .receipt-val {
+      font-weight: 600;
+      color: #0A2540;
+      text-align: right;
+    }
+
+    .receipt-val.mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+    }
+
+    /* Warning Banner */
+    .irreversible-warning {
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      margin: 14px 0;
+    }
+
+    .warning-icon {
+      color: #D97706;
+      flex-shrink: 0;
+    }
+
+    .warning-text {
+      font-size: 12px;
+      color: #92400E;
+      line-height: 1.45;
+    }
+
+    /* Tracker Stepper */
+    .tracker-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .track-step {
+      display: flex;
+      gap: 12px;
+      position: relative;
+    }
+
+    .track-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 13px;
+      top: 28px;
+      bottom: -10px;
+      width: 2px;
+      background: #CBD5E1;
+    }
+
+    .track-step.done:not(:last-child)::after {
+      background: #10B981;
+    }
+
+    .track-bullet {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: #64748B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      z-index: 2;
+    }
+
+    .track-step.done .track-bullet {
+      background: #10B981;
+      color: #FFFFFF;
+    }
+
+    .track-step.active .track-bullet {
+      background: #2563EB;
+      color: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+    }
+
+    .track-content h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0A2540;
+    }
+
+    .track-content p {
+      font-size: 11.5px;
+      color: #627D98;
+      margin-top: 2px;
+    }
+
+    /* Watchdog Donut and Grid for Mobile */
+    .watchdog-mobile-card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid #E2E8F0;
+      margin-bottom: 12px;
+    }
+
+    .watchdog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .live-pulse-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(16, 185, 129, 0.12);
+      color: #059669;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #059669;
+      animation: pulse 1.5s infinite;
+    }
+
+    /* QR Code Mockup */
+    .qr-mockup-box {
+      width: 140px;
+      height: 140px;
+      margin: 12px auto;
+      background: #FFFFFF;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Footer System Notes */
+    footer.workbench-footer {
+      border-top: 1px solid var(--bg-panel-border);
+      padding: 24px;
+      margin-top: 60px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation & Controls -->
+  <header class="workbench-nav">
+    <div class="nav-brand">
+      <div class="nav-logo-badge">🛡️</div>
+      <div class="nav-title">
+        <h1>National E-Voting Mobile App — Happy-Path UI/UX Flow</h1>
+        <p>Production Design Spec • 9 Core Screens • On-Device ElGamal + CDS94 ZKP + Sepolia Anchoring</p>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <!-- Screen switcher pills -->
+      <div class="screen-pills-bar" id="screenPillsBar">
+        <button class="screen-pill active" onclick="selectScreen(1)">1. Voter Login</button>
+        <button class="screen-pill" onclick="selectScreen(2)">2. OTP Verify</button>
+        <button class="screen-pill" onclick="selectScreen(3)">3. Passkey Setup</button>
+        <button class="screen-pill" onclick="selectScreen(4)">4. Liveness Check</button>
+        <button class="screen-pill" onclick="selectScreen(5)">5. Ballot Selection</button>
+        <button class="screen-pill" onclick="selectScreen(6)">6. Review & Confirm</button>
+        <button class="screen-pill" onclick="selectScreen(7)">7. Confirmation Receipt</button>
+        <button class="screen-pill" onclick="selectScreen(8)">8. Ballot Tracker</button>
+        <button class="screen-pill" onclick="selectScreen(9)">9. Public Watchdog</button>
+      </div>
+
+      <!-- View layout mode toggle -->
+      <div class="view-toggle-group">
+        <button class="toggle-btn active" id="btnSingleMode" onclick="setMode('simulator')">
+          📱 Device Simulator
+        </button>
+        <button class="toggle-btn" id="btnFlowMode" onclick="setMode('flow')">
+          🗺️ Panoramic Storyboard (All 9)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="workbench-container">
+
+    <!-- ========================================================================= -->
+    <!-- VIEW MODE A: SINGLE SCREEN SIMULATOR WITH COMPREHENSIVE ARCHITECTURE PANEL -->
+    <!-- ========================================================================= -->
+    <div id="simulatorContainer" class="simulator-view">
+      <div class="simulator-stage">
+        
+        <!-- Left Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnPrev" onclick="navigateStep(-1)" title="Previous Screen">←</button>
+
+        <!-- Phone Chassis Mockup -->
+        <div class="phone-wrapper" id="singlePhoneWrapper">
+          <!-- Dynamically populated by JS based on current step -->
+        </div>
+
+        <!-- Right Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnNext" onclick="navigateStep(1)" title="Next Screen">→</button>
+
+        <!-- Technical Specification Panel for the Active Screen -->
+        <div class="sim-details-panel">
+          <span class="spec-tag" id="panelStepCode">SCREEN 1 OF 9</span>
+          <h2 id="panelStepTitle" style="font-size: 20px; font-weight: 700; color: #fff;">Voter Login & Eligibility</h2>
+          <p id="panelStepDesc" style="font-size: 13.5px; color: var(--text-muted); line-height: 1.6;">
+            The voter initiates the flow by inputting their 11-digit national identity number.
+          </p>
+
+          <div style="border-top: 1px solid var(--bg-panel-border); padding-top: 14px;">
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Cryptographic & Backend Guard</h4>
+            <div id="panelCryptoNotes" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #34D399; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; line-height: 1.5;">
+              Salted SHA-256 (NID + Salt) → Checks eligibility & double-voting in `voters` table. Raw NID is NEVER stored.
+            </div>
+          </div>
+
+          <div>
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Touch UX & Mobile Best Practices</h4>
+            <ul id="panelUxNotes" style="font-size: 13px; color: #D1D5DB; padding-left: 18px; line-height: 1.6;">
+              <li>Numeric keypad auto-focus (`inputmode="numeric"`).</li>
+              <li>Live character count (11 digits required).</li>
+              <li>Constituency code auto-detection preview pill.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW MODE B: PANORAMIC STORYBOARD FLOW (ALL 9 SCREENS SIDE-BY-SIDE)      -->
+    <!-- ========================================================================= -->
+    <div id="flowContainer" class="flow-view" style="display: none;">
+      <!-- Generated automatically by renderAllScreens() -->
+    </div>
+
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="workbench-footer">
+    <p>National Sovereign E-Voting System • Developed for End-to-End Verifiability & Mathematical Privacy</p>
+    <p style="margin-top: 6px; font-size: 12px; opacity: 0.7;">
+      Group Theory: $\mathbb{Z}_p^*$ 2048-bit MODP • ZKP: Chaum-Pedersen CDS94 OR-Proof • SMT Depth: 256 • Ethereum Sepolia Contract: <code style="color: #34D399;">0x4b5C381c62876d34bBDDefDe02e872E5a93401b6</code>
+    </p>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN TEMPLATES & CLIENT-SIDE SCRIPT                                     -->
+  <!-- ========================================================================= -->
+  <script>
+    // State management
+    let currentScreenIndex = 1; // 1 to 9
+    let viewMode = 'simulator'; // 'simulator' or 'flow'
+    let selectedCandidateId = 'c1-1'; // default selected candidate
+
+    // Data for all 9 screens
+    const screensData = [
+      {
+        id: 1,
+        title: "Voter Login",
+        subtitle: "11-digit NID verification & eligibility gate",
+        specCode: "SCREEN 1 • NID GATE",
+        cryptoNotes: "POST /voter/login-init → NID hashed on server with NID_HASH_SALT: SHA256(nid || salt). Raw NID is discarded immediately. The hash persists in the DB only to verify voter registration and prevent duplicate voting.",
+        uxNotes: [
+          "Format: 11 numeric digits with clear digit progress counter (11 / 11).",
+          "Prominent Privacy Assurance Callout: Explicitly explains that the NID is hashed via one-way cryptographic SHA-256 and never kept in plaintext.",
+          "Dynamic constituency hint card shows detected district (CON-01 Dhaka North).",
+          "52px height CTA touch target anchored at thumb reach."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:41</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/><path d="M12 6c-3.31 0-6 2.69-6 6 0 1.45.52 2.78 1.38 3.83l.71-.71A4.978 4.978 0 0 1 7 12c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.15-.39 2.22-1.04 3.07l.71.71A5.98 5.98 0 0 0 18 12c0-3.31-2.69-6-6-6z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <span class="gov-seal-badge">
+                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 9.06-7 10.18-3.87-1.12-7-5.51-7-10.18V6.3l7-3.12z"/></svg>
+                  Official Election Portal
+                </span>
+                <span style="font-size: 11px; font-weight: 700; color: #627D98;">v2.4.0</span>
+              </div>
+
+              <h2 class="screen-heading">National Voter Identification</h2>
+              <p class="screen-subheading">Enter your 11-digit National Identity Card (NID) number to check eligibility and begin authentication.</p>
+
+              <div class="mobile-form-group">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <label class="mobile-label" style="margin-bottom:0;">National ID Number (NID)</label>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #059669; font-weight: 700;">11 / 11 DIGITS</span>
+                </div>
+                <div class="mobile-input-box focus">
+                  <span>1994-8201-923</span>
+                  <svg width="18" height="18" fill="#059669" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </div>
+              </div>
+
+              <div style="background: #F1F5F9; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                <div>
+                  <span style="font-size: 10.5px; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.04em;">Assigned Constituency</span>
+                  <p style="font-size: 13px; font-weight: 700; color: #0A2540;">CON-01 • Dhaka North</p>
+                </div>
+                <span style="background: #E2E8F0; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; color: #475569;">VERIFIED</span>
+              </div>
+
+              <!-- Explicit Privacy Notice per User Instructions -->
+              <div class="privacy-callout-card">
+                <div class="privacy-icon">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                </div>
+                <div class="privacy-text">
+                  <strong>Strict Privacy Guarantee:</strong> Your 11-digit NID is cryptographically transformed using a <strong>salted one-way cryptographic hash (SHA-256)</strong>. Your raw NID is <em>never stored in plaintext</em>; only the irreversible hash persists in the election registry to enforce eligibility and guarantee one-person-one-vote.
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(2)">
+                Continue with 2FA
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42 5.43 5.43H5v2z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 2,
+        title: "OTP Verification",
+        subtitle: "One-Time Password SMS / Authenticator confirmation",
+        specCode: "SCREEN 2 • MFA FACTOR 1",
+        cryptoNotes: "POST /voter/verify-otp → Validates time-bounded 6-digit OTP against registered phone number hash. On success, returns ephemeral device-binding nonce with 5-minute expiry.",
+        uxNotes: [
+          "Six dedicated digit input boxes with auto-advance and active blue blinking cursor.",
+          "Masked registered phone number (+880 17•• ••••89) for security.",
+          "Dynamic countdown timer (Resend in 00:48) to avoid spamming.",
+          "Clear visual confirmation when all digits are fulfilled."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:42</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(1)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="gov-seal-badge">Step 2 of 4</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Verify Security Code</h2>
+              <p class="screen-subheading">We sent a 6-digit one-time verification code via SMS to your pre-registered mobile number ending in <strong>••89</strong>.</p>
+
+              <div class="otp-digits-row">
+                <div class="otp-box filled">8</div>
+                <div class="otp-box filled">4</div>
+                <div class="otp-box filled">1</div>
+                <div class="otp-box filled">9</div>
+                <div class="otp-box active-cursor"></div>
+                <div class="otp-box"></div>
+              </div>
+
+              <div style="text-align: center; margin: 12px 0 24px;">
+                <p style="font-size: 13px; color: #627D98;">
+                  Didn't receive the code? 
+                  <span style="color: #059669; font-weight: 700; cursor: pointer;">Resend in 00:48</span>
+                </p>
+              </div>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: center;">
+                <svg width="20" height="20" fill="#2563EB" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                <span style="font-size: 11.5px; color: #475569;">
+                  Device binding: This session will be anchored to this physical mobile hardware.
+                </span>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(3)">
+                Verify & Continue
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 3,
+        title: "Passkey Setup / Biometrics",
+        subtitle: "FIDO2 / WebAuthn hardware-backed credential binding",
+        specCode: "SCREEN 3 • WEBAUTHN PASSKEY",
+        cryptoNotes: "WebAuthn navigator.credentials.create() → Generates ES256/Ed25519 keypair inside device's Secure Enclave / Android StrongBox. Server verifies attestation and registers public key credential bound to salted voter hash.",
+        uxNotes: [
+          "Native iOS/Android biometric sheet simulation (Touch ID / Face ID / Passkey prompt).",
+          "Explains that biometric raw data NEVER leaves the phone hardware; only cryptographic signatures are produced.",
+          "Smooth haptic feedback simulation with glowing sensor ring.",
+          "Instant transition upon successful sensor touch."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:43</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(2)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="gov-seal-badge">Hardware Security</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <div class="biometric-hero-ring">
+                <svg width="48" height="48" fill="#059669" viewBox="0 0 24 24"><path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27.24-.12.54-.03.67.21.12.24.03.54-.21.67-1.39.72-2.56 1.73-3.48 3.03-.08.1-.2.15-.32.15zm16.92.08c-.12 0-.24-.05-.32-.15-.92-1.3-2.09-2.31-3.48-3.03-.24-.13-.33-.43-.21-.67.13-.24.43-.33.67-.21 1.5.77 2.76 1.87 3.75 3.27.16.23.11.54-.12.7-.09.06-.19.09-.29.09zM12 7c-2.76 0-5 2.24-5 5v2c0 2.76 2.24 5 5 5s5-2.24 5-5v-2c0-2.76-2.24-5-5-5zm3 7c0 1.66-1.34 3-3 3s-3-1.34-3-3v-2c0-1.66 1.34-3 3-3s3 1.34 3 3v2z"/></svg>
+              </div>
+
+              <h2 class="screen-heading" style="text-align: center;">Enable Biometric Passkey</h2>
+              <p class="screen-subheading" style="text-align: center; margin-bottom: 16px;">
+                Link your device's <strong>Face ID / Touch ID</strong> as a FIDO2 cryptographic credential. No passwords needed.
+              </p>
+
+              <!-- Simulated Native System Modal Sheet -->
+              <div class="webauthn-sheet">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                  <div style="width: 28px; height: 28px; border-radius: 8px; background: #000; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;">
+                    🔑
+                  </div>
+                  <div>
+                    <h4 style="font-size: 13px; font-weight: 700; color: #0A2540;">Create a Passkey</h4>
+                    <p style="font-size: 11px; color: #627D98;">National E-Voting Registry • FIDO2 Certified</p>
+                  </div>
+                </div>
+
+                <p style="font-size: 12px; color: #475569; line-height: 1.5; margin-bottom: 12px;">
+                  A public/private keypair will be sealed inside your phone's <strong>Hardware Security Enclave</strong>. Biometric traits remain offline.
+                </p>
+
+                <div style="background: #F1F5F9; border-radius: 10px; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #334155; display: flex; justify-content: space-between;">
+                  <span>Alg: ES256 (P-256)</span>
+                  <span style="color: #059669; font-weight: 700;">Secure Enclave ✓</span>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(4)">
+                Authenticate with Passkey
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 4,
+        title: "Face Liveness Check",
+        subtitle: "Real-time anti-spoofing step-up before ballot decryption",
+        specCode: "SCREEN 4 • STEP-UP MFA",
+        cryptoNotes: "POST /voter/liveness-check → Evaluates 3D depth & micro-expressions. Returns short-lived `ballot_access_token` (JWT with 5-minute TTL). Raw camera stream is never uploaded; only a signed zero-knowledge anti-spoof attestation persists.",
+        uxNotes: [
+          "Triggered immediately before ballot rendering to prevent pre-voting extortion.",
+          "High-contrast oval head guide with animated laser scanner line.",
+          "Real-time guidance feedback ('Hold steady', 'Blink naturally', 'Slightly turn head right').",
+          "Clear privacy statement: Zero image/video files saved to election servers."
+        ],
+        render: () => `
+          <div class="phone-viewport theme-dark">
+            <div class="phone-status-bar">
+              <span>9:44</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body" style="padding: 12px;">
+              <div class="camera-frame-container">
+                <!-- Top Camera HUD -->
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                  <span class="liveness-badge-pill">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #EF4444; animation: pulse 1s infinite;"></span>
+                    LIVE CAMERA FEED
+                  </span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #10B981;">ISO: 99.4%</span>
+                </div>
+
+                <!-- Oval Face Reticle with Scanning Line -->
+                <div class="face-oval-guide">
+                  <div class="scanner-line"></div>
+                  <!-- Abstract Face Landmark Simulation Dots -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; opacity: 0.35;">
+                    <div style="display: flex; gap: 40px;">
+                      <div style="width: 6px; height: 6px; background: #34D399; border-radius: 50%;"></div>
+                      <div style="width: 6px; height: 6px; background: #34D399; border-radius: 50%;"></div>
+                    </div>
+                    <div style="width: 5px; height: 5px; background: #34D399; border-radius: 50%;"></div>
+                    <div style="width: 24px; height: 2px; background: #34D399; border-radius: 4px;"></div>
+                  </div>
+                </div>
+
+                <!-- Guidance Instruction Card -->
+                <div style="width: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 14px; text-align: center;">
+                  <p style="font-size: 14px; font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">
+                    👁️ Blink naturally & hold steady
+                  </p>
+                  <p style="font-size: 11.5px; color: #94A3B8; line-height: 1.4;">
+                    Anti-spoofing verification: Confirms physical presence right before ballot access.
+                  </p>
+                </div>
+              </div>
+
+              <div style="margin-top: 14px;">
+                <button class="mobile-btn-primary" onclick="selectScreen(5)">
+                  Complete Liveness Check
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 5,
+        title: "Candidate Ballot Selection",
+        subtitle: "Constituency candidates with large touch targets",
+        specCode: "SCREEN 5 • BALLOT ACCESS",
+        cryptoNotes: "GET /candidates?constituency=CON-01 → Fetches canonical candidates bound to on-chain ElectionSetupCommitment hash. On candidate select, client prepares plaintext m = ID for ElGamal encryption.",
+        uxNotes: [
+          "Displays officially gazetted constituency name (CON-01 Dhaka North).",
+          "Radio-card design pattern with min 68px touch target height.",
+          "Clear party symbols (🌿, 🤝, 📢, ⚖️, 🕊️) and candidate names.",
+          "Sticky floating action button displays 'Review Ballot Selection'."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:45</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <span class="gov-seal-badge">Official Secret Ballot</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #006A4E;">CON-01</span>
+              </div>
+
+              <h2 class="screen-heading">Select One Candidate</h2>
+              <p class="screen-subheading">Choose the representative for Parliamentary Constituency CON-01 (Dhaka North).</p>
+
+              <div class="candidate-list">
+                <!-- Candidate 1 -->
+                <div class="candidate-card ${selectedCandidateId === 'c1-1' ? 'selected' : ''}" onclick="pickCandidate('c1-1')">
+                  <div class="cand-symbol-box">🌿</div>
+                  <div class="cand-info">
+                    <h4 class="cand-name">Ayesha Rahman</h4>
+                    <p class="cand-party">Progressive Alliance</p>
+                  </div>
+                  <div class="radio-circle"></div>
+                </div>
+
+                <!-- Candidate 2 -->
+                <div class="candidate-card ${selectedCandidateId === 'c1-2' ? 'selected' : ''}" onclick="pickCandidate('c1-2')">
+                  <div class="cand-symbol-box">🤝</div>
+                  <div class="cand-info">
+                    <h4 class="cand-name">Karim Hossain</h4>
+                    <p class="cand-party">Unity Front</p>
+                  </div>
+                  <div class="radio-circle"></div>
+                </div>
+
+                <!-- Candidate 3 -->
+                <div class="candidate-card ${selectedCandidateId === 'c1-3' ? 'selected' : ''}" onclick="pickCandidate('c1-3')">
+                  <div class="cand-symbol-box">📢</div>
+                  <div class="cand-info">
+                    <h4 class="cand-name">Fatima Begum</h4>
+                    <p class="cand-party">People's Voice</p>
+                  </div>
+                  <div class="radio-circle"></div>
+                </div>
+
+                <!-- Candidate 4 -->
+                <div class="candidate-card ${selectedCandidateId === 'c1-4' ? 'selected' : ''}" onclick="pickCandidate('c1-4')">
+                  <div class="cand-symbol-box">⚖️</div>
+                  <div class="cand-info">
+                    <h4 class="cand-name">Rafiq Uddin</h4>
+                    <p class="cand-party">National Reform</p>
+                  </div>
+                  <div class="radio-circle"></div>
+                </div>
+
+                <!-- Candidate 5 -->
+                <div class="candidate-card ${selectedCandidateId === 'c1-5' ? 'selected' : ''}" onclick="pickCandidate('c1-5')">
+                  <div class="cand-symbol-box">🕊️</div>
+                  <div class="cand-info">
+                    <h4 class="cand-name">Selina Hayat</h4>
+                    <p class="cand-party">Democratic League</p>
+                  </div>
+                  <div class="radio-circle"></div>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(6)">
+                Review Ballot Selection
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 6,
+        title: "Review & Confirm",
+        subtitle: "Irreversible warning & client-side encryption trigger",
+        specCode: "SCREEN 6 • ENCRYPT & CAST",
+        cryptoNotes: "Client computes ElGamal ciphertext (c1=g^r, c2=m*y^r mod p) and Chaum-Pedersen OR-Proof (CDS94) of ballot validity over candidate set. Computes nullifier = SHA256(nid || NULLIFIER_SECRET). Atomic commit via fn_cast_vote.",
+        uxNotes: [
+          "Clear selection summary card highlighting chosen candidate and party.",
+          "High-prominence Irreversible Cryptographic Warning banner.",
+          "Accordion preview of mathematical guarantees (ElGamal, ZKP, Nullifier).",
+          "Decisive button: 'Confirm & Cast Encrypted Vote' with lock icon."
+        ],
+        render: () => {
+          const candidateMap = {
+            'c1-1': { name: 'Ayesha Rahman', party: 'Progressive Alliance', symbol: '🌿' },
+            'c1-2': { name: 'Karim Hossain', party: 'Unity Front', symbol: '🤝' },
+            'c1-3': { name: 'Fatima Begum', party: "People's Voice", symbol: '📢' },
+            'c1-4': { name: 'Rafiq Uddin', party: 'National Reform', symbol: '⚖️' },
+            'c1-5': { name: 'Selina Hayat', party: 'Democratic League', symbol: '🕊️' }
+          };
+          const cand = candidateMap[selectedCandidateId] || candidateMap['c1-1'];
+
+          return `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:46</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(5)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="gov-seal-badge">Pre-Cast Review</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Review Your Ballot</h2>
+              <p class="screen-subheading">Please confirm your selection carefully before generating your cryptographic ballot proof.</p>
+
+              <!-- Selected Candidate Highlight Card -->
+              <div style="background: #F0FDF4; border: 2px solid #86EFAC; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                <div class="cand-symbol-box" style="font-size: 28px; width: 52px; height: 52px; background: #fff;">
+                  ${cand.symbol}
+                </div>
+                <div>
+                  <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #15803D;">Your Choice</span>
+                  <h3 style="font-size: 17px; font-weight: 800; color: #0A2540;">${cand.name}</h3>
+                  <p style="font-size: 13px; font-weight: 600; color: #006A4E;">${cand.party}</p>
+                </div>
+              </div>
+
+              <!-- Irreversible Cryptographic Warning -->
+              <div class="irreversible-warning">
+                <div class="warning-icon">
+                  <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                </div>
+                <div class="warning-text">
+                  <strong>Irreversible Submission:</strong> Once cast, your ballot is sealed under homomorphic ElGamal encryption. It cannot be altered, replaced, or traced back to your identity.
+                </div>
+              </div>
+
+              <!-- Cryptographic Info Pill -->
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; font-size: 11.5px; color: #475569; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span>Zero-Knowledge Proof:</span>
+                  <span style="font-weight: 700; color: #059669;">Chaum-Pedersen CDS94</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Voter Linkage:</span>
+                  <span style="font-weight: 700; color: #059669;">Decoupled (Nullifier Only)</span>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(7)">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                Confirm & Cast Encrypted Vote
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `;
+        }
+      },
+      {
+        id: 7,
+        title: "Confirmation / Receipt",
+        subtitle: "Cryptographic receipt with Vote ID and tracking token",
+        specCode: "SCREEN 7 • SECURE RECEIPT",
+        cryptoNotes: "POST /vote returns 201 Created with `vote_id: EVT-9F83A20B71E4`, `status: queued`. Client displays cryptographic receipt containing ballot tracking hash + Sepolia batch queue status.",
+        uxNotes: [
+          "Green celebratory success ring with drawn checkmark.",
+          "One-tap copy button for Encrypted Vote ID (`EVT-9F83A20B71E4`).",
+          "Shows real-time anchor queue status ('Queued for Merkle Batch Anchoring').",
+          "Receipt QR code containing verifiable cryptographic bundle."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:47</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <!-- Success Animated Checkmark Ring -->
+              <div style="text-align: center; margin: 10px 0 16px;">
+                <div style="width: 64px; height: 64px; border-radius: 50%; background: #059669; color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 10px 25px rgba(5, 150, 105, 0.3);">
+                  <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h2 class="screen-heading" style="font-size: 21px; margin-bottom: 2px;">Vote Cast Successfully!</h2>
+                <p style="font-size: 12.5px; color: #627D98;">Your ballot has been encrypted & accepted by the ledger.</p>
+              </div>
+
+              <!-- Cryptographic Receipt Card -->
+              <div class="receipt-ticket">
+                <div class="receipt-row">
+                  <span class="receipt-label">Encrypted Vote ID</span>
+                  <span class="receipt-val mono" style="color: #059669; font-weight: 700;">EVT-9F83A20B71E4</span>
+                </div>
+                <div class="receipt-row">
+                  <span class="receipt-label">Constituency</span>
+                  <span class="receipt-val">CON-01 (Dhaka North)</span>
+                </div>
+                <div class="receipt-row">
+                  <span class="receipt-label">Timestamp</span>
+                  <span class="receipt-val mono">2026-09-13 09:47:02</span>
+                </div>
+                <div class="receipt-row">
+                  <span class="receipt-label">Anchoring Status</span>
+                  <span class="receipt-val" style="color: #C8920A; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #C8920A; display: inline-block;"></span>
+                    Queued (Batch #14)
+                  </span>
+                </div>
+
+                <!-- Receipt QR Mockup -->
+                <div class="qr-mockup-box">
+                  <svg width="115" height="115" viewBox="0 0 100 100" fill="#0A2540">
+                    <!-- Stylized SVG QR Pattern -->
+                    <rect x="5" y="5" width="28" height="28" fill="#0A2540" />
+                    <rect x="9" y="9" width="20" height="20" fill="#fff" />
+                    <rect x="13" y="13" width="12" height="12" fill="#0A2540" />
+                    <rect x="67" y="5" width="28" height="28" fill="#0A2540" />
+                    <rect x="71" y="9" width="20" height="20" fill="#fff" />
+                    <rect x="75" y="13" width="12" height="12" fill="#0A2540" />
+                    <rect x="5" y="67" width="28" height="28" fill="#0A2540" />
+                    <rect x="9" y="71" width="20" height="20" fill="#fff" />
+                    <rect x="13" y="75" width="12" height="12" fill="#0A2540" />
+                    <rect x="40" y="10" width="8" height="8" />
+                    <rect x="52" y="10" width="8" height="8" />
+                    <rect x="40" y="22" width="8" height="8" />
+                    <rect x="40" y="40" width="20" height="20" />
+                    <rect x="44" y="44" width="12" height="12" fill="#fff" />
+                    <rect x="70" y="45" width="8" height="14" />
+                    <rect x="15" y="45" width="14" height="8" />
+                    <rect x="70" y="70" width="16" height="16" />
+                  </svg>
+                </div>
+                <p style="font-size: 11px; text-align: center; color: #94A3B8;">Scan with Public Watchdog to verify inclusion</p>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button class="mobile-btn-primary" style="flex: 1;" onclick="selectScreen(8)">
+                  Track on Ledger
+                </button>
+                <button class="mobile-btn-secondary" style="margin-top: 0; width: 48px; flex-shrink: 0;" title="Save Receipt">
+                  💾
+                </button>
+              </div>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 8,
+        title: "Ballot Verification / Tracker",
+        subtitle: "Paste or scan Vote ID to verify Merkle + SMT anchor status",
+        specCode: "SCREEN 8 • AUDIT TRAIL",
+        cryptoNotes: "GET /anchor/verify/:voteId → Evaluates Merkle inclusion proof against Sepolia root stored in MerkleRootStorage.sol contract (0x4b5C381c62876d34bBDDefDe02e872E5a93401b6) and SMT non-deletion guarantee.",
+        uxNotes: [
+          "Direct search field with 'Paste' and 'Scan QR' shortcuts.",
+          "Clear visual audit pipeline (Received → Batched → Sepolia Anchored → SMT Validated).",
+          "Tamper-proof guarantee badge: green checkmark if untouched, red warning if tampered.",
+          "Direct clickable link to Ethereum Sepolia block explorer."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:48</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(7)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="gov-seal-badge">Cryptographic Tracker</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Verify Ballot Integrity</h2>
+              <p class="screen-subheading">Track your individual encrypted ballot and verify its mathematical presence on the blockchain ledger.</p>
+
+              <!-- Search Box -->
+              <div class="mobile-input-box focus" style="margin-bottom: 16px;">
+                <span style="font-size: 13px;">EVT-9F83A20B71E4</span>
+                <div style="display: flex; gap: 6px;">
+                  <span style="background: #E2E8F0; padding: 3px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer;">PASTE</span>
+                </div>
+              </div>
+
+              <!-- Status Card -->
+              <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: #15803D;">Cryptographic Status</span>
+                  <p style="font-size: 14px; font-weight: 800; color: #0A2540;">ANCHORED & VERIFIED ✓</p>
+                </div>
+                <span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 8px;">Untampered</span>
+              </div>
+
+              <!-- Audit Pipeline Steps -->
+              <div class="tracker-steps">
+                <div class="track-step done">
+                  <div class="track-bullet">✓</div>
+                  <div class="track-content">
+                    <h4>Ballot Validated (CDS94 ZKP)</h4>
+                    <p>Verified validity proof without decrypting vote</p>
+                  </div>
+                </div>
+
+                <div class="track-step done">
+                  <div class="track-bullet">✓</div>
+                  <div class="track-content">
+                    <h4>Dense Merkle Batch #14</h4>
+                    <p>Leaf Index #42 in Keccak-256 Merkle tree</p>
+                  </div>
+                </div>
+
+                <div class="track-step done">
+                  <div class="track-bullet">✓</div>
+                  <div class="track-content">
+                    <h4>Ethereum Sepolia Anchored</h4>
+                    <p class="receipt-val mono" style="text-align: left; color: #2563EB;">Tx: 0x7a3f…e91b (Block #6,412,893)</p>
+                  </div>
+                </div>
+
+                <div class="track-step done">
+                  <div class="track-bullet">✓</div>
+                  <div class="track-content">
+                    <h4>256-bit Sparse Merkle Tree</h4>
+                    <p>Cryptographic anti-deletion protection valid</p>
+                  </div>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(9)">
+                View Public Watchdog
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 9,
+        title: "Public Watchdog",
+        subtitle: "Turnout, key ceremony & anchoring status (Strict Secrecy)",
+        specCode: "SCREEN 9 • PUBLIC WATCHDOG",
+        cryptoNotes: "GET /public/stats → Live turnout counts, DKG ceremony threshold status, and Sepolia anchored batch counts. STRICT PRIVACY RULE: No per-candidate tallies shown before official post-election threshold decryption.",
+        uxNotes: [
+          "National turnout progress ring with real-time participation metrics.",
+          "Key ceremony status cards (3 of 4 threshold shares collected).",
+          "Dense Merkle batch anchor tracker on Ethereum Sepolia.",
+          "Explicit secrecy guarantee banner: Zero candidate results disclosed pre-tally."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>9:49</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <div class="live-pulse-badge">
+                  <div class="pulse-dot"></div>
+                  LIVE DASHBOARD
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748B;">ELEC-2026-NAT</span>
+              </div>
+
+              <h2 class="screen-heading">Election Transparency</h2>
+              <p class="screen-subheading">Real-time cryptographic audit trail. Open to all citizens and independent observers.</p>
+
+              <!-- National Turnout Metric Card -->
+              <div class="watchdog-mobile-card" style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748B;">National Turnout</span>
+                  <h3 style="font-size: 26px; font-weight: 800; color: #006A4E;">68.4%</h3>
+                  <p style="font-size: 11.5px; color: #627D98;">13,680 of 20,000 Voters</p>
+                </div>
+                <!-- SVG Ring -->
+                <div style="position: relative; width: 68px; height: 68px;">
+                  <svg width="68" height="68" viewBox="0 0 36 36">
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#E2E8F0" stroke-width="4"/>
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#006A4E" stroke-width="4" stroke-dasharray="68.4, 100" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Key Ceremony Threshold Progress -->
+              <div class="watchdog-mobile-card">
+                <div class="watchdog-header">
+                  <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748B;">Key Ceremony (DKG)</span>
+                  <span style="font-size: 11px; font-weight: 700; color: #059669;">Threshold Met ✓</span>
+                </div>
+                <div style="display: flex; gap: 6px; margin: 8px 0;">
+                  <div style="flex: 1; height: 6px; border-radius: 3px; background: #059669;"></div>
+                  <div style="flex: 1; height: 6px; border-radius: 3px; background: #059669;"></div>
+                  <div style="flex: 1; height: 6px; border-radius: 3px; background: #059669;"></div>
+                  <div style="flex: 1; height: 6px; border-radius: 3px; background: #E2E8F0;"></div>
+                </div>
+                <p style="font-size: 11.5px; color: #627D98;">3 of 4 authorized keyholders submitted shares (Judiciary, EC, Civil Society).</p>
+              </div>
+
+              <!-- Sepolia Blockchain Anchoring Card -->
+              <div class="watchdog-mobile-card">
+                <div class="watchdog-header">
+                  <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748B;">Sepolia Anchoring</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #2563EB;">14 Batches</span>
+                </div>
+                <div style="font-size: 11.5px; color: #475569; margin-top: 4px;">
+                  Latest Batch Root: <span class="mono" style="color: #0A2540; font-weight: 600;">0x9b4c…e1f8</span>
+                </div>
+              </div>
+
+              <!-- Mandatory Privacy Notice: No Per-Candidate Leakage -->
+              <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 12px; display: flex; gap: 8px;">
+                <span style="font-size: 16px;">🔒</span>
+                <p style="font-size: 11px; color: #92400E; line-height: 1.45;">
+                  <strong>Strict Privacy Rule:</strong> Individual candidate vote totals remain homomorphically encrypted. Partial results are forbidden by law until election close.
+                </p>
+              </div>
+
+              <button class="mobile-btn-secondary" onclick="selectScreen(1)" style="margin-top: auto;">
+                Restart Demo Flow (Screen 1)
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      }
+    ];
+
+    // Functions to switch between screens
+    function selectScreen(index) {
+      currentScreenIndex = index;
+      updatePills();
+
+      if (viewMode === 'simulator') {
+        renderSingleScreen();
+      } else {
+        // In flow mode, scroll to the selected screen
+        const target = document.getElementById(`flowScreen-${index}`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+
+    function navigateStep(direction) {
+      let nextIndex = currentScreenIndex + direction;
+      if (nextIndex >= 1 && nextIndex <= 9) {
+        selectScreen(nextIndex);
+      }
+    }
+
+    function pickCandidate(candId) {
+      selectedCandidateId = candId;
+      if (viewMode === 'simulator') {
+        renderSingleScreen();
+      } else {
+        renderAllScreens();
+      }
+    }
+
+    function updatePills() {
+      const pills = document.querySelectorAll('.screen-pill');
+      pills.forEach((pill, idx) => {
+        if (idx + 1 === currentScreenIndex) {
+          pill.classList.add('active');
+        } else {
+          pill.classList.remove('active');
+        }
+      });
+
+      // Update Prev / Next button states
+      const btnPrev = document.getElementById('btnPrev');
+      const btnNext = document.getElementById('btnNext');
+      if (btnPrev && btnNext) {
+        btnPrev.disabled = currentScreenIndex === 1;
+        btnNext.disabled = currentScreenIndex === 9;
+      }
+    }
+
+    // Render single screen inside simulator
+    function renderSingleScreen() {
+      const screen = screensData.find(s => s.id === currentScreenIndex);
+      const container = document.getElementById('singlePhoneWrapper');
+      if (!screen || !container) return;
+
+      container.innerHTML = `
+        <div class="phone-meta-header">
+          <span class="phone-step-num">STEP ${screen.id} / 9</span>
+          <span class="phone-step-title">${screen.title}</span>
+        </div>
+        <div class="phone-chassis">
+          ${screen.render()}
+        </div>
+      `;
+
+      // Update right side spec panel
+      document.getElementById('panelStepCode').innerText = screen.specCode;
+      document.getElementById('panelStepTitle').innerText = screen.title;
+      document.getElementById('panelStepDesc').innerText = screen.subtitle;
+      document.getElementById('panelCryptoNotes').innerText = screen.cryptoNotes;
+
+      const uxList = document.getElementById('panelUxNotes');
+      uxList.innerHTML = screen.uxNotes.map(n => `<li>${n}</li>`).join('');
+    }
+
+    // Render all 9 screens side by side in flow mode
+    function renderAllScreens() {
+      const flow = document.getElementById('flowContainer');
+      if (!flow) return;
+
+      flow.innerHTML = screensData.map(screen => `
+        <div class="phone-wrapper" id="flowScreen-${screen.id}">
+          <div class="phone-meta-header">
+            <span class="phone-step-num">STEP ${screen.id} / 9</span>
+            <span class="phone-step-title">${screen.title}</span>
+          </div>
+          <div class="phone-chassis">
+            ${screen.render()}
+          </div>
+          <div style="max-width: var(--phone-w); width: 100%; padding: 10px 4px;">
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4;">
+              <strong style="color: #34D399;">Backend:</strong> ${screen.cryptoNotes}
+            </p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Mode Toggle: Simulator vs Storyboard Flow
+    function setMode(mode) {
+      viewMode = mode;
+      const simContainer = document.getElementById('simulatorContainer');
+      const flowContainer = document.getElementById('flowContainer');
+      const btnSim = document.getElementById('btnSingleMode');
+      const btnFlow = document.getElementById('btnFlowMode');
+
+      if (mode === 'simulator') {
+        simContainer.style.display = 'flex';
+        flowContainer.style.display = 'none';
+        btnSim.classList.add('active');
+        btnFlow.classList.remove('active');
+        renderSingleScreen();
+      } else {
+        simContainer.style.display = 'none';
+        flowContainer.style.display = 'grid';
+        btnSim.classList.remove('active');
+        btnFlow.classList.add('active');
+        renderAllScreens();
+      }
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSingleScreen();
+      updatePills();
+    });
+  </script>
+</body>
+</html>
