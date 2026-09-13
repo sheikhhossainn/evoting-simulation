@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Keyholder Mobile Companion App — 4-Factor Step-Up & DKG Ceremony</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #070B14;
+      --bg-panel: #0F172A;
+      --bg-panel-border: rgba(255, 255, 255, 0.08);
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --brand-green: #059669;
+      --brand-green-light: #10B981;
+      --brand-green-glow: rgba(16, 185, 129, 0.25);
+      --brand-navy: #0A2540;
+      --brand-gold: #F59E0B;
+      --brand-blue: #3B82F6;
+      --brand-purple: #8B5CF6;
+      --phone-w: 380px;
+      --phone-h: 780px;
+      --phone-radius: 46px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(16, 185, 129, 0.07) 0%, transparent 35%),
+        radial-gradient(circle at 90% 20%, rgba(245, 158, 11, 0.06) 0%, transparent 30%),
+        radial-gradient(circle at 50% 85%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+    }
+
+    /* Top Sticky Navigation Bar */
+    header.workbench-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--bg-panel-border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #047857, #10B981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 14px var(--brand-green-glow);
+    }
+
+    .nav-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .nav-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .screen-pills-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0;
+      max-width: 680px;
+      scrollbar-width: thin;
+    }
+
+    .screen-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .screen-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .screen-pill.active {
+      background: var(--brand-green);
+      border-color: #34D399;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+    }
+
+    .view-toggle-group {
+      display: inline-flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--bg-panel-border);
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-btn.active {
+      background: #1E293B;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Main Container */
+    main.workbench-container {
+      padding: 24px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+
+    /* Simulator View */
+    .simulator-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0 60px;
+    }
+
+    .simulator-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .sim-nav-btn {
+      background: #1E293B;
+      border: 1px solid var(--bg-panel-border);
+      color: #fff;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sim-nav-btn:hover:not(:disabled) {
+      background: var(--brand-green-light);
+      transform: scale(1.08);
+    }
+
+    .sim-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Technical Spec Panel */
+    .sim-details-panel {
+      max-width: 450px;
+      background: var(--bg-panel);
+      border: 1px solid var(--bg-panel-border);
+      border-radius: 20px;
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spec-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #34D399;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    /* Panoramic Storyboard Flow View */
+    .flow-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* Phone Chassis Mockup */
+    .phone-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .phone-meta-header {
+      width: 100%;
+      max-width: var(--phone-w);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+    }
+
+    .phone-step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #10B981;
+      background: rgba(16, 185, 129, 0.12);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .phone-step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+
+    .phone-chassis {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: #030712;
+      border-radius: var(--phone-radius);
+      padding: 12px;
+      position: relative;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8),
+                  0 0 0 1px rgba(255, 255, 255, 0.12),
+                  inset 0 0 0 2px #1E293B;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .phone-viewport {
+      width: 100%;
+      height: 100%;
+      background: #0A1124;
+      border-radius: 36px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      color: #F8FAFC;
+      scrollbar-width: none;
+    }
+
+    .phone-viewport::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* iOS Status Bar */
+    .phone-status-bar {
+      height: 44px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #F8FAFC;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: inherit;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      width: 105px;
+      height: 26px;
+      background: #000;
+      border-radius: 18px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 10px;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+    }
+
+    .island-cam {
+      width: 10px;
+      height: 10px;
+      background: #111827;
+      border-radius: 50%;
+    }
+
+    .island-sensor {
+      width: 8px;
+      height: 8px;
+      background: #0a0f1d;
+      border-radius: 50%;
+    }
+
+    /* Bottom Home Indicator */
+    .home-indicator-bar {
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: sticky;
+      bottom: 0;
+      background: inherit;
+      z-index: 50;
+    }
+
+    .home-indicator-pill {
+      width: 130px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 10px;
+    }
+
+    /* Screen Inner Content */
+    .screen-body {
+      flex: 1;
+      padding: 14px 18px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .app-back-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .sec-seal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #34D399;
+    }
+
+    .screen-heading {
+      font-size: 21px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.25;
+      margin-bottom: 5px;
+      letter-spacing: -0.02em;
+    }
+
+    .screen-subheading {
+      font-size: 12.5px;
+      color: #94A3B8;
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    /* Buttons */
+    .mobile-btn-primary {
+      width: 100%;
+      height: 50px;
+      background: linear-gradient(135deg, #059669, #10B981);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 14px;
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px var(--brand-green-glow);
+      transition: all 0.2s;
+      margin-top: auto;
+    }
+
+    .mobile-btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .mobile-btn-primary:disabled {
+      background: #334155;
+      color: #94A3B8;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* Keyholder Selection Cards */
+    .kh-card-choice {
+      background: #0F172A;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 9px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .kh-card-choice.selected {
+      border-color: #10B981;
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .kh-icon-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .kh-meta-info {
+      flex: 1;
+    }
+
+    .kh-meta-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--brand-gold);
+      font-weight: 700;
+    }
+
+    .kh-meta-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Biometric Sensor Graphic */
+    .biometric-sensor-ring {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.1);
+      border: 2px dashed #10B981;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 16px auto;
+      position: relative;
+      animation: pulseSensor 2.5s infinite;
+    }
+
+    @keyframes pulseSensor {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      50% { transform: scale(1.05); box-shadow: 0 0 20px 6px rgba(16, 185, 129, 0.2); }
+    }
+
+    /* Camera Viewfinder */
+    .camera-frame-box {
+      flex: 1;
+      background: #020617;
+      border-radius: 20px;
+      border: 1px solid #1E293B;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 12px;
+      margin-bottom: 14px;
+    }
+
+    .face-reticle-oval {
+      width: 170px;
+      height: 220px;
+      border: 2.5px solid #10B981;
+      border-radius: 50% 50% 45% 45%;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), inset 0 0 15px rgba(16, 185, 129, 0.15);
+      position: relative;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scanner-sweep {
+      position: absolute;
+      width: 90%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #34D399, transparent);
+      box-shadow: 0 0 10px #34D399;
+      animation: sweepAnim 2s infinite ease-in-out;
+    }
+
+    @keyframes sweepAnim {
+      0% { top: 15%; opacity: 0.2; }
+      50% { top: 85%; opacity: 1; }
+      100% { top: 15%; opacity: 0.2; }
+    }
+
+    /* GPS Map Radar */
+    .gps-map-container {
+      background: #060B18;
+      border: 1.5px solid #1E293B;
+      border-radius: 18px;
+      height: 180px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    .radar-circle {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .radar-sweep-beam {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      background: conic-gradient(from 0deg, rgba(16, 185, 129, 0.4) 0deg, transparent 60deg);
+      border-radius: 50%;
+      animation: radarRotate 4s linear infinite;
+    }
+
+    @keyframes radarRotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .perimeter-pin {
+      position: relative;
+      z-index: 10;
+      background: #10B981;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #10B981;
+      border: 2px solid #fff;
+    }
+
+    /* Checklist Badge Rows */
+    .factor-check-row {
+      background: #0F172A;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .check-circle {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #10B981;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* 4-Party Progress Cards */
+    .party-slot-card {
+      background: #0F172A;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .party-slot-card.done {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.06);
+    }
+
+    /* Code Snippet Box */
+    .crypto-code-card {
+      background: #050914;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #34D399;
+      line-height: 1.5;
+      word-break: break-all;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation & Controls -->
+  <header class="workbench-nav">
+    <div class="nav-brand">
+      <div class="nav-logo-badge">🔐</div>
+      <div class="nav-title">
+        <h1>Keyholder Mobile Companion — DKG & 4-Factor Step-Up</h1>
+        <p>Pedersen Distributed Key Generation • 3-of-4 Shamir Threshold • Live Mobile Flow</p>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <!-- Screen switcher pills -->
+      <div class="screen-pills-bar" id="screenPillsBar">
+        <button class="screen-pill active" onclick="selectScreen(1)">1. Custodian Login</button>
+        <button class="screen-pill" onclick="selectScreen(2)">2. Fingerprint</button>
+        <button class="screen-pill" onclick="selectScreen(3)">3. Face Liveliness</button>
+        <button class="screen-pill" onclick="selectScreen(4)">4. Geofence GPS</button>
+        <button class="screen-pill" onclick="selectScreen(5)">5. Token Minted</button>
+        <button class="screen-pill" onclick="selectScreen(6)">6. DKG Polynomial</button>
+        <button class="screen-pill" onclick="selectScreen(7)">7. 4-Party DKG State</button>
+        <button class="screen-pill" onclick="selectScreen(8)">8. Post-Election Tally</button>
+      </div>
+
+      <!-- View mode toggle -->
+      <div class="view-toggle-group">
+        <button class="toggle-btn active" id="btnSingleMode" onclick="setMode('simulator')">
+          📱 Device Simulator
+        </button>
+        <button class="toggle-btn" id="btnFlowMode" onclick="setMode('flow')">
+          🗺️ Panoramic Storyboard (All 8)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="workbench-container">
+
+    <!-- VIEW MODE A: SINGLE SCREEN SIMULATOR -->
+    <div id="simulatorContainer" class="simulator-view">
+      <div class="simulator-stage">
+        
+        <!-- Left Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnPrev" onclick="navigateStep(-1)" title="Previous Screen">←</button>
+
+        <!-- Phone Chassis Mockup -->
+        <div class="phone-wrapper" id="singlePhoneWrapper">
+          <!-- Dynamically populated by renderSingleScreen() -->
+        </div>
+
+        <!-- Right Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnNext" onclick="navigateStep(1)" title="Next Screen">→</button>
+
+        <!-- Technical Specification Panel for the Active Screen -->
+        <div class="sim-details-panel">
+          <span class="spec-tag" id="panelStepCode">KEYHOLDER STEP 1 OF 8</span>
+          <h2 id="panelStepTitle" style="font-size: 20px; font-weight: 700; color: #fff;">Custodian Identity & Code</h2>
+          <p id="panelStepDesc" style="font-size: 13.5px; color: var(--text-muted); line-height: 1.6;">
+            The keyholder selects their assigned electoral seat and enters their salted authorization passcode.
+          </p>
+
+          <div style="border-top: 1px solid var(--bg-panel-border); padding-top: 14px;">
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Cryptographic & Backend Guard</h4>
+            <div id="panelCryptoNotes" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #34D399; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; line-height: 1.5;">
+              POST /keyshares/auth → Validates against salted hash in `keyholders` DB table. Key index tied to identity.
+            </div>
+          </div>
+
+          <div>
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Touch UX & Mobile Best Practices</h4>
+            <ul id="panelUxNotes" style="font-size: 13px; color: #D1D5DB; padding-left: 18px; line-height: 1.6;">
+              <li>High-contrast keyholder selector cards.</li>
+              <li>Pre-filled salted authorization passcode for seamless testing.</li>
+              <li>Election cycle badge (NATIONAL-2026-001).</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW MODE B: PANORAMIC STORYBOARD FLOW (ALL 8 SCREENS SIDE-BY-SIDE) -->
+    <div id="flowContainer" class="flow-view" style="display: none;">
+      <!-- Generated automatically by renderAllScreens() -->
+    </div>
+
+  </main>
+
+  <script>
+    // State
+    let currentScreenIndex = 1; // 1 to 8
+    let viewMode = 'simulator';
+    let selectedKhId = 'KH-001';
+
+    // 8 Mobile Screens Data
+    const screensData = [
+      {
+        id: 1,
+        title: "Custodian Identity & Passcode",
+        subtitle: "Keyholder identity binding & salted authentication passcode",
+        specCode: "FACTOR 1 • IDENTITY CREDENTIAL",
+        cryptoNotes: "POST /keyshares/auth → Verifies against salted SHA-256 hash in `keyholders` table: SHA256(passphrase || KEYHOLDER_PASSPHRASE_SALT). Binds keyholder index (1..4) to this hardware session.",
+        uxNotes: [
+          "Interactive selection among the 4 constitutional custodians.",
+          "Masked passcode field with quick auto-fill helper.",
+          "Clear election state pill (NATIONAL-2026-001).",
+          "One-touch progression to biometric check."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:02</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/><path d="M12 6c-3.31 0-6 2.69-6 6 0 1.45.52 2.78 1.38 3.83l.71-.71A4.978 4.978 0 0 1 7 12c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.15-.39 2.22-1.04 3.07l.71.71A5.98 5.98 0 0 0 18 12c0-3.31-2.69-6-6-6z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <span class="sec-seal-badge">
+                  🛡️ Sovereign Keyholder
+                </span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--brand-gold);">3-of-4 DKG</span>
+              </div>
+
+              <h2 class="screen-heading">Electoral Custodian Authentication</h2>
+              <p class="screen-subheading">Select your designated seat and enter your authorized credential code.</p>
+
+              <!-- Keyholder Choices -->
+              <div class="kh-card-choice ${selectedKhId === 'KH-001' ? 'selected' : ''}" onclick="pickKh('KH-001')">
+                <div class="kh-icon-avatar">🏛️</div>
+                <div class="kh-meta-info">
+                  <div class="kh-meta-id">KH-001 • INDEX 1</div>
+                  <div class="kh-meta-title">Chief Election Commissioner</div>
+                </div>
+              </div>
+
+              <div class="kh-card-choice ${selectedKhId === 'KH-002' ? 'selected' : ''}" onclick="pickKh('KH-002')">
+                <div class="kh-icon-avatar">⚖️</div>
+                <div class="kh-meta-info">
+                  <div class="kh-meta-id">KH-002 • INDEX 2</div>
+                  <div class="kh-meta-title">Judiciary Observer (Supreme Court)</div>
+                </div>
+              </div>
+
+              <div class="kh-card-choice ${selectedKhId === 'KH-003' ? 'selected' : ''}" onclick="pickKh('KH-003')">
+                <div class="kh-icon-avatar">🎓</div>
+                <div class="kh-meta-info">
+                  <div class="kh-meta-id">KH-003 • INDEX 3</div>
+                  <div class="kh-meta-title">Academic Cryptography Auditor</div>
+                </div>
+              </div>
+
+              <div class="kh-card-choice ${selectedKhId === 'KH-004' ? 'selected' : ''}" onclick="pickKh('KH-004')">
+                <div class="kh-icon-avatar">🕊️</div>
+                <div class="kh-meta-info">
+                  <div class="kh-meta-id">KH-004 • INDEX 4</div>
+                  <div class="kh-meta-title">Civil Society Observer</div>
+                </div>
+              </div>
+
+              <!-- Passcode Box -->
+              <div style="margin-top: 6px; margin-bottom: 12px;">
+                <label style="font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase;">Salted Passphrase</label>
+                <div style="background: #020617; border: 1.5px solid #334155; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #10B981;">•••••••• (share001)</span>
+                  <span style="font-size: 10px; background: rgba(16, 185, 129, 0.2); color: #34D399; padding: 2px 6px; border-radius: 4px; font-weight: 700;">VALID</span>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(2)">
+                Continue to Biometric Check
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42 5.43 5.43H5v2z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 2,
+        title: "Hardware Fingerprint Verification",
+        subtitle: "FIDO2 / Secure Enclave biometric challenge",
+        specCode: "FACTOR 2 • BIOMETRIC SENSOR",
+        cryptoNotes: "expo-local-authentication + WebAuthn → Challenge signed inside hardware Secure Enclave. Proves the enrolled physical custodian is present; raw biometric data never leaves phone hardware.",
+        uxNotes: [
+          "Pulsing biometric sensor graphic with glowing green ring.",
+          "Simulates native Touch ID / Biometric Keystore prompt sheet.",
+          "Instant haptic visual feedback upon successful sensor tap."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:03</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(1)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Factor 2 of 4</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Touch ID / Fingerprint</h2>
+              <p class="screen-subheading">Place your registered finger on the sensor to verify physical possession of this hardware token.</p>
+
+              <!-- Sensor Graphic -->
+              <div class="biometric-sensor-ring">
+                <svg width="48" height="48" fill="#10B981" viewBox="0 0 24 24"><path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27.24-.12.54-.03.67.21.12.24.03.54-.21.67-1.39.72-2.56 1.73-3.48 3.03-.08.1-.2.15-.32.15zm16.92.08c-.12 0-.24-.05-.32-.15-.92-1.3-2.09-2.31-3.48-3.03-.24-.13-.33-.43-.21-.67.13-.24.43-.33.67-.21 1.5.77 2.76 1.87 3.75 3.27.16.23.11.54-.12.7-.09.06-.19.09-.29.09zM12 7c-2.76 0-5 2.24-5 5v2c0 2.76 2.24 5 5 5s5-2.24 5-5v-2c0-2.76-2.24-5-5-5zm3 7c0 1.66-1.34 3-3 3s-3-1.34-3-3v-2c0-1.66 1.34-3 3-3s3 1.34 3 3v2z"/></svg>
+              </div>
+
+              <div style="background: #0F172A; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; margin-top: 10px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Sensor Status</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #34D399; font-weight: 700;">READY</span>
+                </div>
+                <p style="font-size: 12px; color: #CBD5E1; line-height: 1.45;">
+                  Hardware Attestation: Android StrongBox / Apple Secure Enclave verification enabled.
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(3)">
+                Confirm Fingerprint Match
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 3,
+        title: "Face Liveliness Check",
+        subtitle: "3D camera anti-coercion & proof-of-life detection",
+        specCode: "FACTOR 3 • 3D LIVELINESS",
+        cryptoNotes: "Camera challenge-response anti-spoofing. Verifies depth, gaze tracking, and micro-movements to reject printed photos or synthetic deepfakes. Transmits signed liveness proof token.",
+        uxNotes: [
+          "Full-screen camera viewfinder with green 3D oval guide.",
+          "Real-time sweep animation simulating infrared face scanning.",
+          "Guidance prompt: 'Blink naturally & tilt head slightly right'.",
+          "Zero raw video frames stored on election servers."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:04</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(2)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Factor 3 of 4</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <!-- Camera Viewfinder -->
+              <div class="camera-frame-box">
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                  <span style="background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 12px; display: flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #EF4444;"></span>
+                    LIVE RETICLE
+                  </span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #10B981;">SCORE: 99.8%</span>
+                </div>
+
+                <div class="face-reticle-oval">
+                  <div class="scanner-sweep"></div>
+                  <!-- Facial landmark dots -->
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; opacity: 0.3;">
+                    <div style="display: flex; gap: 36px;">
+                      <div style="width: 5px; height: 5px; background: #34D399; border-radius: 50%;"></div>
+                      <div style="width: 5px; height: 5px; background: #34D399; border-radius: 50%;"></div>
+                    </div>
+                    <div style="width: 4px; height: 4px; background: #34D399; border-radius: 50%;"></div>
+                    <div style="width: 20px; height: 2px; background: #34D399; border-radius: 4px;"></div>
+                  </div>
+                </div>
+
+                <div style="width: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); border-radius: 12px; padding: 10px; text-align: center;">
+                  <p style="font-size: 13px; font-weight: 700; color: #fff;">👁️ Hold still & blink naturally</p>
+                  <p style="font-size: 11px; color: #94A3B8; margin-top: 2px;">Detecting natural micro-movements & depth</p>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(4)">
+                Liveliness Verified ✓
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 4,
+        title: "Geofenced Physical Location",
+        subtitle: "GPS perimeter check against Election Commission HQ",
+        specCode: "FACTOR 4 • GEOFENCE GPS",
+        cryptoNotes: "expo-location → Validates device GPS within 500m radius of EC Headquarters (23.7746° N, 90.3804° E) or Supreme Court building. Prevents unauthorized off-site or foreign execution.",
+        uxNotes: [
+          "Interactive animated radar map interface.",
+          "Live coordinate readouts with distance calculation (14m from EC Center).",
+          "High-contrast perimeter status badge."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:05</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(3)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Factor 4 of 4</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Secure Perimeter Verification</h2>
+              <p class="screen-subheading">Confirm physical presence inside the Election Commission Secretariat compound.</p>
+
+              <!-- Radar Map -->
+              <div class="gps-map-container">
+                <div class="radar-circle" style="width: 60px; height: 60px;"></div>
+                <div class="radar-circle" style="width: 120px; height: 120px;"></div>
+                <div class="radar-circle" style="width: 180px; height: 180px;"></div>
+                <div class="radar-sweep-beam"></div>
+                <div class="perimeter-pin"></div>
+              </div>
+
+              <!-- Location Details Card -->
+              <div style="background: #0F172A; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Verified Coordinates</span>
+                  <span style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">INSIDE PERIMETER</span>
+                </div>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #fff; font-weight: 600;">
+                  23.7746° N, 90.3804° E
+                </p>
+                <p style="font-size: 11.5px; color: #94A3B8; margin-top: 4px;">
+                  EC Secretariat Chamber • 14 meters from master terminal
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(5)">
+                Confirm Location Match
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 5,
+        title: "Authorization Token Minted",
+        subtitle: "All 4 factors cleared • Ceremony participation token unlocked",
+        specCode: "GATE CLEAR • CEREMONY TOKEN",
+        cryptoNotes: "Backend mints short-lived JWT ceremony participation token bound to keyholder_id and election_id. Unlocks POST /dkg/round1 for polynomial submission.",
+        uxNotes: [
+          "Checklist summarizing all 4 verified factors.",
+          "Gold glowing participation token badge.",
+          "High-visibility CTA: 'Unlock Key Share Generation'."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:06</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(4)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">4/4 Factors Cleared</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <!-- Success Ring Badge -->
+              <div style="text-align: center; margin: 10px 0 16px;">
+                <div style="width: 58px; height: 58px; border-radius: 50%; background: #10B981; color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; box-shadow: 0 8px 22px rgba(16, 185, 129, 0.35);">
+                  <svg width="30" height="30" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h2 class="screen-heading" style="font-size: 20px; margin-bottom: 2px;">Identity Verified</h2>
+                <p style="font-size: 12.5px; color: #94A3B8;">Ceremony participation token successfully issued.</p>
+              </div>
+
+              <!-- Checklist of 4 factors -->
+              <div class="factor-check-row">
+                <span style="font-size: 13px; color: #fff;">1. Salted Passphrase Credential</span>
+                <div class="check-circle">✓</div>
+              </div>
+
+              <div class="factor-check-row">
+                <span style="font-size: 13px; color: #fff;">2. Hardware Fingerprint</span>
+                <div class="check-circle">✓</div>
+              </div>
+
+              <div class="factor-check-row">
+                <span style="font-size: 13px; color: #fff;">3. 3D Face Liveliness</span>
+                <div class="check-circle">✓</div>
+              </div>
+
+              <div class="factor-check-row">
+                <span style="font-size: 13px; color: #fff;">4. Geofence Perimeter Match</span>
+                <div class="check-circle">✓</div>
+              </div>
+
+              <!-- Minted Token Preview -->
+              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 10px 12px; margin-top: 6px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11px; font-weight: 700; color: #F59E0B;">CEREMONY TOKEN</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #FBBF24;">TTL: 05:00</span>
+                </div>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #E2E8F0; margin-top: 4px;">
+                  tok_kh001_dkg_8f29e1a0b3c4
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(6)">
+                ⚡ Launch Key Generation
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 6,
+        title: "DKG Polynomial & Commitments",
+        subtitle: "Local random secret polynomial & public Feldman commitments",
+        specCode: "DKG ROUND 1 • FELDMAN VSS",
+        cryptoNotes: "POST /dkg/round1 → Generates f_i(z) = a_{i,0} + a_{i,1}z + a_{i,2}z^2 mod q. Broadcasts C_{i,k} = g^{a_{i,k}} mod p. Generates ECDH ceremony keypair for encrypted peer channels.",
+        uxNotes: [
+          "Displays mathematical polynomial coefficients generated on-device.",
+          "Shows public Feldman commitments broadcast to the ledger.",
+          "Explains that secret coefficient a_{i,0} never leaves the phone."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:07</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(5)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Round 1 / 3</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Compute Secret Polynomial</h2>
+              <p class="screen-subheading">Generate a local random degree-2 polynomial over finite field ℤ_q.</p>
+
+              <!-- Polynomial Preview -->
+              <div style="background: #0F172A; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px; margin-bottom: 12px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Secret Polynomial f_1(z)</span>
+                <div class="crypto-code-card" style="margin-top: 6px; margin-bottom: 0;">
+                  f_1(z) = a_{1,0} + a_{1,1}z + a_{1,2}z^2 (mod q)
+                </div>
+              </div>
+
+              <!-- Feldman Commitments -->
+              <div style="background: #0F172A; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px; margin-bottom: 16px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: #34D399; font-weight: 700;">Public Feldman Commitments</span>
+                <div class="crypto-code-card" style="margin-top: 6px; margin-bottom: 0; color: #E2E8F0;">
+                  C_{1,0} = g^{a_{1,0}} mod p: 0x7b28…e491<br>
+                  C_{1,1} = g^{a_{1,1}} mod p: 0x3f1a…c082<br>
+                  C_{1,2} = g^{a_{1,2}} mod p: 0x9e5d…b714
+                </div>
+              </div>
+
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 10px; font-size: 11.5px; color: #34D399; margin-bottom: 16px;">
+                ✓ Peer-to-peer ECDH transport keys derived for KH-002, KH-003, KH-004.
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(7)">
+                Broadcast & Enter DKG Chamber
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 7,
+        title: "4-Party DKG Progress Chamber",
+        subtitle: "Multi-party exchange & joint election public key establishment",
+        specCode: "ROUND 2 & 3 • JOINT KEY DERIVED",
+        cryptoNotes: "POST /dkg/round2, /round3 → Keyholders exchange AES-GCM encrypted sub-shares, verify against commitments, and derive master shares s_i. Joint public key y = ∏ C_{j,0} mod p is finalized.",
+        uxNotes: [
+          "Live visual cards for all 4 keyholders showing verified sub-shares.",
+          "Status indicator: '4 of 4 Completed • Ceremony Qualified'.",
+          "Prominently displays the 2048-bit Joint Election Public Key."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:08</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(6)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Ceremony Qualified ✓</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Joint Public Key Established</h2>
+              <p class="screen-subheading">All 4 keyholders verified peer sub-shares. The master election key is sealed.</p>
+
+              <!-- 4 Party Status Slots -->
+              <div class="party-slot-card done">
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: #fff;">KH-001: Election Commission</div>
+                  <div style="font-size: 11px; color: #34D399;">Share s_1 derived ✓</div>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: #34D399;">CONFIRMED</span>
+              </div>
+
+              <div class="party-slot-card done">
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: #fff;">KH-002: Judiciary Observer</div>
+                  <div style="font-size: 11px; color: #34D399;">Share s_2 derived ✓</div>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: #34D399;">CONFIRMED</span>
+              </div>
+
+              <div class="party-slot-card done">
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: #fff;">KH-003: Academic Auditor</div>
+                  <div style="font-size: 11px; color: #34D399;">Share s_3 derived ✓</div>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: #34D399;">CONFIRMED</span>
+              </div>
+
+              <div class="party-slot-card done">
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: #fff;">KH-004: Civil Society</div>
+                  <div style="font-size: 11px; color: #34D399;">Share s_4 derived ✓</div>
+                </div>
+                <span style="font-size: 11px; font-weight: 700; color: #34D399;">CONFIRMED</span>
+              </div>
+
+              <!-- Joint Public Key -->
+              <div style="background: #0F172A; border: 1.5px solid rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 10px 12px; margin-top: 4px; margin-bottom: 14px;">
+                <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: #10B981;">Joint Public Key (y)</span>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #34D399; margin-top: 2px;">
+                  y = 0x4b9a8f21e3d7c504a19b82c3...
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(8)">
+                View Post-Election Tally Flow
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 8,
+        title: "Post-Election Threshold Tallying",
+        subtitle: "3-of-4 keyholders combine partial decryptions without private key leakage",
+        specCode: "POST-ELECTION TALLY • LAGRANGE ℤ_q",
+        cryptoNotes: "POST /keyshares/submit-partial → Keyholders submit d_i = C_1^{s_i} mod p with Chaum-Pedersen DLEQ proofs. Lagrange interpolation recovers plaintext tally M = C_2 / ∏ (d_i)^{λ_i} mod p. Master private key x is NEVER assembled.",
+        uxNotes: [
+          "Shows how 3 of 4 shares are combined after the election closes.",
+          "Verified DLEQ proof indicators for Judiciary, EC, and Academic Auditor.",
+          "Decrypted election tally reveal summary."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:09</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(7)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="sec-seal-badge">Election Closed</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Threshold Decryption</h2>
+              <p class="screen-subheading">Any 3 of the 4 keyholders combine partial decryptions to reveal the election result.</p>
+
+              <!-- Combined Shares Cards -->
+              <div style="background: #0F172A; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 12px; margin-bottom: 12px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--brand-gold); font-weight: 700;">
+                  Lagrange Combination (3/4 Quorum Met)
+                </span>
+                <div style="display: flex; gap: 6px; margin-top: 8px;">
+                  <div style="flex: 1; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px; text-align: center;">
+                    <div style="font-size: 10px; color: #94A3B8;">KH-001</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #34D399;">d_1 ✓</div>
+                  </div>
+                  <div style="flex: 1; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px; text-align: center;">
+                    <div style="font-size: 10px; color: #94A3B8;">KH-002</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #34D399;">d_2 ✓</div>
+                  </div>
+                  <div style="flex: 1; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px; text-align: center;">
+                    <div style="font-size: 10px; color: #94A3B8;">KH-003</div>
+                    <div style="font-size: 12px; font-weight: 700; color: #34D399;">d_3 ✓</div>
+                  </div>
+                  <div style="flex: 1; background: rgba(255, 255, 255, 0.04); border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 6px; text-align: center;">
+                    <div style="font-size: 10px; color: #64748B;">KH-004</div>
+                    <div style="font-size: 11px; color: #64748B;">Standby</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mathematical Result -->
+              <div class="crypto-code-card" style="margin-bottom: 14px;">
+                C_1^x = ∏ (d_i)^{λ_i} mod p<br>
+                M = C_2 / (C_1^x) mod p = g^{∑ v_k} mod p<br>
+                <span style="color: #F59E0B;">Status: Homomorphic Tally Decrypted!</span>
+              </div>
+
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px;">
+                <p style="font-size: 11.5px; color: #34D399; line-height: 1.45;">
+                  <strong>Zero Leakage Guarantee:</strong> Individual ballots remained encrypted. Only the aggregated election total is revealed.
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(1)">
+                Restart Mobile Demo (Screen 1)
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      }
+    ];
+
+    function pickKh(id) {
+      selectedKhId = id;
+      if (viewMode === 'simulator') {
+        renderSingleScreen();
+      } else {
+        renderAllScreens();
+      }
+    }
+
+    function selectScreen(idx) {
+      currentScreenIndex = idx;
+      updatePills();
+
+      if (viewMode === 'simulator') {
+        renderSingleScreen();
+      } else {
+        const el = document.getElementById(`flowScreen-${idx}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function navigateStep(dir) {
+      const next = currentScreenIndex + dir;
+      if (next >= 1 && next <= 8) {
+        selectScreen(next);
+      }
+    }
+
+    function updatePills() {
+      const pills = document.querySelectorAll('.screen-pill');
+      pills.forEach((p, idx) => {
+        if (idx + 1 === currentScreenIndex) {
+          p.classList.add('active');
+        } else {
+          p.classList.remove('active');
+        }
+      });
+
+      const btnPrev = document.getElementById('btnPrev');
+      const btnNext = document.getElementById('btnNext');
+      if (btnPrev && btnNext) {
+        btnPrev.disabled = currentScreenIndex === 1;
+        btnNext.disabled = currentScreenIndex === 8;
+      }
+    }
+
+    function renderSingleScreen() {
+      const screen = screensData.find(s => s.id === currentScreenIndex);
+      const container = document.getElementById('singlePhoneWrapper');
+      if (!screen || !container) return;
+
+      container.innerHTML = `
+        <div class="phone-meta-header">
+          <span class="phone-step-num">STEP ${screen.id} / 8</span>
+          <span class="phone-step-title">${screen.title}</span>
+        </div>
+        <div class="phone-chassis">
+          ${screen.render()}
+        </div>
+      `;
+
+      document.getElementById('panelStepCode').innerText = screen.specCode;
+      document.getElementById('panelStepTitle').innerText = screen.title;
+      document.getElementById('panelStepDesc').innerText = screen.subtitle;
+      document.getElementById('panelCryptoNotes').innerText = screen.cryptoNotes;
+
+      const uxList = document.getElementById('panelUxNotes');
+      uxList.innerHTML = screen.uxNotes.map(n => `<li>${n}</li>`).join('');
+    }
+
+    function renderAllScreens() {
+      const flow = document.getElementById('flowContainer');
+      if (!flow) return;
+
+      flow.innerHTML = screensData.map(screen => `
+        <div class="phone-wrapper" id="flowScreen-${screen.id}">
+          <div class="phone-meta-header">
+            <span class="phone-step-num">STEP ${screen.id} / 8</span>
+            <span class="phone-step-title">${screen.title}</span>
+          </div>
+          <div class="phone-chassis">
+            ${screen.render()}
+          </div>
+          <div style="max-width: var(--phone-w); width: 100%; padding: 10px 4px;">
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4;">
+              <strong style="color: #34D399;">Backend:</strong> ${screen.cryptoNotes}
+            </p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setMode(mode) {
+      viewMode = mode;
+      const simContainer = document.getElementById('simulatorContainer');
+      const flowContainer = document.getElementById('flowContainer');
+      const btnSim = document.getElementById('btnSingleMode');
+      const btnFlow = document.getElementById('btnFlowMode');
+
+      if (mode === 'simulator') {
+        simContainer.style.display = 'flex';
+        flowContainer.style.display = 'none';
+        btnSim.classList.add('active');
+        btnFlow.classList.remove('active');
+        renderSingleScreen();
+      } else {
+        simContainer.style.display = 'none';
+        flowContainer.style.display = 'grid';
+        btnSim.classList.remove('active');
+        btnFlow.classList.add('active');
+        renderAllScreens();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSingleScreen();
+      updatePills();
+    });
+  </script>
+</body>
+</html>

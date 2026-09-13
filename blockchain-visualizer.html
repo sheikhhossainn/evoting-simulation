@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blockchain Batch & Chain Visualizer — Mobile App Flow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #070B14;
+      --bg-panel: #0F172A;
+      --bg-panel-border: rgba(255, 255, 255, 0.08);
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --brand-green: #059669;
+      --brand-green-light: #10B981;
+      --brand-green-glow: rgba(16, 185, 129, 0.25);
+      --brand-navy: #0A2540;
+      --brand-blue: #38BDF8;
+      --brand-blue-glow: rgba(56, 189, 248, 0.25);
+      --brand-gold: #F59E0B;
+      --brand-red: #EF4444;
+      --phone-w: 380px;
+      --phone-h: 780px;
+      --phone-radius: 46px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 12% 15%, rgba(16, 185, 129, 0.06) 0%, transparent 35%),
+        radial-gradient(circle at 88% 18%, rgba(56, 189, 248, 0.06) 0%, transparent 35%),
+        radial-gradient(circle at 50% 85%, rgba(245, 158, 11, 0.04) 0%, transparent 40%);
+    }
+
+    /* Top Sticky Header */
+    header.workbench-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--bg-panel-border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284C7, #10B981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 14px var(--brand-blue-glow);
+    }
+
+    .nav-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .nav-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .screen-pills-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0;
+      max-width: 680px;
+      scrollbar-width: thin;
+    }
+
+    .screen-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .screen-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .screen-pill.active {
+      background: #0284C7;
+      border-color: #38BDF8;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(56, 189, 248, 0.3);
+    }
+
+    .view-toggle-group {
+      display: inline-flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--bg-panel-border);
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-btn.active {
+      background: #1E293B;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Main Container */
+    main.workbench-container {
+      padding: 24px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+
+    /* Simulator View */
+    .simulator-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0 60px;
+    }
+
+    .simulator-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .sim-nav-btn {
+      background: #1E293B;
+      border: 1px solid var(--bg-panel-border);
+      color: #fff;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sim-nav-btn:hover:not(:disabled) {
+      background: #0284C7;
+      transform: scale(1.08);
+    }
+
+    .sim-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .sim-details-panel {
+      max-width: 450px;
+      background: var(--bg-panel);
+      border: 1px solid var(--bg-panel-border);
+      border-radius: 20px;
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spec-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #38BDF8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    /* Storyboard Panoramic Mode */
+    .flow-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* Phone Chassis Mockup */
+    .phone-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .phone-meta-header {
+      width: 100%;
+      max-width: var(--phone-w);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px;
+    }
+
+    .phone-step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #38BDF8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .phone-step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+
+    .phone-chassis {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: #030712;
+      border-radius: var(--phone-radius);
+      padding: 12px;
+      position: relative;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8),
+                  0 0 0 1px rgba(255, 255, 255, 0.12),
+                  inset 0 0 0 2px #1E293B;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .phone-viewport {
+      width: 100%;
+      height: 100%;
+      background: #070D1D;
+      border-radius: 36px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      color: #F8FAFC;
+      scrollbar-width: none;
+    }
+
+    .phone-viewport::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* iOS Status Bar */
+    .phone-status-bar {
+      height: 44px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #F8FAFC;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: inherit;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      width: 105px;
+      height: 26px;
+      background: #000;
+      border-radius: 18px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 10px;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+    }
+
+    .island-cam {
+      width: 10px;
+      height: 10px;
+      background: #111827;
+      border-radius: 50%;
+    }
+
+    .island-sensor {
+      width: 8px;
+      height: 8px;
+      background: #0a0f1d;
+      border-radius: 50%;
+    }
+
+    .home-indicator-bar {
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: sticky;
+      bottom: 0;
+      background: inherit;
+      z-index: 50;
+    }
+
+    .home-indicator-pill {
+      width: 130px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 10px;
+    }
+
+    .screen-body {
+      flex: 1;
+      padding: 14px 18px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-top-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .app-back-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .chain-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #38BDF8;
+    }
+
+    .screen-heading {
+      font-size: 21px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.25;
+      margin-bottom: 5px;
+      letter-spacing: -0.02em;
+    }
+
+    .screen-subheading {
+      font-size: 12.5px;
+      color: #94A3B8;
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    .mobile-btn-primary {
+      width: 100%;
+      height: 50px;
+      background: linear-gradient(135deg, #0284C7, #0284C7);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 14px;
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px var(--brand-blue-glow);
+      transition: all 0.2s;
+      margin-top: auto;
+    }
+
+    .mobile-btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    /* Blocks Linking Visualization inside Mobile View */
+    .mobile-chain-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .mobile-block-card {
+      background: #0E172D;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      position: relative;
+    }
+
+    .mobile-block-card.active-block {
+      border-color: #38BDF8;
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.2);
+    }
+
+    .mobile-block-card.tamper-red {
+      border-color: #EF4444 !important;
+      background: rgba(239, 68, 68, 0.1) !important;
+    }
+
+    .block-link-pipe {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 4px 0;
+      color: #38BDF8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .pipe-line {
+      height: 14px;
+      width: 2px;
+      background: #38BDF8;
+    }
+
+    .pipe-line.broken {
+      background: #EF4444;
+      box-shadow: 0 0 8px #EF4444;
+    }
+
+    .code-box-mini {
+      background: #040813;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #38BDF8;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .merkle-tree-pill {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Navigation Bar -->
+  <header class="workbench-nav">
+    <div class="nav-brand">
+      <div class="nav-logo-badge">⛓️</div>
+      <div class="nav-title">
+        <h1>Blockchain Batch & Chain Visualizer — Mobile App Flow</h1>
+        <p>Ethereum Sepolia Batch Anchoring • Cryptographic Hash Linking • Live Mobile Screen Flow</p>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <!-- Screen switcher pills -->
+      <div class="screen-pills-bar" id="screenPillsBar">
+        <button class="screen-pill active" onclick="selectScreen(1)">1. Ledger Home</button>
+        <button class="screen-pill" onclick="selectScreen(2)">2. Votes Mempool</button>
+        <button class="screen-pill" onclick="selectScreen(3)">3. Merkle Assembly</button>
+        <button class="screen-pill" onclick="selectScreen(4)">4. Sepolia Anchor</button>
+        <button class="screen-pill" onclick="selectScreen(5)">5. Chained Blocks</button>
+        <button class="screen-pill" onclick="selectScreen(6)">6. Inclusion Proof</button>
+        <button class="screen-pill" onclick="selectScreen(7)">7. Tamper Alert</button>
+        <button class="screen-pill" onclick="selectScreen(8)">8. Verified Ledger</button>
+      </div>
+
+      <!-- View layout toggle -->
+      <div class="view-toggle-group">
+        <button class="toggle-btn active" id="btnSingleMode" onclick="setMode('simulator')">
+          📱 Device Simulator
+        </button>
+        <button class="toggle-btn" id="btnFlowMode" onclick="setMode('flow')">
+          🗺️ Panoramic Storyboard (All 8)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="workbench-container">
+
+    <!-- VIEW MODE A: SINGLE SCREEN SIMULATOR -->
+    <div id="simulatorContainer" class="simulator-view">
+      <div class="simulator-stage">
+        
+        <!-- Left Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnPrev" onclick="navigateStep(-1)" title="Previous Screen">←</button>
+
+        <!-- Phone Chassis Mockup -->
+        <div class="phone-wrapper" id="singlePhoneWrapper">
+          <!-- Dynamically populated by renderSingleScreen() -->
+        </div>
+
+        <!-- Right Navigation Arrow -->
+        <button class="sim-nav-btn" id="btnNext" onclick="navigateStep(1)" title="Next Screen">→</button>
+
+        <!-- Technical Specification Panel for the Active Screen -->
+        <div class="sim-details-panel">
+          <span class="spec-tag" id="panelStepCode">BLOCKCHAIN SCREEN 1 OF 8</span>
+          <h2 id="panelStepTitle" style="font-size: 20px; font-weight: 700; color: #fff;">Ledger Pulse & Status</h2>
+          <p id="panelStepDesc" style="font-size: 13.5px; color: var(--text-muted); line-height: 1.6;">
+            The mobile citizen or observer views live on-chain anchoring status on Ethereum Sepolia testnet.
+          </p>
+
+          <div style="border-top: 1px solid var(--bg-panel-border); padding-top: 14px;">
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Blockchain Smart Contract Bindings</h4>
+            <div id="panelCryptoNotes" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #38BDF8; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; line-height: 1.5;">
+              Contract: 0x4b5C381c62876d34bBDDefDe02e872E5a93401b6<br>
+              Network: Ethereum Sepolia (ChainID: 11155111)
+            </div>
+          </div>
+
+          <div>
+            <h4 style="font-size: 12px; text-transform: uppercase; color: #9CA3AF; margin-bottom: 8px; letter-spacing: 0.05em;">Mobile UX & Blockchain Visualization</h4>
+            <ul id="panelUxNotes" style="font-size: 13px; color: #D1D5DB; padding-left: 18px; line-height: 1.6;">
+              <li>Live block height card with pulse indicator.</li>
+              <li>Batch counter (14 batches, 700 encrypted votes).</li>
+              <li>Gas meter & instant Etherscan explorer deep links.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW MODE B: PANORAMIC STORYBOARD FLOW (ALL 8 SCREENS SIDE-BY-SIDE) -->
+    <div id="flowContainer" class="flow-view" style="display: none;">
+      <!-- Generated automatically by renderAllScreens() -->
+    </div>
+
+  </main>
+
+  <script>
+    let currentScreenIndex = 1; // 1 to 8
+    let viewMode = 'simulator';
+
+    // 8 Mobile Screens Data for Blockchain Visualizer
+    const screensData = [
+      {
+        id: 1,
+        title: "Blockchain Ledger Pulse",
+        subtitle: "Ethereum Sepolia anchor status & block height dashboard",
+        specCode: "SCREEN 1 • LEDGER OVERVIEW",
+        cryptoNotes: "GET /public/stats + ethers.js provider → Retrieves latest block number, gas price, anchored dense batch count (14 batches = 700 votes), and smart contract address.",
+        uxNotes: [
+          "Live pulse dot indicating active Ethereum Sepolia testnet connection.",
+          "High-contrast metric tiles: Block #6,412,894 and 14 Batches.",
+          "One-tap CTA: 'Inspect Votes Mempool' to see pending batch assembly."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:14</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <span class="chain-badge">
+                  <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
+                  Sepolia Testnet
+                </span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94A3B8;">11155111</span>
+              </div>
+
+              <h2 class="screen-heading">Blockchain Trust Ledger</h2>
+              <p class="screen-subheading">Public proof anchor. Every batch of votes is locked onto the Ethereum blockchain.</p>
+
+              <!-- Main Block Height Card -->
+              <div style="background: linear-gradient(145deg, #0F1D38, #0B1327); border: 1.5px solid rgba(56, 189, 248, 0.3); border-radius: 18px; padding: 18px; margin-bottom: 14px;">
+                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38BDF8;">Current Block Height</span>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 800; color: #fff; margin-top: 4px;">
+                  #6,412,894
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11.5px; color: #94A3B8;">
+                  <span>Latest Batch: <strong style="color: #fff;">Batch #14</strong></span>
+                  <span style="color: #10B981; font-weight: 700;">Synced ✓</span>
+                </div>
+              </div>
+
+              <!-- Two Metric Cards -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px;">
+                  <span style="font-size: 10.5px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Batches Anchored</span>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 800; color: #10B981; margin-top: 2px;">
+                    14 Batches
+                  </div>
+                  <span style="font-size: 10px; color: #64748B;">700 Total Ballots</span>
+                </div>
+
+                <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px;">
+                  <span style="font-size: 10.5px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Sparse Tree (SMT)</span>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 800; color: #F59E0B; margin-top: 2px;">
+                    256-bit
+                  </div>
+                  <span style="font-size: 10px; color: #64748B;">Anti-Deletion Active</span>
+                </div>
+              </div>
+
+              <!-- Contract Info Pill -->
+              <div style="background: #040813; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-bottom: 16px;">
+                <span style="color: #94A3B8;">Contract:</span>
+                <p style="color: #38BDF8; font-weight: 600; margin-top: 2px;">0x4b5C381c62876d34bB…01b6</p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(2)">
+                Inspect Votes Mempool
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M5 13h11.86l-5.43 5.43 1.42 1.42L21.14 12l-8.29-8.29-1.42 1.42 5.43 5.43H5v2z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 2,
+        title: "Encrypted Votes Mempool",
+        subtitle: "Incoming ballot queue awaiting 50-vote batch threshold",
+        specCode: "SCREEN 2 • MEMPOOL INGESTION",
+        cryptoNotes: "Mobile votes with ElGamal ciphertext (c1, c2) and Chaum-Pedersen CDS94 ZKP proofs accumulate in memory. When queue reaches 50 votes, dense Merkle batching is triggered.",
+        uxNotes: [
+          "Shows real-time queue progress (42 / 50 Votes Collected).",
+          "Individual incoming ballot cards with encrypted Vote IDs.",
+          "Visual indicator that ballots remain encrypted in the queue."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:15</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(1)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">Batch #15 Queue</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Pending Votes Mempool</h2>
+              <p class="screen-subheading">Encrypted ballots submitted by mobile voters waiting for batch packaging.</p>
+
+              <!-- Progress Bar -->
+              <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+                  <span style="color: #94A3B8; font-weight: 700;">BATCH CAPACITY</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; color: #38BDF8; font-weight: 700;">42 / 50 Ballots (84%)</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: #040813; border-radius: 4px; overflow: hidden;">
+                  <div style="width: 84%; height: 100%; background: linear-gradient(90deg, #0284C7, #38BDF8); border-radius: 4px;"></div>
+                </div>
+              </div>
+
+              <!-- Queued Votes Stream -->
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fff;">EVT-9F83A20B71E4</span>
+                    <p style="font-size: 10.5px; color: #10B981;">ElGamal (c1, c2) • ZKP Valid</p>
+                  </div>
+                  <span style="font-size: 10px; font-weight: 700; color: #38BDF8; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">LEAF #0</span>
+                </div>
+
+                <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fff;">EVT-4C71B89A3D02</span>
+                    <p style="font-size: 10.5px; color: #10B981;">ElGamal (c1, c2) • ZKP Valid</p>
+                  </div>
+                  <span style="font-size: 10px; font-weight: 700; color: #38BDF8; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">LEAF #1</span>
+                </div>
+
+                <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #fff;">EVT-2A90E5C41F87</span>
+                    <p style="font-size: 10.5px; color: #10B981;">ElGamal (c1, c2) • ZKP Valid</p>
+                  </div>
+                  <span style="font-size: 10px; font-weight: 700; color: #38BDF8; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">LEAF #2</span>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(3)">
+                Assemble Merkle Tree
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 3,
+        title: "Dense Merkle Tree Assembly",
+        subtitle: "Cryptographic hash tree construction over 50 ballot leaves",
+        specCode: "SCREEN 3 • MERKLE ROOTS",
+        cryptoNotes: "Constructs canonical Keccak-256 dense Merkle tree over the ordered vote records. Computes batch root and updates 256-bit Sparse Merkle Tree (SMT) with nullifier key non-membership proofs.",
+        uxNotes: [
+          "Hierarchical tree visualization: Root, Intermediate Nodes, and Leaves.",
+          "Displays 32-byte hexadecimal Merkle Root (`0x9b4ce1f8...`).",
+          "SMT non-deletion anti-tamper badge."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:16</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(2)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">Keccak-256 Tree</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Cryptographic Merkle Tree</h2>
+              <p class="screen-subheading">50 votes are combined into a single 32-byte cryptographic root hash.</p>
+
+              <!-- Merkle Root Highlight Card -->
+              <div style="background: #0E172D; border: 1.5px solid #10B981; border-radius: 14px; padding: 14px; margin-bottom: 12px;">
+                <span style="font-size: 10.5px; text-transform: uppercase; color: #10B981; font-weight: 700;">BATCH #15 MERKLE ROOT</span>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #34D399; font-weight: 700; margin-top: 4px; word-break: break-all;">
+                  0x9b4ce1f83a7e10b28f194c3d2e1f0a9b
+                </p>
+              </div>
+
+              <!-- Intermediate Branches -->
+              <div class="merkle-tree-pill">
+                <span>Left Branch H_{0-24}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; color: #fff;">0x3a7e…10b2</span>
+              </div>
+              <div class="merkle-tree-pill">
+                <span>Right Branch H_{25-49}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; color: #fff;">0x8f19…4c3d</span>
+              </div>
+
+              <!-- SMT Anti-Deletion Note -->
+              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 10px 12px; margin-top: 10px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11px; font-weight: 700; color: #F59E0B;">256-BIT SMT ROOT</span>
+                  <span style="font-size: 10px; color: #34D399; font-weight: 700;">VERIFIED</span>
+                </div>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #E2E8F0; margin-top: 2px;">
+                  0xbb54d7f2e5f6a7b8c9d0e1f2…
+                </p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(4)">
+                Anchor to Ethereum Sepolia
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 4,
+        title: "Sepolia Smart Contract Anchoring",
+        subtitle: "Calling anchorRoot() on MerkleRootStorage.sol",
+        specCode: "SCREEN 4 • SMART CONTRACT TX",
+        cryptoNotes: "POST /anchor/batch → Calls `anchorRoot(root, smtRoot, voteCount)` on contract `0x4b5C381c62876d34bBDDefDe02e872E5a93401b6`. Sepolia testnet transaction confirmed in block.",
+        uxNotes: [
+          "Displays transaction gas estimate (approx. 45,000 gas).",
+          "Shows transaction payload parameters.",
+          "Animated pulse indicating on-chain mining confirmation."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:17</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(3)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">Contract Call</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Anchor Batch Transaction</h2>
+              <p class="screen-subheading">Committing Batch #15 to the immutable Ethereum Sepolia ledger.</p>
+
+              <!-- Transaction Payload Card -->
+              <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8; margin-bottom: 6px;">
+                  <span>FUNCTION:</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; color: #38BDF8; font-weight: 700;">anchorRoot()</span>
+                </div>
+                <div class="code-box-mini">
+                  target: 0x4b5C381c…01b6<br>
+                  batchId: 15<br>
+                  voteCount: 50<br>
+                  gasUsed: 44,819 wei
+                </div>
+              </div>
+
+              <!-- Tx Hash Card -->
+              <div style="background: #0E172D; border: 1.5px solid #38BDF8; border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 10.5px; text-transform: uppercase; color: #38BDF8; font-weight: 700;">Sepolia Tx Hash</span>
+                  <span style="font-size: 10px; color: #10B981; font-weight: 700;">CONFIRMED</span>
+                </div>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #fff; margin-top: 4px;">
+                  0x7a3fe91b4c08d2f6a0b7e1c3d5f8a2b4c6d8e0f1…
+                </p>
+                <p style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Mined into Sepolia Block #6,412,895</p>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(5)">
+                View Connected Blocks
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 5,
+        title: "Connected Blocks & Hash Linking",
+        subtitle: "Visualizing blocks linked together by previous block hash",
+        specCode: "SCREEN 5 • BLOCKCHAIN LINK",
+        cryptoNotes: "Demonstrates cryptographic chain integrity: Block N's header includes `prev_hash = SHA256(Block_{N-1})`. Modifying any earlier block breaks the hash link of all subsequent blocks.",
+        uxNotes: [
+          "Stacked mobile blocks connected by glowing vertical pipe links.",
+          "Visualizes Block #6,412,895 linked to #6,412,894 linked to #6,412,893.",
+          "Shows how each block preserves the Merkle root of its batch."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:18</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(4)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">Chained Blocks</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Cryptographic Block Chain</h2>
+              <p class="screen-subheading">Blocks are indelibly connected by cryptographic parent hashes.</p>
+
+              <div class="mobile-chain-stack">
+                <!-- Block 15 (Latest) -->
+                <div class="mobile-block-card active-block">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #fff;">📦 Block #6,412,895</span>
+                    <span style="font-size: 10px; color: #10B981; font-weight: 700;">BATCH #15</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94A3B8;">
+                    Hash: <span style="color: #38BDF8;">0x4b9a8f21…</span><br>
+                    Prev: 0x3f1ac082…<br>
+                    Root: 0x9b4ce1f8…
+                  </div>
+                </div>
+
+                <!-- Connector -->
+                <div class="block-link-pipe">
+                  <div class="pipe-line"></div>
+                  <span>LINKED VIA PREV_HASH</span>
+                  <div class="pipe-line"></div>
+                </div>
+
+                <!-- Block 14 -->
+                <div class="mobile-block-card">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #fff;">📦 Block #6,412,894</span>
+                    <span style="font-size: 10px; color: #94A3B8; font-weight: 700;">BATCH #14</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94A3B8;">
+                    Hash: <span style="color: #38BDF8;">0x3f1ac082…</span><br>
+                    Prev: 0x9e5db714…<br>
+                    Root: 0x8a7f2d3c…
+                  </div>
+                </div>
+
+                <!-- Connector -->
+                <div class="block-link-pipe">
+                  <div class="pipe-line"></div>
+                  <span>LINKED VIA PREV_HASH</span>
+                  <div class="pipe-line"></div>
+                </div>
+
+                <!-- Block 13 -->
+                <div class="mobile-block-card">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #fff;">📦 Block #6,412,893</span>
+                    <span style="font-size: 10px; color: #94A3B8; font-weight: 700;">BATCH #13</span>
+                  </div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #94A3B8;">
+                    Hash: <span style="color: #38BDF8;">0x9e5db714…</span><br>
+                    Prev: 0x7a3fe91b…
+                  </div>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(6)">
+                Verify Individual Vote Proof
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 6,
+        title: "Individual Vote Inclusion Proof",
+        subtitle: "Merkle proof verifying ballot presence in on-chain block",
+        specCode: "SCREEN 6 • INCLUSION AUDIT",
+        cryptoNotes: "GET /anchor/verify/:voteId → Generates sibling proof path for leaf EVT-9F83A20B71E4. Executes OZ MerkleProof.verify(proof, root, leaf). Returns 200 OK with on-chain block reference.",
+        uxNotes: [
+          "Displays voter's encrypted Vote ID (`EVT-9F83A20B71E4`).",
+          "Auditor green checkmark showing proof path verified against Sepolia root.",
+          "Allows voter to verify their vote without decrypting their choice."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:19</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(5)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">Inclusion Proof</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading">Ballot Inclusion Verified</h2>
+              <p class="screen-subheading">Cryptographic proof that your ballot is locked in Block #6,412,895.</p>
+
+              <!-- Receipt Target -->
+              <div style="background: #0E172D; border: 1.5px solid #10B981; border-radius: 14px; padding: 14px; margin-bottom: 12px;">
+                <span style="font-size: 10.5px; text-transform: uppercase; color: #10B981; font-weight: 700;">YOUR ENCRYPTED VOTE ID</span>
+                <p style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: #fff; margin-top: 4px;">
+                  EVT-9F83A20B71E4
+                </p>
+                <span style="font-size: 11px; color: #94A3B8;">Leaf Index #0 in Batch #15</span>
+              </div>
+
+              <!-- Merkle Proof Sibling Path -->
+              <div class="code-box-mini" style="margin-bottom: 12px;">
+                Proof Sibling Hashes (Depth 6):<br>
+                [0]: 0x4c71b89a…3d02<br>
+                [1]: 0x2a90e5c4…1f87<br>
+                [2]: 0x8d15f49b…60e3<br>
+                Root Recomputed: 0x9b4ce1f8… ✓
+              </div>
+
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 10px 12px; font-size: 11.5px; color: #34D399; margin-bottom: 16px;">
+                ✓ Matches on-chain Sepolia storage. Zero identity disclosure.
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(7)">
+                ⚠️ Test Tamper Attack Simulation
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 7,
+        title: "Malicious Tamper Detection Alert",
+        subtitle: "Immediate fraud alert when a database row is altered",
+        specCode: "SCREEN 7 • TAMPER DETECTED",
+        cryptoNotes: "POST /anchor/tamper/ballot → Simulates database attacker flipping an encrypted vote. The recalculation yields root 0xBAD0…F441 != on-chain root 0x9b4c…e1f8. System flags 409 Conflict.",
+        uxNotes: [
+          "High-urgency crimson red alert card.",
+          "Broken chain link indicator between blocks.",
+          "Demonstrates why the blockchain makes retroactive manipulation mathematically impossible."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:20</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(6)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span style="background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                  ⚠️ Tamper Caught
+                </span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <h2 class="screen-heading" style="color: #F87171;">Tamper Detected!</h2>
+              <p class="screen-subheading">A database row was altered! The cryptographic root diverges from Ethereum Sepolia.</p>
+
+              <!-- Severed Block Card -->
+              <div class="mobile-block-card tamper-red" style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #EF4444;">❌ Block #6,412,895 Compromised</span>
+                </div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #FECACA;">
+                  Recalculated: 0xBAD0…F441<br>
+                  Sepolia Anchor: 0x9b4c…e1f8<br>
+                  Result: <strong style="color: #EF4444;">HASH MISMATCH 409</strong>
+                </div>
+              </div>
+
+              <!-- Broken Link Graphic -->
+              <div class="block-link-pipe">
+                <div class="pipe-line broken"></div>
+                <span style="color: #EF4444;">SEVERED HASH LINK ✖</span>
+                <div class="pipe-line broken"></div>
+              </div>
+
+              <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 10px 12px; font-size: 11.5px; color: #FECACA; margin-top: 10px; margin-bottom: 16px;">
+                <strong>Blockchain Immunity:</strong> Because Ethereum Sepolia is immutable, the attacker cannot alter the smart contract. The fraudulent ballot is immediately rejected.
+              </div>
+
+              <button class="mobile-btn-primary" style="background: #10B981;" onclick="selectScreen(8)">
+                ✓ Restore Immutable State
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      },
+      {
+        id: 8,
+        title: "Restored & Verified Public Ledger",
+        subtitle: "Audit complete • Mathematical integrity restored",
+        specCode: "SCREEN 8 • AUDIT SUMMARY",
+        cryptoNotes: "POST /anchor/restore/ballot → Restores canonical database state. Merkle recomputation matches on-chain Sepolia contract 0x4b5C381c62876d34bBDDefDe02e872E5a93401b6. All 15 blocks verified.",
+        uxNotes: [
+          "Triumphant green checkmark.",
+          "Complete ledger audit summary.",
+          "Buttons to restart demo or inspect block explorer."
+        ],
+        render: () => `
+          <div class="phone-viewport">
+            <div class="phone-status-bar">
+              <span>10:21</span>
+              <div class="dynamic-island">
+                <div class="island-cam"></div>
+                <div class="island-sensor"></div>
+              </div>
+              <span style="display: flex; gap: 4px; align-items: center;">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25A9.957 9.957 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10c0 2.32-.79 4.46-2.12 6.16l-.63-.63A8.966 8.966 0 0 0 21 12c0-4.97-4.03-9-9-9z"/></svg>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-1 16H8V6h8v14z"/></svg>
+              </span>
+            </div>
+
+            <div class="screen-body">
+              <div class="app-top-header">
+                <button class="app-back-btn" onclick="selectScreen(7)">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                </button>
+                <span class="chain-badge">100% Verified</span>
+                <div style="width: 34px;"></div>
+              </div>
+
+              <!-- Success Checkmark -->
+              <div style="text-align: center; margin: 10px 0 16px;">
+                <div style="width: 58px; height: 58px; border-radius: 50%; background: #10B981; color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; box-shadow: 0 8px 22px rgba(16, 185, 129, 0.35);">
+                  <svg width="30" height="30" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h2 class="screen-heading" style="font-size: 20px; margin-bottom: 2px;">Ledger Integrity Solid</h2>
+                <p style="font-size: 12.5px; color: #94A3B8;">All 15 Merkle Batches verified on Ethereum Sepolia.</p>
+              </div>
+
+              <!-- Audit Summary Card -->
+              <div style="background: #0E172D; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;">
+                  <span style="color: #94A3B8;">Total Batches Anchored:</span>
+                  <span style="font-weight: 700; color: #fff;">15 Batches</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px;">
+                  <span style="color: #94A3B8;">Total Sealed Ballots:</span>
+                  <span style="font-weight: 700; color: #fff;">750 Votes</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px;">
+                  <span style="color: #94A3B8;">Cryptographic Audit:</span>
+                  <span style="font-weight: 700; color: #10B981;">0 Divergences ✓</span>
+                </div>
+              </div>
+
+              <button class="mobile-btn-primary" onclick="selectScreen(1)">
+                Restart Mobile Demo (Screen 1)
+              </button>
+            </div>
+
+            <div class="home-indicator-bar"><div class="home-indicator-pill"></div></div>
+          </div>
+        `
+      }
+    ];
+
+    function selectScreen(idx) {
+      currentScreenIndex = idx;
+      updatePills();
+
+      if (viewMode === 'simulator') {
+        renderSingleScreen();
+      } else {
+        const el = document.getElementById(`flowScreen-${idx}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function navigateStep(dir) {
+      const next = currentScreenIndex + dir;
+      if (next >= 1 && next <= 8) {
+        selectScreen(next);
+      }
+    }
+
+    function updatePills() {
+      const pills = document.querySelectorAll('.screen-pill');
+      pills.forEach((p, idx) => {
+        if (idx + 1 === currentScreenIndex) {
+          p.classList.add('active');
+        } else {
+          p.classList.remove('active');
+        }
+      });
+
+      const btnPrev = document.getElementById('btnPrev');
+      const btnNext = document.getElementById('btnNext');
+      if (btnPrev && btnNext) {
+        btnPrev.disabled = currentScreenIndex === 1;
+        btnNext.disabled = currentScreenIndex === 8;
+      }
+    }
+
+    function renderSingleScreen() {
+      const screen = screensData.find(s => s.id === currentScreenIndex);
+      const container = document.getElementById('singlePhoneWrapper');
+      if (!screen || !container) return;
+
+      container.innerHTML = `
+        <div class="phone-meta-header">
+          <span class="phone-step-num">STEP ${screen.id} / 8</span>
+          <span class="phone-step-title">${screen.title}</span>
+        </div>
+        <div class="phone-chassis">
+          ${screen.render()}
+        </div>
+      `;
+
+      document.getElementById('panelStepCode').innerText = screen.specCode;
+      document.getElementById('panelStepTitle').innerText = screen.title;
+      document.getElementById('panelStepDesc').innerText = screen.subtitle;
+      document.getElementById('panelCryptoNotes').innerText = screen.cryptoNotes;
+
+      const uxList = document.getElementById('panelUxNotes');
+      uxList.innerHTML = screen.uxNotes.map(n => `<li>${n}</li>`).join('');
+    }
+
+    function renderAllScreens() {
+      const flow = document.getElementById('flowContainer');
+      if (!flow) return;
+
+      flow.innerHTML = screensData.map(screen => `
+        <div class="phone-wrapper" id="flowScreen-${screen.id}">
+          <div class="phone-meta-header">
+            <span class="phone-step-num">STEP ${screen.id} / 8</span>
+            <span class="phone-step-title">${screen.title}</span>
+          </div>
+          <div class="phone-chassis">
+            ${screen.render()}
+          </div>
+          <div style="max-width: var(--phone-w); width: 100%; padding: 10px 4px;">
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height: 1.4;">
+              <strong style="color: #38BDF8;">Backend:</strong> ${screen.cryptoNotes}
+            </p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setMode(mode) {
+      viewMode = mode;
+      const simContainer = document.getElementById('simulatorContainer');
+      const flowContainer = document.getElementById('flowContainer');
+      const btnSim = document.getElementById('btnSingleMode');
+      const btnFlow = document.getElementById('btnFlowMode');
+
+      if (mode === 'simulator') {
+        simContainer.style.display = 'flex';
+        flowContainer.style.display = 'none';
+        btnSim.classList.add('active');
+        btnFlow.classList.remove('active');
+        renderSingleScreen();
+      } else {
+        simContainer.style.display = 'none';
+        flowContainer.style.display = 'grid';
+        btnSim.classList.remove('active');
+        btnFlow.classList.add('active');
+        renderAllScreens();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSingleScreen();
+      updatePills();
+    });
+  </script>
+</body>
+</html>
