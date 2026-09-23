@@ -77,6 +77,25 @@ jobs:
       - run: npm test
         working-directory: blockchain
 
+  # ── P4: portable client crypto (core-crypto workspace) ──
+  # Pure TypeScript, no DB and no chain. Unlike every other backend suite,
+  # this one runs the BACKEND VERIFIER in-process (it imports
+  # backend/src/crypto/{elgamal,zkp}.ts by relative path), so it gates the
+  # property the mobile migration depends on: a ported prover that the
+  # unchanged verifier accepts can never drift from it (D4 / risk R4).
+  core-crypto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # One root install covers the workspace (npm links packages/* itself).
+      - run: npm ci
+      - run: npm test --workspace=packages/core-crypto
+
   # ── Live-DB integrity suites (gated) ──
   # Runs ONLY on manual dispatch. Requires repository secrets pointing at a
   # SEPARATE Supabase test project (never production):

@@ -58,26 +58,26 @@ reach the mobile bundle. Tests import `src/adapters/node.ts` directly.
 
 ## Running the tests
 
-There is no npm workspace in this repo (each package owns its dependencies).
-If this package's deps are installed:
+This package is an npm **workspace** of the repository root
+(`"workspaces": ["packages/*"]` in the root `package.json`), so a fresh clone
+needs exactly one install at the root — no per-package install, no manual
+linking:
 
 ```bash
-cd packages/core-crypto && npm install && npm test
+npm install                                  # from the repository root
+npm test --workspace=packages/core-crypto    # or: npm test -w @evoting/core-crypto
 ```
 
-With nothing installed, run it with the backend's existing vitest (dev
-shortcut used during P4, no network needed):
+This is the same pair of commands the `core-crypto` CI job runs, so the local
+and CI paths cannot drift. The committed root `package-lock.json` pins the
+workspace's dev dependencies (vitest, typescript, @types/node); the root
+`node_modules` — including npm's own link for the workspace member — is
+gitignored.
 
-```powershell
-# one-time: make the backend's node_modules visible to this package
-New-Item -ItemType Junction -Path packages\core-crypto\node_modules `
-  -Target (Resolve-Path backend\node_modules)
-
-# run
-backend\node_modules\.bin\vitest.cmd run --root .\packages\core-crypto
-```
-
-(The junction is gitignored via the root `.gitignore`'s `node_modules` rule.)
+The suite deliberately runs the **backend** verifier in-process (it imports
+`backend/src/crypto/{elgamal,zkp}.ts` by relative path, the same convention
+`blockchain/test` uses for `backend/src/merkle/merkleTree.ts`), so it needs no
+database, no chain and no backend dependency install.
 
 ## Not yet done (P5)
 
