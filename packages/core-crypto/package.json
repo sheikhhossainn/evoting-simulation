@@ -1,0 +1,20 @@
+{
+  "name": "@evoting/core-crypto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "P4 — pure-TypeScript client-side crypto for the mobile voting app: ElGamal encryption, Chaum-Pedersen disjunctive OR-proof of ballot validity, and the Benaloh cast-or-audit path. Ported from frontend/src/utils/elgamal.ts with platform primitives injected.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.10"
+  }
+}
