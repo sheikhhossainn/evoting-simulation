@@ -91,7 +91,7 @@ Re-run over all `frontend/src/**/*.tsx` (22 files): `aria-` = **3**, `role=` = *
 |---|---|
 | `sessions` + `fn_sessions_guard` / `fn_sessions_no_delete` + 3 indexes + RLS | Session layer (D1/T15). C1 CHECK fixed: `ck_sessions_voter_nid_hash_hex CHECK (voter_nid_hash ~ …)`. Only `expires_at` / `last_seen_at` / `revoked_at` may change; delete is blocked (revoke instead). |
 | `admin_actions` + no-update / no-delete guards + 2 indexes + RLS | Append-only admin audit (T4/T16). C2: `actor_admin_id` defaults to the static `'shared-admin'`. |
-| `tally_runs` + no-update / no-delete guards + `idx_tally_runs_latest` + RLS | Append-only tally history and **sole** results store (T19/C3); `UNIQUE (election_id, batch_id, tallied_at)`; the index serves `ORDER BY tallied_at DESC LIMIT 1`. |
+| `tally_runs` + no-update / no-delete guards + `idx_tally_runs_latest` + RLS | Append-only tally history and **sole** results store (T19/C3); `UNIQUE (election_id, batch_id, tallied_at)`. The index is **`(election_id, tallied_at DESC)`** — election-scoped, NOT `tallied_at` alone — and serves `WHERE election_id = $1 ORDER BY tallied_at DESC LIMIT 1`. |
 | `election_status_events` + no-update / no-delete guards + index + RLS | Open/close transition audit (T13/B2), with the C4 atomic-ship note in its header. |
 | `fn_votes_immutable_guard()` (CREATE OR REPLACE) | Extended to also block `zkp_proof` edits (B6). The existing `trg_votes_immutable` already points at this function, so no trigger change was needed. |
 
