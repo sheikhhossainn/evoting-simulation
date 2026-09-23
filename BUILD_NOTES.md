@@ -78,3 +78,24 @@ Re-run over all `frontend/src/**/*.tsx` (22 files): `aria-` = **3**, `role=` = *
 2. Three `it.skip` → `it` conversions with comments updated to state the new precondition (dedicated test project enforced by the loader); stale "no separate test DB yet" comments replaced.
 3. **Verification run:** `npx tsc --noEmit` → exit 0; `npm run test:ci` (the PR-gating fast suite) → **4 files / 47 tests passed**; `npx vitest run src/db/integrity.test.ts` without `.env.test` → **exit 1** with `FATAL: backend/.env.test is required for tests that write to Supabase, and it does not exist … Refusing to fall back to backend/.env (production)` — i.e. fail-closed proven, no production write path.
 4. **Not affected:** the `test:ci` subset and all pure-logic suites are unchanged; no runtime (non-test) code was modified in P0.
+
+---
+
+## 5. P1 progress log
+
+**P1 part 1 — schema append (`schema.sql`). Status: DONE, UNEXECUTED.**
+
+`backend/src/schema.sql` grew by 268 lines (1327 → 1595) with one idempotent, append-only migration section:
+
+| Object | Purpose (trace) |
+|---|---|
+| `sessions` + `fn_sessions_guard` / `fn_sessions_no_delete` + 3 indexes + RLS | Session layer (D1/T15). C1 CHECK fixed: `ck_sessions_voter_nid_hash_hex CHECK (voter_nid_hash ~ …)`. Only `expires_at` / `last_seen_at` / `revoked_at` may change; delete is blocked (revoke instead). |
+| `admin_actions` + no-update / no-delete guards + 2 indexes + RLS | Append-only admin audit (T4/T16). C2: `actor_admin_id` defaults to the static `'shared-admin'`. |
+| `tally_runs` + no-update / no-delete guards + `idx_tally_runs_latest` + RLS | Append-only tally history and **sole** results store (T19/C3); `UNIQUE (election_id, batch_id, tallied_at)`; the index serves `ORDER BY tallied_at DESC LIMIT 1`. |
+| `election_status_events` + no-update / no-delete guards + index + RLS | Open/close transition audit (T13/B2), with the C4 atomic-ship note in its header. |
+| `fn_votes_immutable_guard()` (CREATE OR REPLACE) | Extended to also block `zkp_proof` edits (B6). The existing `trg_votes_immutable` already points at this function, so no trigger change was needed. |
+
+**Verification performed:** `$$` bodies balanced (44 markers = 22 functions); all four `CREATE TABLE IF NOT EXISTS`, all nine `CREATE OR REPLACE FUNCTION` and all eight `CREATE TRIGGER` statements present; the C1 CHECK references `voter_nid_hash`; the `"zkp_proof is immutable after insertion"` clause exists exactly once.
+**Verification NOT possible yet:** the DDL has **not been applied to any database**. Applying it needs the Supabase SQL Editor (repo convention for existing DBs) or `run-schema.ts` (fresh DB), both of which need credentials. **No database state was changed by this work.**
+
+**P1 part 2 (next):** error-envelope helper; `express-rate-limit` + CAPTCHA hooks; `ENABLE_TAMPER_DEMO` gating for the four demo routes; `tally_runs` insert in `POST /keyshares/tally`; `GET /public/results` switched to `tally_runs ORDER BY tallied_at DESC LIMIT 1` (replacing the `tally_results` read).
