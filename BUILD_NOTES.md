@@ -283,3 +283,14 @@ Docs corrected for the consequences (the previous claims were no longer true):
 of these routes has ever run against a live database — the lifecycle and the
 A1 equality are proven against the fake port and the pure identity helpers, not
 against `sessions` itself.
+
+---
+
+## Next session (pointer, not a numbered log)
+
+Handing off? Read **`HANDOFF.md`** in the repo root first. It carries the verified
+git state, the commands to re-run every claim above, the conventions that must
+survive (additive envelopes, injected ports, no un-decided dependencies,
+fail-loud gates, code-and-docs-in-one-commit), the open questions, and the P3
+plan. Remaining phases: **P3, P5, P6, P7** — P3's three parts ship atomically per
+BUILD-BRIEF C4.
