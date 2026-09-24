@@ -323,6 +323,10 @@ router.post(
       const created = await createSession(sessionRepo, {
         electionId: election_id,
         voterNidHash: registered.voter.nid_hash,
+        // Captured here, while the raw NID is transiently in hand, so that
+        // POST /vote can cast the same pseudonym without ever seeing the NID
+        // again (decision A — BUILD_NOTES §7, schema.sql "P2" section).
+        nullifierHash: computeNullifier(nid, election_id),
         deviceId: device_id,
         createdIp: req.ip ?? null,
       });

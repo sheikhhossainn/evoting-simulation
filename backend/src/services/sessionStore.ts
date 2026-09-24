@@ -23,6 +23,8 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ApiErrorCode } from "../middleware/errorEnvelope";
+
 /** Sliding window length. 20 minutes: the voting step spans a few minutes. */
 export const SESSION_TTL_MS = 20 * 60 * 1000;
 
@@ -45,6 +47,14 @@ export interface SessionRow {
   id: string;
   election_id: string;
   voter_nid_hash: string;
+  /**
+   * The ballot pseudonym, captured once at issuance while the server still
+   * holds the raw NID (decision A — BUILD_NOTES §7). /vote reads it from here
+   * so the session path casts the SAME nullifier the legacy raw-NID path
+   * computes; two formulas would let one voter hold two pseudonyms and cast
+   * twice, which is exactly what A1 forbids.
+   */
+  nullifier_hash: string | null;
   token_hash: string;
   device_id: string;
   issued_at: string;
@@ -57,6 +67,7 @@ export interface SessionRow {
 export interface NewSessionRow {
   election_id: string;
   voter_nid_hash: string;
+  nullifier_hash: string;
   token_hash: string;
   device_id: string;
   expires_at: string;
@@ -87,6 +98,33 @@ export type ResolveFailure =
   | "revoked"
   | "device_mismatch";
 
+/**
+ * HTTP mapping for a resolve failure, owned here so the middleware and the
+ * cast-identity resolver cannot drift apart. All are 401: the caller must
+ * re-authenticate; only the code differs, so the app can tell "expired" (silent
+ * re-auth) from "device changed" (make the voter sign in again).
+ */
+export const SESSION_FAILURE_STATUS: Record<ResolveFailure, number> = {
+  invalid_token: 401,
+  expired: 401,
+  revoked: 401,
+  device_mismatch: 401,
+};
+
+export const SESSION_FAILURE_CODE: Record<ResolveFailure, ApiErrorCode> = {
+  invalid_token: "SESSION_INVALID",
+  expired: "SESSION_EXPIRED",
+  revoked: "SESSION_REVOKED",
+  device_mismatch: "DEVICE_MISMATCH",
+};
+
+export const SESSION_FAILURE_MESSAGE: Record<ResolveFailure, string> = {
+  invalid_token: "Session token is not valid — please sign in again.",
+  expired: "Session expired — please sign in again.",
+  revoked: "Session was revoked — please sign in again.",
+  device_mismatch: "This session was issued to a different device — please sign in again.",
+};
+
 export type ResolveResult =
   | { ok: true; session: SessionRow }
   | { ok: false; reason: ResolveFailure };
@@ -112,6 +150,8 @@ export async function createSession(
   input: {
     electionId: string;
     voterNidHash: string;
+    /** SHA-256(nid + election_id + NULLIFIER_SECRET), computed at issuance. */
+    nullifierHash: string;
     deviceId: string;
     createdIp?: string | null;
     now?: number;
@@ -123,6 +163,7 @@ export async function createSession(
   const { data, error } = await repo.insert({
     election_id: input.electionId,
     voter_nid_hash: input.voterNidHash,
+    nullifier_hash: input.nullifierHash,
     token_hash: hashSessionToken(token),
     device_id: input.deviceId,
     expires_at: isoNow(now + SESSION_TTL_MS),
@@ -201,12 +242,20 @@ export async function rotateSession(
   });
   if (!resolved.ok) return resolved;
 
+  // A session with no captured pseudonym (a row predating the capture, or one
+  // written out of band) cannot be rotated into a usable session: refuse,
+  // rather than mint a token that /vote would then have to reject anyway.
+  if (!resolved.session.nullifier_hash) return { ok: false, reason: "invalid_token" };
+
   const { error: revokeError } = await repo.revoke(resolved.session.id, isoNow(now));
   if (revokeError) throw new Error(`session revoke failed: ${revokeError.message ?? "unknown"}`);
 
   const created = await createSession(repo, {
     electionId: resolved.session.election_id,
     voterNidHash: resolved.session.voter_nid_hash,
+    // Rotation re-issues the SAME pseudonym: the identity and its election are
+    // unchanged, so the voter's single ballot position must not move (A1).
+    nullifierHash: resolved.session.nullifier_hash,
     deviceId: resolved.session.device_id,
     createdIp: resolved.session.created_ip,
     now,

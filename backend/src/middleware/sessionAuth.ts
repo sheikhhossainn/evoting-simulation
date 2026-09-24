@@ -20,13 +20,14 @@
 import { Request, Response, NextFunction } from "express";
 
 import {
+  SESSION_FAILURE_CODE,
+  SESSION_FAILURE_MESSAGE,
   resolveSession,
   type ResolveFailure,
   type SessionRepo,
   type SessionRow,
 } from "../services/sessionStore";
 import { sendError, type ApiErrorCode } from "./errorEnvelope";
-
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -52,19 +53,8 @@ export function deviceIdFrom(req: Request): string | null {
   return trimmed ? trimmed : null;
 }
 
-const FAILURE_CODE: Record<ResolveFailure, ApiErrorCode> = {
-  invalid_token: "SESSION_INVALID",
-  expired: "SESSION_EXPIRED",
-  revoked: "SESSION_REVOKED",
-  device_mismatch: "DEVICE_MISMATCH",
-};
-
-const FAILURE_MESSAGE: Record<ResolveFailure, string> = {
-  invalid_token: "Session token is not valid — please sign in again.",
-  expired: "Session expired — please sign in again.",
-  revoked: "Session was revoked — please sign in again.",
-  device_mismatch: "This session was issued to a different device — please sign in again.",
-};
+const FAILURE_CODE = SESSION_FAILURE_CODE;
+const FAILURE_MESSAGE = SESSION_FAILURE_MESSAGE;
 
 /**
  * Map a resolve failure onto the envelope. Exported so routes that re-resolve a

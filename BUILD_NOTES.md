@@ -182,10 +182,10 @@ report a pass-through that never happened. Fixed by awaiting the body.
 (§6 is the P4 log on the `feature/core-crypto` branch; numbering skips it here
 so the two branches do not both claim §6 when they merge.)
 
-**Status: DONE for sessions, `/voter/me`, refresh, revoke, revoke-all and
-`GET /candidates`. NOT DONE: the `POST /vote` migration — blocked on a decision,
-see "Blocker" below. `tsc --noEmit` exit 0; `test:ci` 6 files / 92 tests**
-(63 before, +29).
+**Status: COMPLETE as of decision A — sessions, `/voter/me`, refresh, revoke,
+revoke-all, `GET /candidates` bearer-first, and the `POST /vote` migration
+(which needed the `sessions.nullifier_hash` capture; see the decision below).
+`tsc --noEmit` exit 0; `test:ci` 7 files / 104 tests (63 before P2).**
 
 Delivered:
 
@@ -257,7 +257,29 @@ still accepts `nid` in the body for the web client:
 | **B. Redefine the nullifier as `SHA-256(nid_hash + election_id + secret)`** | Everything becomes derivable from the session; no new column. | Changes an audited security-relevant formula and breaks rows computed the old way — mid-election that could let a voter vote twice. `vote.test.ts` asserts the current formula. |
 | **C. Keep sending the raw NID on cast, behind a valid session** | Smallest step; revocation still applies to every other call. | Contradicts D1 ("the raw NID is retained transiently at login only") and the phone must hold the NID for the whole flow. |
 
-**Not yet evidenced (Open Question #11):** the P1 DDL was never executed and
-none of these routes has ever run against a live database — so the session
-lifecycle is proven against the fake port, not against `sessions` itself, and
-`fn_sessions_guard` compatibility is asserted at field-name level only.
+**DECISION TAKEN — option A**, and it is now implemented:
+
+- `schema.sql` gained an idempotent **P2 section**: `ALTER TABLE sessions ADD
+  COLUMN IF NOT EXISTS nullifier_hash CHAR(64)` (hex CHECK) plus an extended
+  `fn_sessions_guard()` that makes it immutable, like `token_hash`.
+- `POST /voter/session` captures `computeNullifier(nid, election_id)` at
+  issuance, while the raw NID is still in hand; `rotateSession` re-issues the
+  same pseudonym and **refuses** a session that has none.
+- `POST /vote` now derives its identity through `services/castIdentity.ts`
+  (session first; the legacy `nid` field only for the web client), and `nid`
+  became optional in the vote schema. The NID is off the cast path for mobile.
+- The A1 spine is asserted twice: `sessionStore.test.ts` checks the stored
+  pseudonym equals `computeNullifier(nid, election)` and differs per election,
+  and `castIdentity.test.ts` checks the session and legacy paths return
+  byte-identical `(nid_hash, nullifier_hash, constituency_code)`.
+
+Docs corrected for the consequences (the previous claims were no longer true):
+`DATA_AND_API_MIGRATION.md` Unlinkability row now says a database-only reader
+*can* link voter→session→vote and that this was the price of the decision;
+`THREAT_MODEL_AND_SECURITY.md` §4.1 records the same trade-off; the doc's own
+`CREATE TABLE sessions` snippet gained the column.
+
+**Not yet evidenced (Open Question #11):** the DDL was never executed and none
+of these routes has ever run against a live database — the lifecycle and the
+A1 equality are proven against the fake port and the pure identity helpers, not
+against `sessions` itself.

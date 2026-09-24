@@ -344,6 +344,7 @@ describe("requireSession", () => {
     const created = await createSession(fake, {
       electionId: "election-1",
       voterNidHash: "a".repeat(64),
+      nullifierHash: "b".repeat(64),
       deviceId,
     });
     if (!created.ok) throw new Error("fixture failed");

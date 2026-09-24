@@ -52,6 +52,7 @@ export function createFakeSessionRepo(): FakeSessionRepo {
       const full: SessionRow = {
         id: `00000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
         election_id: "election-1",
+        nullifier_hash: "b".repeat(64),
         issued_at: now,
         expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
         last_seen_at: now,
@@ -70,6 +71,7 @@ export function createFakeSessionRepo(): FakeSessionRepo {
         id: `00000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
         election_id: input.election_id,
         voter_nid_hash: input.voter_nid_hash,
+        nullifier_hash: input.nullifier_hash,
         token_hash: input.token_hash,
         device_id: input.device_id,
         issued_at: now,

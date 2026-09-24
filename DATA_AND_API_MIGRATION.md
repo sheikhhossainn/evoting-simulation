@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     election_id   TEXT        NOT NULL REFERENCES elections (election_id),
     voter_nid_hash CHAR(64)   NOT NULL
                      CONSTRAINT ck_sessions_voter_nid_hash_hex CHECK (voter_nid_hash ~ '^[a-f0-9]{64}$'),
+    nullifier_hash CHAR(64)   -- captured at issuance while the raw NID is transiently in hand
+                     CONSTRAINT ck_sessions_nullifier_hash_hex CHECK (nullifier_hash ~ '^[a-f0-9]{64}$'),
+                              -- ^ P2 decision A: /vote casts THIS, so the session path and the
+                              --   legacy raw-NID path share one pseudonym per voter+election (A1)
     token_hash    CHAR(64)    NOT NULL UNIQUE,          -- sha256(server-issued opaque token)
     device_id     UUID        NOT NULL,                 -- generated once per app install
     issued_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -100,7 +104,7 @@ CREATE TABLE IF NOT EXISTS election_status_events (
 | Vote immutability (content) | `trg_votes_immutable` (blocks nullifier/constituency/election/encrypted_vote/created_at) | **extended** to also block `zkp_proof` (B6) |
 | Vote undeletability | `trg_votes_no_delete`; single `SECURITY DEFINER fn_admin_delete_vote` demo path | **unchanged**; demo routes production-flag-off (T4) |
 | Ballot validity / no plaintext choice | Mandatory ZKP vs **server-derived** candidate set (A3/A4) | **unchanged**; the mobile prover must produce byte-identical request bodies (D4) |
-| Unlinkability (vote ↔ voter) | No identity column on `votes`; nullifier = SHA-256(nid‖election‖secret), server-only (A2) | **unchanged**; sessions hold `voter_nid_hash` (not raw NID), so the link is no *easier* server-side |
+| Unlinkability (vote ↔ voter) | No identity column on `votes`; nullifier = SHA-256(nid‖election‖secret), server-only (A2) | **narrowed by P2 decision A**: `sessions` holds `voter_nid_hash` + the captured `nullifier_hash`, so an attacker with *database access only* can now join voter→session→vote without `NULLIFIER_SECRET`. That was the price of letting `/vote` derive the nullifier from the session (there is no way to recompute SHA-256(nid‖eid‖secret) from a hash). The server-side boundary is unchanged (a compromised server + secrets could already link ballots), and nothing new about the NID is exposed — the stored value is the same pseudonym already in `nullifiers`/`votes` |
 | Candidate/constituency set freeze | `trg_candidates/constituencies_immutable_after_commitment` (per-election) | **unchanged** |
 | Partial-decryption immutability | `trg_partial_decryptions_no_update` | **unchanged** |
 | Tally integrity | INSERT-only `partial_decryptions` + DLEQ + ≥3 combine + explicit batch (A8); independent verifier | **strengthened**: `tally_runs` append-only and the **sole** results store (C3) (T19) |
@@ -122,7 +126,7 @@ Legend: **Authz** = current → after; **Validation** = current → after; **DB 
 |---|---|---|---|---|---|---|
 | `POST /voter/register` | none → **rate-limited + CAPTCHA** (T10); unchanged for web | zod `{nid:^\d{11}$, election_id}` (voter.ts:33-36) → same | upsert `voters` (voter.ts:108-120) | rate limit, CAPTCHA, `admin_actions` not involved | **Mobile does not call it**; the session endpoint absorbed registration | `POST /voter/session` (new, §2.1) |
 | `POST /voter/check-nullifier` | none → **drop on mobile**; keep for web with same caveat (B8) | zod same (voter.ts:38-41) | read `nullifiers` only | **participation oracle** (B8) — mobile uses session-scoped `GET /voter/me` instead | Excluded from the mobile client | — |
-| `POST /vote` | none (NID in body) → **session bearer** + `elections.status='voting'` gate (T13) + rate limit (T10) | zod `{nid, encrypted_vote, zkp_proof, election_id}` (vote.ts:45-67) → `{election_id, encrypted_vote, zkp_proof}`; identity from session | `fn_cast_vote` + `nullifiers` (vote.ts:205-263) | A1/A3/A4 unchanged; new: session check, window gate, stable error codes (§3) | Same shape of `encrypted_vote`/`zkp_proof` (byte-identical prover, D4); no NID in request | — |
+| `POST /vote` | none (NID in body) → **session bearer** + `elections.status='voting'` gate (T13) + rate limit (T10) | zod `{nid?, encrypted_vote, zkp_proof, election_id}` — `nid` is **optional** and only for the web client (Open Question #9); identity comes from the session via `services/castIdentity.ts`, which returns the same `(nid_hash, nullifier_hash, constituency_code)` for both credentials (asserted in `castIdentity.test.ts`) | `fn_cast_vote` + `nullifiers` (vote.ts:205-263) | A1/A3/A4 unchanged; new: session check, window gate, stable error codes (§3) | Same shape of `encrypted_vote`/`zkp_proof` (byte-identical prover, D4); no NID in request | — |
 | `GET /candidates` | `x-voter-nid` header (or deprecated `?constituency=`) → **session bearer**; **delete the deprecated query-param path** (candidates.ts:48-73) | NID format check (candidates.ts:43-46) → derived from session | read `candidates` by `(election_id, constituency_code)` | A4 (server derives constituency) | Session auth; sends nothing identity-shaped in the URL | — |
 | `GET /election/public-key` | public → **public (unchanged)** | `election_id` resolution | read `election_key_ceremony` (electionContext.ts:79-89) | 503 until qualified (A12) | Ballot step (S2) uses it through `core-api` | — |
 | `POST /elections` | `x-admin-secret` (**unchanged** — BUILD-BRIEF C2) + `admin_actions` audit row (T4/T16) | zod (elections.ts:28-34) → same + status-transition validation | insert `elections` | audit row per call (actor = `"shared-admin"`); prod excludes nothing here | Admin portal only (web) | — |

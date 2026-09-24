@@ -30,22 +30,26 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { supabase } from "../supabaseClient";
-import {
-  hashNidWithSalt,
-  computeNullifier,
-  constituencyFromNid,
-} from "../crypto/identity";
 import { verifyBallotValidity } from "../crypto/zkp";
 import { getElection, getElectionPublicKey } from "../services/electionContext";
 import { rateLimit } from "../middleware/rateLimit";
 import { mapCastVoteError, sendError } from "../middleware/errorEnvelope";
+import { bearerTokenFrom, deviceIdFrom } from "../middleware/sessionAuth";
+import { createSupabaseCastIdentityDeps, resolveCastIdentity } from "../services/castIdentity";
 
 const router = Router();
+
+const castIdentityDeps = createSupabaseCastIdentityDeps(supabase);
 
 // ── Zod Schema ──
 
 const voteSchema = z.object({
-  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
+  // OPTIONAL, and only for the web client (Open Question #9 — the web page's
+  // fate is undecided). The mobile client authenticates with a session and omits
+  // it entirely: possession of the NID stops being the credential on every cast,
+  // which is the point of the session layer (D1/T15). Identity is derived below
+  // from whichever credential was presented.
+  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits").optional(),
   // NOTE: no plaintext candidate_id field. The ZKP disjunction proof is the
   // sole mechanism that establishes ballot validity — it proves the
   // ciphertext encrypts one of the server-derived constituency candidates
@@ -95,11 +99,24 @@ router.post(
       return;
     }
 
-    // ── Derive everything server-side from the raw NID ──
-    // The raw NID is used only here, transiently, and is never persisted.
-    const nidHash = hashNidWithSalt(nid);
-    const nullifierHash = computeNullifier(nid, election_id);
-    const constituencyCode = constituencyFromNid(nid, election.constituency_count);
+    // ── Derive identity server-side: session first, raw NID only for the web ──
+    // Both credentials yield the SAME (nid_hash, nullifier_hash,
+    // constituency_code) for a given voter + election, so A1 does not depend on
+    // which one the client used — asserted in services/castIdentity.test.ts.
+    const identity = await resolveCastIdentity(castIdentityDeps, {
+      token: bearerTokenFrom(req),
+      deviceId: deviceIdFrom(req),
+      electionId: election_id,
+      constituencyCount: election.constituency_count,
+      legacyNid: nid,
+    });
+
+    if (!identity.ok) {
+      sendError(res, identity.status, identity.code, identity.message);
+      return;
+    }
+
+    const { nidHash, nullifierHash, constituencyCode } = identity;
 
     // ── Step 0: Election setup commitment must be anchored before any vote ──
     // docs/tally-verifiability-design.md §8.2.5: "POST /vote should refuse to

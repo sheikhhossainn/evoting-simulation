@@ -11,7 +11,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { hashNidWithSalt } from "../crypto/identity";
+import { hashNidWithSalt, computeNullifier } from "../crypto/identity";
 import {
   SESSION_TTL_MS,
   createSession,
@@ -41,6 +41,7 @@ async function issue(deviceId = DEVICE_A, now = Date.now()) {
   const result = await createSession(repo, {
     electionId: ELECTION,
     voterNidHash: hashNidWithSalt(NID),
+    nullifierHash: computeNullifier(NID, ELECTION),
     deviceId,
     createdIp: "203.0.113.9",
     now,
@@ -103,6 +104,21 @@ describe("session identity binding (A1 must not weaken)", () => {
     await issue();
 
     expect(JSON.stringify(repo.rows)).not.toContain(NID);
+  });
+
+  it("THE A1 ASSERTION: the stored pseudonym equals the raw-NID path's value", async () => {
+    await issue();
+
+    // This is why decision A was chosen: the session captures the nullifier at
+    // issuance, so /vote can cast it without the NID and still collide with the
+    // web path's nullifier on uq_votes_election_nullifier_hash.
+    expect(repo.rows[0].nullifier_hash).toBe(computeNullifier(NID, ELECTION));
+  });
+
+  it("scopes the pseudonym per election (a session for A cannot stand in for B)", async () => {
+    await issue();
+
+    expect(repo.rows[0].nullifier_hash).not.toBe(computeNullifier(NID, "election-2"));
   });
 
   it("allows a second device to hold its own session (multi-device is the deferred product decision)", async () => {
@@ -265,6 +281,7 @@ describe("session lifecycle", () => {
     const otherVoter = await createSession(repo, {
       electionId: ELECTION,
       voterNidHash: hashNidWithSalt("99999999999"),
+      nullifierHash: computeNullifier("99999999999", ELECTION),
       deviceId: DEVICE_A,
     });
     expect(otherVoter.ok).toBe(true);
@@ -286,6 +303,7 @@ describe("session lifecycle", () => {
     const otherElection = await createSession(repo, {
       electionId: "election-2",
       voterNidHash: hashNidWithSalt(NID),
+      nullifierHash: computeNullifier(NID, "election-2"),
       deviceId: DEVICE_A,
     });
     expect(otherElection.ok).toBe(true);

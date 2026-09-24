@@ -1593,3 +1593,68 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+-- =============================================================
+-- P2 — session cast material (mobile migration; decision A, BUILD_NOTES §7)
+-- =============================================================
+-- Applied idempotently like every other section in this file (Supabase SQL
+-- Editor; run-schema.ts picks it up for fresh databases).
+--
+-- WHY THIS COLUMN EXISTS:
+-- THREAT_MODEL_AND_SECURITY.md §4.1 requires POST /vote to derive its identity
+-- server-side from the session, with no raw NID on the wire. constituency_code
+-- is derivable from the `voters` row the session is bound to, but
+-- nullifier_hash is SHA-256(nid ‖ election_id ‖ NULLIFIER_SECRET) and a hash
+-- cannot be un-hashed. So the server captures the nullifier ONCE at session
+-- issuance — while it transiently holds the raw NID — and /vote reads it back.
+--
+-- WHY THAT MATTERS (A1):
+-- The session path must cast the *identical* pseudonym the legacy raw-NID path
+-- computes. Two formulas, or two pseudonyms for one voter in one election,
+-- would let a single voter cast twice — the exact invariant fn_cast_vote and
+-- uq_votes_election_nullifier_hash exist to prevent. The equality is asserted
+-- in backend/src/services/sessionStore.test.ts.
+--
+-- TRADE-OFF, recorded rather than hidden: this stores a pseudonym beside
+-- voter_nid_hash, so a reader with database access ALONE can link a hashed
+-- voter to a vote row; previously that also required NULLIFIER_SECRET. The
+-- "no easier server-side" claim in DATA_AND_API_MIGRATION.md is corrected
+-- accordingly. Nothing new about the NID itself is exposed: the stored value is
+-- the same nullifier already persisted in `nullifiers` and `votes`.
+--
+-- Nullable only so this ALTER applies to a table that may already hold rows;
+-- every session created by POST /voter/session sets it, /vote refuses a session
+-- without one, and rotation refuses to propagate one (sessionStore.ts).
+ALTER TABLE sessions
+    ADD COLUMN IF NOT EXISTS nullifier_hash CHAR(64)
+        CONSTRAINT ck_sessions_nullifier_hash_hex
+            CHECK (nullifier_hash ~ '^[a-f0-9]{64}$');
+
+-- Extend the sessions guard: the captured pseudonym is part of the session's
+-- identity, so it is immutable after insertion exactly like token_hash and
+-- voter_nid_hash. (CREATE OR REPLACE keeps the existing trigger valid.)
+CREATE OR REPLACE FUNCTION fn_sessions_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.token_hash IS DISTINCT FROM NEW.token_hash THEN
+        RAISE EXCEPTION 'sessions.token_hash is immutable after insertion';
+    END IF;
+    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
+        RAISE EXCEPTION 'sessions.voter_nid_hash is immutable after insertion';
+    END IF;
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'sessions.nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'sessions.election_id is immutable after insertion';
+    END IF;
+    IF OLD.device_id IS DISTINCT FROM NEW.device_id THEN
+        RAISE EXCEPTION 'sessions.device_id is immutable after insertion';
+    END IF;
+    IF OLD.issued_at IS DISTINCT FROM NEW.issued_at THEN
+        RAISE EXCEPTION 'sessions.issued_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
