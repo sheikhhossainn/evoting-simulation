@@ -241,7 +241,7 @@ export function encodeCandidateId(id: string): bigint {
 }
 
 /** Reform a UUID string from the 128-bit BigInt produced by encodeCandidateId */
-function decodeCandidateId(n: bigint): string {
+export function decodeCandidateId(n: bigint): string {
   const hex = n.toString(16).padStart(32, "0");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
@@ -332,32 +332,4 @@ export function decryptCandidateId(
   const m = (c2 * sInv) % p;
 
   return decodeCandidateId(m);
-}
-
-/**
- * Load an ElGamal public key from environment variables.
- * Returns null if any key component is missing.
- */
-export function loadPublicKeyFromEnv(): ElGamalPublicKey | null {
-  const p = process.env.ELGAMAL_P;
-  const g = process.env.ELGAMAL_G;
-  const y = process.env.ELGAMAL_PUBLIC_KEY;
-
-  if (!p || !g || !y) return null;
-
-  return { p, g, y };
-}
-
-/**
- * Load an ElGamal private key from environment variables.
- * Returns null if any key component is missing.
- */
-export function loadPrivateKeyFromEnv(): ElGamalPrivateKey | null {
-  const p = process.env.ELGAMAL_P;
-  const g = process.env.ELGAMAL_G;
-  const x = process.env.ELGAMAL_PRIVATE_KEY;
-
-  if (!p || !g || !x) return null;
-
-  return { p, g, x };
 }

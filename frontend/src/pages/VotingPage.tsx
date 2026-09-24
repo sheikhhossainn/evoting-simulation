@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ELECTION_ID } from "../utils/nullifier";
+import { getElectionId } from "../utils/nullifier";
 import {
   checkNullifier,
   submitVote,
@@ -66,6 +66,7 @@ const VotingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const ELECTION_ID = getElectionId(location.search);
 
   const voterNid = state?.nid ?? "00000000000";
   // Fall back to the same deterministic mapping the backend uses, in case
@@ -98,7 +99,7 @@ const VotingPage = () => {
   // Load the real candidate roster (DB UUIDs) and the election's ElGamal
   // public key so the ballot can be genuinely encrypted client-side.
   useEffect(() => {
-    getCandidates(voterNid)
+    getCandidates(voterNid, ELECTION_ID)
       .then((res) => {
         setCandidates(res.candidates);
         setResolvedConstituency(res.constituency_code);
@@ -108,7 +109,7 @@ const VotingPage = () => {
         setLoadError("Unable to load candidates. Please ensure the backend is running.");
       });
 
-    getElectionPublicKey()
+    getElectionPublicKey(ELECTION_ID)
       .then(setPublicKey)
       .catch((err) => {
         console.error("Failed to load election public key", err);
@@ -206,10 +207,9 @@ const VotingPage = () => {
 
       // 3. Submit vote to backend with ZKP proof. Only the raw NID (for
       // server-side derivation), the encrypted ballot, and the validity
-      // proof are sent — no client-computed hashes.
+      // proof are sent — no client-computed hashes, no plaintext candidate id.
       const result = await submitVote(
-        voterNid, selectedCandidate.id, encryptedVote, ELECTION_ID,
-        zkpProof, allCandidateIds
+        voterNid, encryptedVote, ELECTION_ID, zkpProof
       );
 
       // 4. Success — navigate to confirmation

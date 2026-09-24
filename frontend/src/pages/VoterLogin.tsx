@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { registerVoter, ApiError } from "../utils/api";
+import { getElectionId } from "../utils/nullifier";
 
 const VoterLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const ELECTION_ID = getElectionId(location.search);
   const [nid, setNid] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +32,7 @@ const VoterLogin = () => {
     setError(null);
 
     try {
-      const voter = await registerVoter(nid);
+      const voter = await registerVoter(nid, ELECTION_ID);
 
       if (voter.has_voted) {
         setError("You have already voted in this election.");
@@ -37,8 +40,10 @@ const VoterLogin = () => {
         return;
       }
 
-      // Navigate to voting page with voter data
-      navigate("/voter/vote", {
+      // Navigate to voting page with voter data — forward election_id via
+      // the URL (location.search) so VotingPage resolves the SAME election,
+      // same pattern as KeyHolderLogin.tsx forwarding batch_id/election_id.
+      navigate(`/voter/vote${location.search}`, {
         state: {
           nid,
           nidHash: voter.nid_hash,

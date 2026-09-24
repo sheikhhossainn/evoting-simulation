@@ -36,7 +36,7 @@ export function hashVoteLeaf(vote: VoteLeafInput): string {
 }
 
 /** Commutative pair hash: keccak256(sorted(a, b)) */
-function hashPair(a: string, b: string): string {
+export function hashPair(a: string, b: string): string {
   const [x, y] = BigInt(a) <= BigInt(b) ? [a, b] : [b, a];
   return ethers.keccak256(ethers.concat([x, y]));
 }

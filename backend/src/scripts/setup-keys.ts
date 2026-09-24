@@ -1,10 +1,16 @@
 /**
- * setup-keys.ts — One-time ElGamal keypair + NID salt generator
+ * setup-keys.ts — One-time NID salt generator (+ dev-only ElGamal keypair)
  *
  * Run: npx ts-node src/scripts/setup-keys.ts
  *
- * Generates ElGamal keypair and NID_HASH_SALT, then appends them
- * to backend/.env. Skips any key that already exists in .env.
+ * NID_HASH_SALT is real config, used in production. The ElGamal keypair
+ * (ELGAMAL_P/G/PUBLIC_KEY/PRIVATE_KEY) it also writes to .env is NOT used by
+ * production vote encryption/decryption anymore — that key now comes
+ * entirely from the DKG ceremony (election_key_ceremony, see
+ * services/electionContext.ts's getElectionPublicKey and routes/dkg.ts).
+ * These env vars are only consumed by the deprecated dev-only trusted-dealer
+ * path, scripts/setup-shamir-zq.ts, kept around for fast local iteration
+ * without running a 4-tab DKG ceremony.
  */
 
 import fs from "fs";

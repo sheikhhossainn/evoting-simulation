@@ -318,6 +318,31 @@ CREATE TRIGGER trg_votes_no_delete
     BEFORE DELETE ON votes
     FOR EACH ROW EXECUTE FUNCTION fn_votes_no_delete();
 
+-- ── Scoped, audited exception: admin-triggered vote deletion (demo only) ──
+-- Normal DELETEs stay blocked by trg_votes_no_delete above — this function
+-- is the ONE narrow, explicit path around it, used solely by the SMT
+-- deletion-detection demo (docs/smt-design.md §13 test 19,
+-- POST /anchor/tamper/delete-vote in backend/src/routes/anchor.ts, gated by
+-- requireAdminSecret). It disables the guard trigger only for the duration
+-- of this single call, on this session, then re-enables it unconditionally
+-- (including on error) — it is not a standing bypass. Update
+-- docs/threat_model.md if this function's existence changes the DB-admin
+-- threat entry.
+CREATE OR REPLACE FUNCTION fn_admin_delete_vote(p_vote_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    ALTER TABLE votes DISABLE TRIGGER trg_votes_no_delete;
+    DELETE FROM votes WHERE id = p_vote_id;
+    ALTER TABLE votes ENABLE TRIGGER trg_votes_no_delete;
+EXCEPTION WHEN OTHERS THEN
+    ALTER TABLE votes ENABLE TRIGGER trg_votes_no_delete;
+    RAISE;
+END;
+$$;
+
 -- =============================================================
 -- 4. STORED PROCEDURES
 -- =============================================================
@@ -638,4 +663,998 @@ ALTER TABLE tally_results ENABLE ROW LEVEL SECURITY;
 --   • GET /public/results (public, no auth) reads the latest row —
 --     returns { status: "not_tallied" } if none exists yet
 -- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — SMT Batches Table Schema (docs/smt-design.md)
+--
+-- Each row records one anchor of the cumulative Sparse Merkle Tree over
+-- nullifier_hash keys (backend/src/merkle/sparseMerkleTree.ts), anchored
+-- alongside — not replacing — the per-batch dense tree in merkle_batches
+-- above. smt_batch_id mirrors MerkleRootStorage.sol's sequential
+-- smtBatches[smtBatchId], independent of merkle_batches.batch_id.
+-- =============================================================
+
+CREATE TABLE smt_batches (
+    -- Primary key: auto-generated UUID
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Sequential on-chain SMT batch id (MerkleRootStorage.smtBatches[smtBatchId])
+    smt_batch_id        BIGINT      NOT NULL UNIQUE,
+
+    -- New cumulative SMT root anchored on-chain for this batch
+    smt_root            CHAR(66)    NOT NULL
+                        CONSTRAINT ck_smt_batches_smt_root_hex
+                            CHECK (smt_root ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- The previous smt_root this batch chains from (EMPTY_TREE_ROOT for the
+    -- first batch) — the chain-continuity value the contract re-derives and
+    -- checks, kept here too for local auditability without a chain read.
+    previous_smt_root   CHAR(66)    NOT NULL
+                        CONSTRAINT ck_smt_batches_previous_smt_root_hex
+                            CHECK (previous_smt_root ~ '^0x[a-fA-F0-9]{64}$'),
+
+    -- Count of genuinely new keys inserted this batch. May be 0 for a
+    -- deletion-triggered re-anchor (docs/smt-design.md §13 test 19) — the
+    -- root changes but no new key was added.
+    new_keys_this_batch  INTEGER    NOT NULL
+                        CONSTRAINT ck_smt_batches_new_keys_non_negative
+                            CHECK (new_keys_this_batch >= 0),
+
+    -- Running total of insertions ever made — a monotonic ledger, NOT the
+    -- tree's current live key count (a later deletion does not decrement
+    -- this; see MerkleRootStorage.sol's anchorSmtRoot comment).
+    total_keys_anchored  BIGINT     NOT NULL
+                        CONSTRAINT ck_smt_batches_total_keys_non_negative
+                            CHECK (total_keys_anchored >= 0),
+
+    -- Polygon transaction hash for the anchorSmtRoot() call
+    tx_hash              VARCHAR(66) NOT NULL
+                        CONSTRAINT ck_smt_batches_tx_hash_hex
+                            CHECK (tx_hash ~ '^0x[a-fA-F0-9]{64}$'),
+
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_smt_batches_smt_batch_id ON smt_batches (smt_batch_id);
+
+-- ── Row-Level Security ──
+ALTER TABLE smt_batches ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • runAnchorSmtBatch() (backend/src/services/anchorSmtBatch.ts) inserts
+--     one row here after each successful on-chain anchorSmtRoot() call,
+--     called in lockstep with runAnchorBatch()'s merkle_batches insert
+--   • GET /anchor/verify-smt/:voteId regenerates a membership or
+--     non-membership proof against the current cumulative tree and
+--     verifies it both locally and against the on-chain contract
+-- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — Verifiable Tally Schema (docs/tally-verifiability-design.md)
+--
+-- Replaces the old raw-Shamir-share submission flow (key_shares.share_value,
+-- GF(2^8)) with the Z_q + Feldman VSS + Chaum-Pedersen DLEQ flow. The old
+-- share_value column and the old shamir.ts module are left in place,
+-- untouched, but are no longer written or read by any route — see
+-- backend/src/crypto/shamirZq.ts, dleq.ts, docs/tally-verifiability-design.md §14.
+-- =============================================================
+
+-- ── key_shares: add the public commitment column for the new flow ──
+-- public_commitment = y_i = g^(x_i) mod p (§2.1) — NOT secret, published at
+-- ceremony time so keyholders and verifiers can check it against the
+-- Feldman coefficient commitments in election_key_ceremony below. Distinct
+-- from the old share_value column (the old flow's raw GF(2^8) share,
+-- deprecated, never populated by the new ceremony script).
+ALTER TABLE key_shares
+    ADD COLUMN IF NOT EXISTS public_commitment TEXT
+        CONSTRAINT ck_key_shares_public_commitment_hex
+            CHECK (public_commitment IS NULL OR public_commitment ~ '^[0-9a-f]+$');
+
+-- ── Election key ceremony: per-election group params + Feldman commitments ──
+-- One row per election. Published once at ceremony time — p, g, and the
+-- Feldman coefficient commitments C_0..C_2 (docs §2.1) are all public; no
+-- secret material is ever stored here. C_0 == the ElGamal public key y.
+CREATE TABLE election_key_ceremony (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id         TEXT        NOT NULL UNIQUE,
+    p_hex               TEXT        NOT NULL,
+    g_hex               TEXT        NOT NULL,
+    -- Feldman commitments C_0..C_2 (t=3), each a hex-encoded group element.
+    -- C_0 must equal the public key y — cross-checked at ceremony time, not
+    -- re-derived here (no CHECK constraint can compare against an external value).
+    feldman_commitments JSONB       NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_key_ceremony ENABLE ROW LEVEL SECURITY;
+
+-- ── Partial decryptions: the new /keyshares/submit-partial payload ──
+-- One row per (election_id, ballot_id, keyholder_index) submission.
+-- d_i and the DLEQ proof are the ONLY things that ever cross the wire from
+-- a keyholder in the new flow — the raw share x_i is computed and held
+-- client-side and never appears here or anywhere backend-reachable
+-- (docs/tally-verifiability-design.md §7/§7.1).
+CREATE TABLE partial_decryptions (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id     TEXT        NOT NULL,
+    ballot_id       UUID        NOT NULL REFERENCES votes (id),
+    keyholder_index INTEGER     NOT NULL CHECK (keyholder_index BETWEEN 1 AND 4),
+
+    d_i             TEXT        NOT NULL
+                    CONSTRAINT ck_partial_decryptions_d_i_hex
+                        CHECK (d_i ~ '^[0-9a-f]+$'),
+
+    -- Chaum-Pedersen DLEQ proof (docs §5.1) — (t1, t2, z), all hex.
+    proof_t1        TEXT        NOT NULL,
+    proof_t2        TEXT        NOT NULL,
+    proof_z         TEXT        NOT NULL,
+
+    -- Set by the tally route after independently re-verifying the proof
+    -- (docs §5.2) — never trusted purely because it was accepted at
+    -- submission time; re-checked at combination time too, so this column
+    -- is a cache/audit trail, not the sole gate.
+    verified        BOOLEAN     NOT NULL DEFAULT false,
+
+    submitted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT uq_partial_decryptions_ballot_keyholder
+        UNIQUE (election_id, ballot_id, keyholder_index)
+);
+
+CREATE INDEX idx_partial_decryptions_ballot
+    ON partial_decryptions (election_id, ballot_id);
+
+ALTER TABLE partial_decryptions ENABLE ROW LEVEL SECURITY;
+
+-- ── Election setup commitment: candidate/constituency integrity (§8.2) ──
+-- One row per election, written once, before voting opens. Mirrors the
+-- write-once semantics of the on-chain ElectionSetupCommitment contract —
+-- this table is the off-chain record of what was anchored, not a second
+-- source of truth; GET routes re-derive from candidates/constituencies and
+-- compare against the ON-CHAIN commitment, not this row, for anything
+-- security-relevant (this row is bookkeeping/convenience only).
+CREATE TABLE election_setup_commitments (
+    id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id             TEXT        NOT NULL UNIQUE,
+    commitment              CHAR(66)    NOT NULL
+                            CONSTRAINT ck_election_setup_commitment_hex
+                                CHECK (commitment ~ '^0x[a-fA-F0-9]{64}$'),
+    candidates_root         CHAR(66)    NOT NULL,
+    constituencies_root     CHAR(66)    NOT NULL,
+    contract_address        VARCHAR(42),
+    tx_hash                 VARCHAR(66),
+    anchored_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_setup_commitments ENABLE ROW LEVEL SECURITY;
+
+-- ── candidates/constituencies immutability, GATED on a commitment existing ──
+-- Unlike votes (always immutable), candidates/constituencies are mutable
+-- during election SETUP but must freeze the instant a commitment is
+-- anchored — otherwise the on-chain commitment stays truthful about the
+-- past while the live system silently drifts underneath it (docs §8.2.4's
+-- "live DB drift" adversarial case, found by reading this file directly —
+-- neither table had ANY immutability guard before this migration).
+--
+-- This system currently models a single global candidate list (no
+-- per-election election_id column on candidates/constituencies) — the gate
+-- is therefore global: ANY anchored commitment freezes both tables. This
+-- matches the system's existing single-election assumption; a multi-election
+-- deployment would need to scope both the gate and the tables themselves.
+CREATE OR REPLACE FUNCTION fn_candidates_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM election_setup_commitments) THEN
+        RAISE EXCEPTION 'candidates are immutable once an election setup commitment has been anchored';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_candidates_immutable_after_commitment
+    BEFORE UPDATE OR DELETE ON candidates
+    FOR EACH ROW EXECUTE FUNCTION fn_candidates_immutable_after_commitment();
+
+CREATE OR REPLACE FUNCTION fn_constituencies_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM election_setup_commitments) THEN
+        RAISE EXCEPTION 'constituencies are immutable once an election setup commitment has been anchored';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_constituencies_immutable_after_commitment
+    BEFORE UPDATE OR DELETE ON constituencies
+    FOR EACH ROW EXECUTE FUNCTION fn_constituencies_immutable_after_commitment();
+
+-- =============================================================
+-- Notes for future implementation:
+--   • setup-shamir-zq.ts (ceremony script) inserts election_key_ceremony's
+--     one row; NEVER writes x_i anywhere backend-reachable (docs §7.1)
+--   • POST /keyshares/submit-partial inserts partial_decryptions rows
+--     (client-side-computed d_i + proof only, per ballot)
+--   • POST /keyshares/tally (rewritten) verifies partial_decryptions rows
+--     via dleq.ts, combines >=3 per ballot, never reconstructs the key
+--   • scripts/deploy-election-setup.ts anchors ElectionSetupCommitment.sol
+--     and inserts the election_setup_commitments row
+-- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — Multi-Election Isolation Migration
+-- (threat_model.md §10; closes the documented "single global election"
+-- non-goal for real, per the methodology-audit follow-up plan)
+--
+-- Adds a real `elections` registry and scopes every previously-global
+-- table (constituencies, voters, votes, candidates, merkle_batches,
+-- smt_batches) by election_id, so multiple elections' data can coexist
+-- in the same database without leaking into each other.
+--
+-- Idempotent — every statement is safe to re-run (IF NOT EXISTS / DROP
+-- CONSTRAINT IF EXISTS / ON CONFLICT DO NOTHING throughout), matching
+-- this file's existing migration-appending convention (see the
+-- "Verifiable Tally Schema" section above).
+--
+-- IMPORTANT: this project has no automated migration runner —
+-- run-schema.ts only initializes a FRESH database and intentionally
+-- no-ops once `voters` already exists (see its own source). Run this
+-- section manually via the Supabase SQL Editor, exactly like every
+-- other schema change in this project's history.
+--
+-- Existing rows are backfilled to 'NATIONAL-2026-001' — the election
+-- this project's frozen evidence snapshot (docs/evidence/) already
+-- documents — so already-anchored batches keep their original,
+-- correct election attribution rather than becoming orphaned.
+-- =============================================================
+
+-- ── 1. Elections registry ──
+CREATE TABLE IF NOT EXISTS elections (
+    election_id                     TEXT        PRIMARY KEY,
+    name                            TEXT        NOT NULL,
+    -- Replaces identity.ts's previously-hardcoded mod-8 constituency
+    -- derivation — each election can now declare its own shape.
+    constituency_count              INTEGER     NOT NULL DEFAULT 8
+                                     CONSTRAINT ck_elections_constituency_count_positive
+                                         CHECK (constituency_count > 0),
+    status                          TEXT        NOT NULL DEFAULT 'setup'
+                                     CONSTRAINT ck_elections_status
+                                         CHECK (status IN ('setup', 'voting', 'tallying', 'closed')),
+    -- Per-election deployed contract addresses (Phase 2: MerkleRootStorage
+    -- becomes election-scoped internally via one shared deployment with a
+    -- mapping key, so this column is the SAME address for every election on
+    -- a given deployment; election_setup_contract_address differs per
+    -- election, since ElectionSetupCommitment deploys one instance each).
+    merkle_contract_address         VARCHAR(42),
+    election_setup_contract_address VARCHAR(42),
+    created_at                      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE elections ENABLE ROW LEVEL SECURITY;
+
+INSERT INTO elections (election_id, name, constituency_count, status, merkle_contract_address, election_setup_contract_address)
+VALUES ('NATIONAL-2026-001', 'National Election 2026', 8, 'tallying',
+        '0x4b5C381c62876d34bBDDefDe02e872E5a93401b6',
+        '0xf6354205CB4FCE5b80DF01FaC650FDA29a94079C')
+ON CONFLICT (election_id) DO NOTHING;
+
+-- ── 2. constituencies: add election_id, re-key PK as (election_id, code) ──
+-- The backfill UPDATE below trips the (correct, working-as-designed)
+-- immutability trigger on any project that has already anchored a setup
+-- commitment — found live: it's not a bug in the trigger, this backfill
+-- is a legitimate schema migration, not a data mutation, so the trigger
+-- is disabled for just this one statement and re-enabled immediately after.
+ALTER TABLE constituencies ADD COLUMN IF NOT EXISTS election_id TEXT;
+ALTER TABLE constituencies DISABLE TRIGGER trg_constituencies_immutable_after_commitment;
+UPDATE constituencies SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE constituencies ENABLE TRIGGER trg_constituencies_immutable_after_commitment;
+ALTER TABLE constituencies ALTER COLUMN election_id SET NOT NULL;
+
+-- Drop dependent FKs before re-keying the referenced PK (Postgres requires this).
+ALTER TABLE voters     DROP CONSTRAINT IF EXISTS fk_voters_constituency;
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS fk_candidates_constituency;
+ALTER TABLE votes      DROP CONSTRAINT IF EXISTS fk_votes_constituency;
+
+ALTER TABLE constituencies DROP CONSTRAINT IF EXISTS constituencies_pkey;
+ALTER TABLE constituencies ADD CONSTRAINT pk_constituencies PRIMARY KEY (election_id, code);
+ALTER TABLE constituencies DROP CONSTRAINT IF EXISTS fk_constituencies_election;
+ALTER TABLE constituencies ADD CONSTRAINT fk_constituencies_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+
+-- ── 3. voters: election_id + composite constituency FK + composite nid_hash uniqueness ──
+ALTER TABLE voters ADD COLUMN IF NOT EXISTS election_id TEXT;
+UPDATE voters SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE voters ALTER COLUMN election_id SET NOT NULL;
+
+ALTER TABLE voters DROP CONSTRAINT IF EXISTS uq_voters_nid_hash;
+ALTER TABLE voters DROP CONSTRAINT IF EXISTS uq_voters_election_nid_hash;
+ALTER TABLE voters ADD CONSTRAINT uq_voters_election_nid_hash UNIQUE (election_id, nid_hash);
+ALTER TABLE voters DROP CONSTRAINT IF EXISTS fk_voters_election;
+ALTER TABLE voters ADD CONSTRAINT fk_voters_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+ALTER TABLE voters ADD CONSTRAINT fk_voters_constituency
+    FOREIGN KEY (election_id, constituency_code) REFERENCES constituencies (election_id, code);
+
+DROP INDEX IF EXISTS idx_voters_eligible_not_voted;
+CREATE INDEX IF NOT EXISTS idx_voters_election_eligible_not_voted
+    ON voters (election_id, nid_hash)
+    WHERE is_eligible = true AND has_voted = false;
+
+-- ── 4. votes: election_id + composite constituency FK + composite nullifier uniqueness ──
+ALTER TABLE votes ADD COLUMN IF NOT EXISTS election_id TEXT;
+UPDATE votes SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE votes ALTER COLUMN election_id SET NOT NULL;
+
+ALTER TABLE votes DROP CONSTRAINT IF EXISTS uq_votes_nullifier_hash;
+ALTER TABLE votes DROP CONSTRAINT IF EXISTS uq_votes_election_nullifier_hash;
+ALTER TABLE votes ADD CONSTRAINT uq_votes_election_nullifier_hash UNIQUE (election_id, nullifier_hash);
+ALTER TABLE votes DROP CONSTRAINT IF EXISTS fk_votes_election;
+ALTER TABLE votes ADD CONSTRAINT fk_votes_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+ALTER TABLE votes ADD CONSTRAINT fk_votes_constituency
+    FOREIGN KEY (election_id, constituency_code) REFERENCES constituencies (election_id, code);
+
+-- votes.election_id joins the immutable-after-insertion field set, same
+-- discipline as nullifier_hash/constituency_code/encrypted_vote/created_at.
+CREATE OR REPLACE FUNCTION fn_votes_immutable_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.constituency_code IS DISTINCT FROM NEW.constituency_code THEN
+        RAISE EXCEPTION 'constituency_code is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'election_id is immutable after insertion';
+    END IF;
+    IF OLD.encrypted_vote IS DISTINCT FROM NEW.encrypted_vote THEN
+        RAISE EXCEPTION 'encrypted_vote is immutable after insertion';
+    END IF;
+    IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+        RAISE EXCEPTION 'created_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── 5. candidates: election_id + composite constituency FK + composite uniqueness ──
+-- Same trigger-disable-around-backfill fix as constituencies above.
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS election_id TEXT;
+ALTER TABLE candidates DISABLE TRIGGER trg_candidates_immutable_after_commitment;
+UPDATE candidates SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE candidates ENABLE TRIGGER trg_candidates_immutable_after_commitment;
+ALTER TABLE candidates ALTER COLUMN election_id SET NOT NULL;
+
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS uq_candidate_per_constituency;
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS uq_candidate_per_election_constituency;
+ALTER TABLE candidates ADD CONSTRAINT uq_candidate_per_election_constituency
+    UNIQUE (election_id, name, constituency_code);
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS fk_candidates_election;
+ALTER TABLE candidates ADD CONSTRAINT fk_candidates_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+ALTER TABLE candidates ADD CONSTRAINT fk_candidates_constituency
+    FOREIGN KEY (election_id, constituency_code) REFERENCES constituencies (election_id, code);
+
+DROP INDEX IF EXISTS idx_candidates_constituency_code;
+CREATE INDEX IF NOT EXISTS idx_candidates_election_constituency
+    ON candidates (election_id, constituency_code);
+
+-- ── 6. merkle_batches / smt_batches: election_id + composite batch-id uniqueness ──
+ALTER TABLE merkle_batches ADD COLUMN IF NOT EXISTS election_id TEXT;
+UPDATE merkle_batches SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE merkle_batches ALTER COLUMN election_id SET NOT NULL;
+ALTER TABLE merkle_batches DROP CONSTRAINT IF EXISTS merkle_batches_batch_id_key;
+ALTER TABLE merkle_batches DROP CONSTRAINT IF EXISTS uq_merkle_batches_election_batch_id;
+ALTER TABLE merkle_batches ADD CONSTRAINT uq_merkle_batches_election_batch_id UNIQUE (election_id, batch_id);
+ALTER TABLE merkle_batches DROP CONSTRAINT IF EXISTS fk_merkle_batches_election;
+ALTER TABLE merkle_batches ADD CONSTRAINT fk_merkle_batches_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+
+DROP INDEX IF EXISTS idx_merkle_batches_batch_id;
+CREATE INDEX IF NOT EXISTS idx_merkle_batches_election_batch_id ON merkle_batches (election_id, batch_id);
+
+ALTER TABLE smt_batches ADD COLUMN IF NOT EXISTS election_id TEXT;
+UPDATE smt_batches SET election_id = 'NATIONAL-2026-001' WHERE election_id IS NULL;
+ALTER TABLE smt_batches ALTER COLUMN election_id SET NOT NULL;
+ALTER TABLE smt_batches DROP CONSTRAINT IF EXISTS smt_batches_smt_batch_id_key;
+ALTER TABLE smt_batches DROP CONSTRAINT IF EXISTS uq_smt_batches_election_smt_batch_id;
+ALTER TABLE smt_batches ADD CONSTRAINT uq_smt_batches_election_smt_batch_id UNIQUE (election_id, smt_batch_id);
+ALTER TABLE smt_batches DROP CONSTRAINT IF EXISTS fk_smt_batches_election;
+ALTER TABLE smt_batches ADD CONSTRAINT fk_smt_batches_election
+    FOREIGN KEY (election_id) REFERENCES elections (election_id);
+
+DROP INDEX IF EXISTS idx_smt_batches_smt_batch_id;
+CREATE INDEX IF NOT EXISTS idx_smt_batches_election_smt_batch_id ON smt_batches (election_id, smt_batch_id);
+
+-- ── 7. fn_cast_vote: election-scoped voter lookup + vote insert ──
+-- Breaking signature change (new leading p_election_id param) — every
+-- caller (backend/src/routes/vote.ts) is updated in the same change.
+CREATE OR REPLACE FUNCTION fn_cast_vote(
+    p_election_id       TEXT,
+    p_voter_nid_hash    CHAR(64),
+    p_nullifier_hash    CHAR(64),
+    p_constituency_code VARCHAR(10),
+    p_encrypted_vote    JSONB,
+    p_zkp_proof         JSONB DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_vote_id UUID;
+    v_voter   RECORD;
+BEGIN
+    SELECT id, is_eligible, has_voted
+    INTO v_voter
+    FROM voters
+    WHERE election_id = p_election_id AND nid_hash = p_voter_nid_hash
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Voter not registered for this election (nid_hash not found)'
+            USING ERRCODE = 'P0002';
+    END IF;
+
+    IF NOT v_voter.is_eligible THEN
+        RAISE EXCEPTION 'Voter is not eligible to vote'
+            USING ERRCODE = 'P0003';
+    END IF;
+
+    IF v_voter.has_voted THEN
+        RAISE EXCEPTION 'Voter has already cast a vote'
+            USING ERRCODE = 'P0004';
+    END IF;
+
+    INSERT INTO votes (election_id, nullifier_hash, constituency_code, encrypted_vote, zkp_proof)
+    VALUES (p_election_id, p_nullifier_hash, p_constituency_code, p_encrypted_vote, p_zkp_proof)
+    RETURNING id INTO v_vote_id;
+
+    UPDATE voters
+    SET has_voted = true
+    WHERE election_id = p_election_id AND nid_hash = p_voter_nid_hash;
+
+    RETURN v_vote_id;
+END;
+$$;
+
+-- ── 8. Fix immutability-gate triggers to be per-election, not global ──
+-- Real bug found while planning this migration: the previous version did
+-- `IF EXISTS (SELECT 1 FROM election_setup_commitments)` — UNSCOPED, so
+-- anchoring election A's commitment silently froze election B's
+-- still-in-setup candidates/constituencies too. Fixed to check only the
+-- row's own election_id.
+CREATE OR REPLACE FUNCTION fn_candidates_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_election_id TEXT;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        v_election_id := OLD.election_id;
+    ELSE
+        v_election_id := NEW.election_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM election_setup_commitments WHERE election_id = v_election_id) THEN
+        RAISE EXCEPTION 'candidates are immutable once an election setup commitment has been anchored for this election';
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION fn_constituencies_immutable_after_commitment()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_election_id TEXT;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        v_election_id := OLD.election_id;
+    ELSE
+        v_election_id := NEW.election_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM election_setup_commitments WHERE election_id = v_election_id) THEN
+        RAISE EXCEPTION 'constituencies are immutable once an election setup commitment has been anchored for this election';
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── 9. Keyholder identity/config — moved from static code (config/keyholders.ts)
+-- to per-election DB rows. Two concurrent elections previously collided on
+-- keyholder identity (KH-001..004 was a single global map with no election
+-- dimension) — this table is what makes "a different election can have a
+-- disjoint set of 4 keyholders" actually expressible.
+CREATE TABLE IF NOT EXISTS keyholders (
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    keyholder_id    TEXT        NOT NULL,
+    role            TEXT        NOT NULL,
+    share_index     INTEGER     NOT NULL CHECK (share_index BETWEEN 1 AND 4),
+    -- Salted SHA-256 hash, same scheme as the previous static-config
+    -- passphrases (config/keyholders.ts's verifyKeyholderPassphrase),
+    -- ported into DB rows rather than changed.
+    passphrase_hash TEXT        NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (election_id, keyholder_id),
+    CONSTRAINT uq_keyholders_election_share_index UNIQUE (election_id, share_index)
+);
+
+ALTER TABLE keyholders ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • Run this entire migration section manually in the Supabase SQL
+--     Editor against the live project (no automated runner — see the
+--     section header above).
+--   • backend/src/scripts/seed-keyholders.ts (new) seeds this table per
+--     election, replacing config/keyholders.ts's static DEMO_PASSPHRASES.
+--   • POST /elections (new route) inserts the elections row for a new
+--     election before any candidates/constituencies/voters can reference it
+--     (FK-enforced — every scoped table now requires an existing election_id).
+-- =============================================================
+
+
+-- =============================================================
+-- E-Voting Simulation — Distributed Key Generation (DKG) Ceremony
+--
+-- Replaces the trusted-dealer key ceremony (setup-shamir-zq.ts, which
+-- momentarily holds the FULL private key x in one process before
+-- splitting it) with a real 4-party Pedersen DKG run through the web
+-- portal — each keyholder generates their own share entirely client-side
+-- (frontend/src/pages/KeyCeremony.tsx); the server only ever relays
+-- public commitments and end-to-end-encrypted sub-shares it cannot read.
+--
+-- Feldman VSS commitments are additively homomorphic, so the COMBINED
+-- commitment vector (elementwise product of the 4 dealers' vectors,
+-- backend/src/crypto/dkg.ts's combineFeldmanCommitments) has exactly the
+-- same shape as today's single-dealer election_key_ceremony row — every
+-- downstream route (keyshares.ts's /commitments, /submit-partial,
+-- /tally, /verification-bundle) needs ZERO changes.
+--
+-- Idempotent, same convention as every other migration block in this file.
+-- Run manually via the Supabase SQL Editor (no automated runner).
+-- =============================================================
+
+-- ── 1. Ceremony status — extends the existing per-election row rather
+-- than adding a new table, since it's 1:1 with election_key_ceremony.
+-- feldman_commitments stays NULL until status reaches 'qualified'.
+ALTER TABLE election_key_ceremony
+    ALTER COLUMN feldman_commitments DROP NOT NULL;
+
+ALTER TABLE election_key_ceremony
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+        CONSTRAINT ck_election_key_ceremony_status
+            CHECK (status IN ('pending', 'round1', 'round2', 'qualified'));
+
+-- ── 2. Round 1 — each keyholder's own Feldman commitments + ceremony
+-- ECDH public key (P-256, for round-2 sub-share encryption). Public data
+-- only; no secret ever stored here.
+CREATE TABLE IF NOT EXISTS dkg_participants (
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    keyholder_index INTEGER     NOT NULL CHECK (keyholder_index BETWEEN 1 AND 4),
+    keyholder_id    TEXT        NOT NULL,
+    -- This keyholder's own Feldman commitments to their locally-generated
+    -- polynomial f_i(z), t=3: [C_i0, C_i1, C_i2], hex-encoded.
+    commitments     JSONB       NOT NULL,
+    ecdh_pubkey     TEXT        NOT NULL,
+    submitted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (election_id, keyholder_index)
+);
+
+ALTER TABLE dkg_participants ENABLE ROW LEVEL SECURITY;
+
+-- ── 3. Round 2 — encrypted sub-share relay. ciphertext is AES-GCM under
+-- an ECDH-derived key between the two browsers involved; the server
+-- stores and forwards it but cannot decrypt it (no private key material
+-- ever reaches the backend).
+CREATE TABLE IF NOT EXISTS dkg_shares (
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    from_index      INTEGER     NOT NULL CHECK (from_index BETWEEN 1 AND 4),
+    to_index        INTEGER     NOT NULL CHECK (to_index BETWEEN 1 AND 4),
+    ciphertext      TEXT        NOT NULL,
+    iv              TEXT        NOT NULL,
+    submitted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (election_id, from_index, to_index)
+);
+
+ALTER TABLE dkg_shares ENABLE ROW LEVEL SECURITY;
+
+-- ── 4. Round 3 — liveness/confirmation only. A keyholder posts this
+-- after locally decrypting all 4 incoming sub-shares, Feldman-verifying
+-- each against its sender's round-1 commitments, and summing them into
+-- their own final share s_j. No secret in this row either.
+CREATE TABLE IF NOT EXISTS dkg_confirmations (
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    keyholder_index INTEGER     NOT NULL CHECK (keyholder_index BETWEEN 1 AND 4),
+    confirmed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (election_id, keyholder_index)
+);
+
+ALTER TABLE dkg_confirmations ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================
+-- Notes for future implementation:
+--   • POST /dkg/round1, /dkg/round2, /dkg/round3, GET /dkg/status (new
+--     routes, backend/src/routes/dkg.ts) drive the ceremony.
+--   • On the 4th /dkg/round3 confirmation, the route server-combines the
+--     4 public commitment vectors (combineFeldmanCommitments) and writes
+--     the result into election_key_ceremony.feldman_commitments +
+--     status='qualified', and derives each key_shares.public_commitment
+--     via the existing deriveShareCommitment (shamirZq.ts) — at that
+--     point the ceremony output is byte-for-byte interchangeable with
+--     the old single-dealer script's output.
+--   • setup-shamir-zq.ts remains as a dev/simulation-only shortcut, not
+--     the documented production ceremony path anymore.
+-- =============================================================
+
+-- =============================================================
+-- Migration: partial_decryptions immutability (security audit follow-up)
+--
+-- POST /submit-partial previously upserted on (election_id, ballot_id,
+-- keyholder_index) — a keyholder could submit, have it flagged invalid at
+-- verification, then silently resubmit and erase that evidence with no
+-- audit trail, or overwrite a previously-valid d_i after tally already ran.
+-- votes has both an immutability guard and a no-delete guard; this table had
+-- neither. No legitimate code path ever UPDATEs this table (only INSERT),
+-- so — matching votes' fn_votes_immutable_guard pattern — block UPDATE
+-- outright. The route-level fix (INSERT instead of UPSERT, 409 on conflict)
+-- lives in keyshares.ts; this trigger is the DB-level backstop.
+-- =============================================================
+CREATE OR REPLACE FUNCTION fn_partial_decryptions_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'partial_decryptions rows are immutable and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_partial_decryptions_no_update ON partial_decryptions;
+CREATE TRIGGER trg_partial_decryptions_no_update
+    BEFORE UPDATE ON partial_decryptions
+    FOR EACH ROW EXECUTE FUNCTION fn_partial_decryptions_no_update();
+
+-- =============================================================
+-- E-Voting Simulation — Mobile Migration: Session Layer & Audit
+-- (BUILD_NOTES.md C1–C3; DATA_AND_API_MIGRATION.md §1)
+--
+-- Adds, idempotently, applied the same manual way as every other section in
+-- this file (Supabase SQL Editor; run-schema.ts picks it up for fresh DBs):
+--   1. sessions                — server-issued session tokens (hash-only)
+--   2. admin_actions           — append-only audit of admin operations
+--   3. tally_runs              — append-only tally history; SOLE results store
+--   4. election_status_events  — election open/close transition audit
+--   5. fn_votes_immutable_guard() extended to also block zkp_proof edits
+--
+-- NOTE (BUILD-BRIEF C3): the legacy `tally_results` table is deliberately
+-- left in place and is NO LONGER READ OR WRITTEN by any route —
+-- `GET /public/results` reads `tally_runs ORDER BY tallied_at DESC LIMIT 1`
+-- instead. Same treatment as the legacy `key_shares.share_value` column.
+-- =============================================================
+
+-- ── 1. sessions ──
+-- Opaque bearer tokens for the mobile client (D1/T15). Only sha256(token) is
+-- stored; the raw token exists solely on the device, in OS-backed secure
+-- storage. Device-binding and revocation are enforced here, not in the app.
+-- A session authenticates a voter; it never authorizes a second ballot —
+-- one-person-one-vote remains entirely inside fn_cast_vote (A1).
+CREATE TABLE IF NOT EXISTS sessions (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id    TEXT        NOT NULL REFERENCES elections (election_id),
+    voter_nid_hash CHAR(64)    NOT NULL
+                     CONSTRAINT ck_sessions_voter_nid_hash_hex
+                         CHECK (voter_nid_hash ~ '^[a-f0-9]{64}$'),
+    token_hash     CHAR(64)    NOT NULL UNIQUE
+                     CONSTRAINT ck_sessions_token_hash_hex
+                         CHECK (token_hash ~ '^[a-f0-9]{64}$'),
+    device_id      UUID        NOT NULL,
+    issued_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at     TIMESTAMPTZ NOT NULL,
+    last_seen_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    revoked_at     TIMESTAMPTZ,
+    created_ip     INET,
+    CONSTRAINT ck_sessions_valid_window CHECK (expires_at > issued_at)
+);
+
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_sessions_election_voter ON sessions (election_id, voter_nid_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_device         ON sessions (device_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_active_expiry  ON sessions (expires_at) WHERE revoked_at IS NULL;
+
+-- Update guard: only the sliding window and revocation may change.
+CREATE OR REPLACE FUNCTION fn_sessions_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.token_hash IS DISTINCT FROM NEW.token_hash THEN
+        RAISE EXCEPTION 'sessions.token_hash is immutable after insertion';
+    END IF;
+    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
+        RAISE EXCEPTION 'sessions.voter_nid_hash is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'sessions.election_id is immutable after insertion';
+    END IF;
+    IF OLD.device_id IS DISTINCT FROM NEW.device_id THEN
+        RAISE EXCEPTION 'sessions.device_id is immutable after insertion';
+    END IF;
+    IF OLD.issued_at IS DISTINCT FROM NEW.issued_at THEN
+        RAISE EXCEPTION 'sessions.issued_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sessions_guard ON sessions;
+CREATE TRIGGER trg_sessions_guard
+    BEFORE UPDATE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_sessions_guard();
+
+-- No-delete guard: revocation (revoked_at) is the only supported path.
+CREATE OR REPLACE FUNCTION fn_sessions_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'sessions rows cannot be deleted; set revoked_at instead';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sessions_no_delete ON sessions;
+CREATE TRIGGER trg_sessions_no_delete
+    BEFORE DELETE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_sessions_no_delete();
+
+-- ── 2. admin_actions ──
+-- Append-only audit of administrative operations (T4/T16).
+-- BUILD-BRIEF C2: per-admin identity is OUT OF SCOPE for this pass, so
+-- actor_admin_id is the static string 'shared-admin' (the column is kept so a
+-- future identity layer only has to start populating it rather than migrate).
+-- The table records WHAT happened, WHEN, and the HTTP result; it deliberately
+-- does not claim to say WHO beyond that.
+CREATE TABLE IF NOT EXISTS admin_actions (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_admin_id  TEXT        NOT NULL DEFAULT 'shared-admin',
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    action          TEXT        NOT NULL,
+    request_summary JSONB,
+    http_status     INTEGER,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE admin_actions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_admin_actions_election_time ON admin_actions (election_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_actions_action_time   ON admin_actions (action, created_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_admin_actions_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'admin_actions rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_admin_actions_no_update ON admin_actions;
+CREATE TRIGGER trg_admin_actions_no_update
+    BEFORE UPDATE ON admin_actions
+    FOR EACH ROW EXECUTE FUNCTION fn_admin_actions_no_update();
+
+CREATE OR REPLACE FUNCTION fn_admin_actions_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'admin_actions rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_admin_actions_no_delete ON admin_actions;
+CREATE TRIGGER trg_admin_actions_no_delete
+    BEFORE DELETE ON admin_actions
+    FOR EACH ROW EXECUTE FUNCTION fn_admin_actions_no_delete();
+
+-- ── 3. tally_runs ──
+-- Append-only tally history and the SOLE store behind GET /public/results
+-- (T19; BUILD-BRIEF C3). Re-running the tally APPENDS a row rather than
+-- overwriting one, so neither an out-of-band edit nor a routine re-run can
+-- erase the previously published result without leaving visible history.
+-- batch_id is the explicit dense Merkle batch that was tallied (A8): the
+-- tally route already requires it and has no "latest batch" fallback.
+CREATE TABLE IF NOT EXISTS tally_runs (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id    TEXT        NOT NULL REFERENCES elections (election_id),
+    batch_id       BIGINT      NOT NULL,
+    tallied_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    shares_used    INTEGER     NOT NULL,
+    total_votes    INTEGER     NOT NULL,
+    valid_votes    INTEGER     NOT NULL,
+    invalid_votes  INTEGER     NOT NULL,
+    results        JSONB       NOT NULL,
+    run_by         TEXT        NOT NULL DEFAULT 'shared-admin',
+    CONSTRAINT uq_tally_runs_election_batch_time UNIQUE (election_id, batch_id, tallied_at)
+);
+
+ALTER TABLE tally_runs ENABLE ROW LEVEL SECURITY;
+
+-- Serves the public read: WHERE election_id = $1 ORDER BY tallied_at DESC LIMIT 1
+CREATE INDEX IF NOT EXISTS idx_tally_runs_latest ON tally_runs (election_id, tallied_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_tally_runs_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'tally_runs rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_tally_runs_no_update ON tally_runs;
+CREATE TRIGGER trg_tally_runs_no_update
+    BEFORE UPDATE ON tally_runs
+    FOR EACH ROW EXECUTE FUNCTION fn_tally_runs_no_update();
+
+CREATE OR REPLACE FUNCTION fn_tally_runs_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'tally_runs rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_tally_runs_no_delete ON tally_runs;
+CREATE TRIGGER trg_tally_runs_no_delete
+    BEFORE DELETE ON tally_runs
+    FOR EACH ROW EXECUTE FUNCTION fn_tally_runs_no_delete();
+
+-- ── 4. election_status_events ──
+-- Audit trail for real election open/close transitions (T13/B2).
+-- BUILD-BRIEF C4: P3 ships the `PATCH /elections/:id/status` endpoint, the
+-- `/vote` status gate and THIS table together, in one phase — never the gate
+-- before the transition endpoint, or every election would be stuck in
+-- 'setup' with no way to open voting. from_status/to_status mirror the
+-- allowed values of elections.status's own CHECK constraint.
+CREATE TABLE IF NOT EXISTS election_status_events (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id  TEXT        NOT NULL REFERENCES elections (election_id),
+    from_status  TEXT        NOT NULL
+                   CONSTRAINT ck_election_status_events_from
+                       CHECK (from_status IN ('setup', 'voting', 'tallying', 'closed')),
+    to_status    TEXT        NOT NULL
+                   CONSTRAINT ck_election_status_events_to
+                       CHECK (to_status IN ('setup', 'voting', 'tallying', 'closed')),
+    changed_by   TEXT        NOT NULL DEFAULT 'shared-admin',
+    changed_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_status_events ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_election_status_events_time
+    ON election_status_events (election_id, changed_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_election_status_events_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'election_status_events rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_election_status_events_no_update ON election_status_events;
+CREATE TRIGGER trg_election_status_events_no_update
+    BEFORE UPDATE ON election_status_events
+    FOR EACH ROW EXECUTE FUNCTION fn_election_status_events_no_update();
+
+CREATE OR REPLACE FUNCTION fn_election_status_events_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'election_status_events rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_election_status_events_no_delete ON election_status_events;
+CREATE TRIGGER trg_election_status_events_no_delete
+    BEFORE DELETE ON election_status_events
+    FOR EACH ROW EXECUTE FUNCTION fn_election_status_events_no_delete();
+
+-- ── 5. fn_votes_immutable_guard(): also block zkp_proof edits ──
+-- Audit finding B6: `zkp_proof` was the one integrity-bearing column on
+-- `votes` the guard did not cover. It is written once at INSERT and no code
+-- path updates it (verified by a repo-wide grep: the only writers are the
+-- INSERT in fn_cast_vote and nothing else), so blocking it cannot break any
+-- legitimate flow. The remaining clauses are identical to the
+-- election-scoped version defined earlier in this file — CREATE OR REPLACE
+-- keeps exactly one definition, and the pre-existing `trg_votes_immutable`
+-- trigger already points at this function, so no trigger change is needed.
+CREATE OR REPLACE FUNCTION fn_votes_immutable_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.constituency_code IS DISTINCT FROM NEW.constituency_code THEN
+        RAISE EXCEPTION 'constituency_code is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'election_id is immutable after insertion';
+    END IF;
+    IF OLD.encrypted_vote IS DISTINCT FROM NEW.encrypted_vote THEN
+        RAISE EXCEPTION 'encrypted_vote is immutable after insertion';
+    END IF;
+    IF OLD.zkp_proof IS DISTINCT FROM NEW.zkp_proof THEN
+        RAISE EXCEPTION 'zkp_proof is immutable after insertion';
+    END IF;
+    IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+        RAISE EXCEPTION 'created_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- =============================================================
+-- P2 — session cast material (mobile migration; decision A, BUILD_NOTES §7)
+-- =============================================================
+-- Applied idempotently like every other section in this file (Supabase SQL
+-- Editor; run-schema.ts picks it up for fresh databases).
+--
+-- WHY THIS COLUMN EXISTS:
+-- THREAT_MODEL_AND_SECURITY.md §4.1 requires POST /vote to derive its identity
+-- server-side from the session, with no raw NID on the wire. constituency_code
+-- is derivable from the `voters` row the session is bound to, but
+-- nullifier_hash is SHA-256(nid ‖ election_id ‖ NULLIFIER_SECRET) and a hash
+-- cannot be un-hashed. So the server captures the nullifier ONCE at session
+-- issuance — while it transiently holds the raw NID — and /vote reads it back.
+--
+-- WHY THAT MATTERS (A1):
+-- The session path must cast the *identical* pseudonym the legacy raw-NID path
+-- computes. Two formulas, or two pseudonyms for one voter in one election,
+-- would let a single voter cast twice — the exact invariant fn_cast_vote and
+-- uq_votes_election_nullifier_hash exist to prevent. The equality is asserted
+-- in backend/src/services/sessionStore.test.ts.
+--
+-- TRADE-OFF, recorded rather than hidden: this stores a pseudonym beside
+-- voter_nid_hash, so a reader with database access ALONE can link a hashed
+-- voter to a vote row; previously that also required NULLIFIER_SECRET. The
+-- "no easier server-side" claim in DATA_AND_API_MIGRATION.md is corrected
+-- accordingly. Nothing new about the NID itself is exposed: the stored value is
+-- the same nullifier already persisted in `nullifiers` and `votes`.
+--
+-- Nullable only so this ALTER applies to a table that may already hold rows;
+-- every session created by POST /voter/session sets it, /vote refuses a session
+-- without one, and rotation refuses to propagate one (sessionStore.ts).
+ALTER TABLE sessions
+    ADD COLUMN IF NOT EXISTS nullifier_hash CHAR(64)
+        CONSTRAINT ck_sessions_nullifier_hash_hex
+            CHECK (nullifier_hash ~ '^[a-f0-9]{64}$');
+
+-- Extend the sessions guard: the captured pseudonym is part of the session's
+-- identity, so it is immutable after insertion exactly like token_hash and
+-- voter_nid_hash. (CREATE OR REPLACE keeps the existing trigger valid.)
+CREATE OR REPLACE FUNCTION fn_sessions_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.token_hash IS DISTINCT FROM NEW.token_hash THEN
+        RAISE EXCEPTION 'sessions.token_hash is immutable after insertion';
+    END IF;
+    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
+        RAISE EXCEPTION 'sessions.voter_nid_hash is immutable after insertion';
+    END IF;
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'sessions.nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'sessions.election_id is immutable after insertion';
+    END IF;
+    IF OLD.device_id IS DISTINCT FROM NEW.device_id THEN
+        RAISE EXCEPTION 'sessions.device_id is immutable after insertion';
+    END IF;
+    IF OLD.issued_at IS DISTINCT FROM NEW.issued_at THEN
+        RAISE EXCEPTION 'sessions.issued_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 

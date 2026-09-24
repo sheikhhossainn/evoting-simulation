@@ -60,15 +60,15 @@ describe('Identity & Nullifier Properties', () => {
       const nidArbitrary = fc.array(fc.constantFrom('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'), { minLength: 11, maxLength: 11 }).map(a => a.join(''));
       fc.assert(
         fc.property(nidArbitrary, (nid) => {
-          const con = constituencyFromNid(nid);
+          const con = constituencyFromNid(nid, 8);
           return /^CON-0[1-8]$/.test(con);
         })
       );
     });
 
     it('handles non-numeric strings safely', () => {
-      expect(constituencyFromNid('abcdef')).toMatch(/^CON-0[1-8]$/);
-      expect(constituencyFromNid('')).toMatch(/^CON-0[1-8]$/);
+      expect(constituencyFromNid('abcdef', 8)).toMatch(/^CON-0[1-8]$/);
+      expect(constituencyFromNid('', 8)).toMatch(/^CON-0[1-8]$/);
     });
   });
 });

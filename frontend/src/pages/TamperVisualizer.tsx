@@ -34,7 +34,7 @@ import {
 } from "../utils/api";
 
 const SEPOLIA_TX = "https://sepolia.etherscan.io/tx/";
-const CONTRACT = "0x7f228912a2a709010F9419582d021485B5F4d928";
+const CONTRACT = "0x4b5C381c62876d34bBDDefDe02e872E5a93401b6";
 const SEPOLIA_CONTRACT = `https://sepolia.etherscan.io/address/${CONTRACT}`;
 
 const shorten = (s: string, head = 10, tail = 8) =>

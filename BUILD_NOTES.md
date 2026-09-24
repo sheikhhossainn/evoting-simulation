@@ -1,0 +1,372 @@
+# BUILD_NOTES.md — Build-brief corrections & citation re-verification
+
+**Purpose:** records (a) the build-brief corrections that **override** the plan documents, and (b) the citation re-verification the brief mandated (item 4), performed against the live repository **before** any of those citations were treated as fact. This file is authoritative where it conflicts with the plan docs.
+
+---
+
+## 1. Build-brief corrections applied (override the plan documents)
+
+| # | Correction | Where it changes the build |
+|---|---|---|
+| C1 | `sessions` DDL: the `voter_nid_hash` CHECK must reference `voter_nid_hash`, not `nid_hash` (typo in `DATA_AND_API_MIGRATION.md` §1.1). | DDL now reads `CONSTRAINT ck_sessions_voter_nid_hash_hex CHECK (voter_nid_hash ~ '^[a-f0-9]{64}$')`. Fixed in the plan doc and in P1's schema append. |
+| C2 | **Per-admin identity is OUT OF SCOPE this pass.** Every admin endpoint (including the new `PATCH /elections/:id/status`) keeps `x-admin-secret` + `timingSafeEqual`. `admin_actions.actor_admin_id` is populated with the static string `"shared-admin"`. | `admin_actions` ships as an **audit** table only (what/when/result), not an identity system. The optional `admin_users` table is **cancelled**. All "per-admin identity" wording in the plan docs is overridden. |
+| C3 | **`tally_results` is dropped from the migration.** `GET /public/results` reads `tally_runs ORDER BY tallied_at DESC LIMIT 1` directly. **No cache-sync step is built.** If `tally_results` already exists in a live DB it is left in place and simply no longer read or written (same treatment as the legacy `key_shares.share_value` column). | `tally_runs` is the sole results store going forward; `POST /keyshares/tally` appends to it; `GET /public/results` queries it. |
+| C4 | **Election-window build order:** `PATCH /elections/:id/status` + the `/vote` status gate + `election_status_events` ship **together in one phase (P3)**. The `/vote` gate must never land before the transition endpoint exists, or every election is stuck in `'setup'` with no way to open voting. | P3 is atomic; the roadmap's P1→P3 ordering reflects this and is now stated as a hard constraint. |
+
+---
+
+## 2. Citation re-verification (brief item 4) — method: direct reads + a fresh repo-wide grep, run before treating the citations as fact
+
+### 2.1 `VotingPage.tsx:71-76` — **CONFIRMED**
+Direct read of lines 62-90. Line 71 is exactly `const voterNid = state?.nid ?? "00000000000";`, and lines 74-76 are the constituency fallback. The U1 claim in `MOBILE_UX_ARCHITECTURE.md` §2.2 stands unchanged.
+
+### 2.2 `VoterLogin.tsx:138-148` — **CONFIRMED** (end line off by one: the `<input>` element ends at 149)
+Direct read of lines 104-163. `type="text"` confirmed; **no** `inputMode`, `pattern`, or `type="tel"`; `autoComplete="off"`; the validation hint is a separate `<p>` (lines 151-158) with no `aria-describedby`. U4 stands.
+
+### 2.3 `VoterLogin.tsx:116` — **CITATION REAL, CLAIM WRONG → corrected**
+Line 116 is `style={{ color: "#0A2540" }}` on the NID `<label>` — dark navy on a light card, i.e. **high** contrast (≈13:1), not a risk. `MOBILE_UX_ARCHITECTURE.md` §5's phrase "the web's inline hex colors in `VoterLogin.tsx:116` etc. are a contrast risk to audit" was an unsupported inference attached to a real line number.
+**Corrected finding — the actual measurable contrast concerns in the same file (computed from the hex values via the WCAG relative-luminance formula; an estimate to be re-measured in the app):**
+- `#627d98` muted text at `text-sm` (14px), e.g. line 80 — ≈ **3.9:1** on `#F2F5FA` → **fails WCAG AA (4.5:1)** for normal text.
+- `#C8920A` amber validation hint at `text-xs` (12px), lines 152-155 — ≈ **2.5–2.8:1** → **fails clearly**.
+Action: `MOBILE_UX_ARCHITECTURE.md` §5 wording corrected; these recorded as the a11y baseline for the mobile screens (DoD already requires ≥4.5:1).
+
+### 2.4 `candidates.ts:48-73` and `:43-46` — **CONSISTENT with AUDIT.md; the brief's suspicion is NOT confirmed**
+Full numbered read of `candidates.ts` (100 lines):
+- `:24` = `router.get("/candidates", …)` (AUDIT §6's citation — correct)
+- `:37-47` = header read → NID format check → `constituencyFromNid` (AUDIT §5's citation — correct)
+- `:43-46` = the NID format check — a **sub-range of** `:37-47`, cited in Phase 4/5 for the validation step specifically
+- `:48-73` = the deprecated `?constituency=` branch (the path Phase 5 removes)
+No contradiction exists; the ranges cite different parts of the same file. **No correction needed.**
+
+### 2.5 Repo-wide a11y grep (`role=` / `aria-*`) — **CONFIRMED EXACTLY**
+Re-run over all `frontend/src/**/*.tsx` (22 files): `aria-` = **3**, `role=` = **0**, `htmlFor` = 16, `<label` = 24, `alt=` = 0, `<input` = 22. U5 stands unchanged.
+
+### 2.6 Additional findings from the same pass (not requested; they change P0)
+
+- **`AUDIT.md` §15.6/§16.1 are WRONG — a candidate-seeding script DOES exist.** `backend/src/scripts/seed-constituencies.ts` seeds the 8 constituencies **and then seeds candidates** (lines 91-137) from `frontend/public/candidates.json` — 48 candidates, 6 per constituency, `onConflict: "election_id,name,constituency_code"`. **Consequence: P0's "add `seed-candidates.ts`" task is CANCELLED** — a second script would duplicate an existing one and risk conflicting upserts. `vote.test.ts`'s "run seed-constituencies/seed-candidates first" is already satisfied.
+- **`backend/.env.test.example` already exists** (untracked) and already lists every key the live suites need (`SUPABASE_URL`/`ANON`/`SERVICE_ROLE`, `NID_HASH_SALT`, `ELGAMAL_*`, `NULLIFIER_SECRET`, `KEYHOLDER_PASSPHRASE_SALT`, `ADMIN_SECRET`). P0's env scaffolding is therefore done; the only missing piece is the real `.env.test` (credentials — Open Question #11).
+- **The fail-closed test-env guard already exists**: `backend/src/testUtils/testSupabaseEnv.ts` refuses to run without `.env.test` and refuses a `.env.test` whose `SUPABASE_URL` matches production. P0's guard requirement is met.
+- **Likely origin of the mistaken "no candidate seed script" claim:** the repo's own `context.md:150` lists `seed-candidates.ts ← Seed candidates` in its script tree, although no such file exists. That pre-existing doc error is the plausible source of the Phase-1 mistake; `context.md` is **not** edited here (it is a tracked doc outside this brief) — logged as a residual doc inaccuracy to fix in P7's doc pass.
+
+---
+
+## 3. Doc patches applied (so the plan docs stop contradicting the build)
+
+- `DATA_AND_API_MIGRATION.md` — §1.1 sessions CHECK fixed (C1); `admin_actions.actor_admin_id` comment → static `"shared-admin"` (C2); `tally_runs` is the sole store, `tally_results` no longer read/written (C3); endpoint rows for `POST /elections`, `POST /anchor/batch`, `POST /keyshares/tally` now say "shared secret (unchanged) + `admin_actions` audit"; `admin_users` removed; banner pointing here.
+- `ROADMAP_RISKS_DOD.md` — P0 task list corrected (candidate-seed task cancelled; env/guard already exist); P1 `admin_actions` scope = audit only; P3 states the atomic-ship constraint (C4) and `x-admin-secret` for the PATCH; R9 re-scoped to "audit rows for shared-secret admin".
+- `THREAT_MODEL_AND_SECURITY.md` — T19 row and §3.T19: control is "append-only `tally_runs`; legacy `tally_results` no longer read or written".
+- `VERIFICATION_AND_TESTING.md` — A-8 expected-DB-state wording updated to `tally_runs`-only.
+- `MOBILE_UX_ARCHITECTURE.md` — §5 contrast wording corrected per §2.3.
+- `AUDIT.md` — annotated correction appended (§17) for the candidate-seed claim, preserving the Phase-1 record rather than silently rewriting it.
+- `MIGRATION_PLAN.md` — executive-summary/§5 wording aligned; pointer to this file added.
+
+---
+
+## 4. P0 — scope revision & execution log
+
+| P0 task (as originally written) | Status |
+|---|---|
+| Dedicated Supabase test project + real `backend/.env.test` | **BLOCKED — needs credentials** (Open Question #11). Template + fail-closed loader already existed. |
+| Add `backend/src/scripts/seed-candidates.ts` | **CANCELLED** — `seed-constituencies.ts:91-137` already seeds candidates (48 rows, full CON-01..08 coverage). |
+| Unskip the 3 integrity-critical tests | **DONE** — `vote.test.ts` N=50; `integrity.test.ts` Category 1 (DELETE) and Category 3 (duplicate nullifier). Zero `it.skip` remains anywhere in `backend/src/**/*.test.ts` (verified by grep). |
+| Gated CI job for the live-DB suites | **DONE** — new `live-integrity` job in `.github/workflows/ci.yml`, `workflow_dispatch` only, writes `.env.test` from `TEST_*` secrets and fails the job if `TEST_SUPABASE_URL` is unset; uploads `testing/*.json` evidence. |
+| Regenerate `testing/concurrency_stress_output.json` | **BLOCKED** — requires a live run against the test DB (the test now rewrites it on every run). |
+
+### P0 execution log (this pass)
+
+1. **Additional safety defect found and fixed (not in the original P0 list).** `backend/src/db/integrity.test.ts` loaded its environment by checking for `.env.test` and **falling back to `backend/.env` (production)** — the exact silent-fallback pattern `testUtils/testSupabaseEnv.ts` was written to prevent (and which its own comment wrongly claimed to share). This was only survivable while its destructive tests were skipped. Fix: the file now calls `loadTestSupabaseEnv()` (unused `dotenv`/`path`/`fs` imports removed).
+2. Three `it.skip` → `it` conversions with comments updated to state the new precondition (dedicated test project enforced by the loader); stale "no separate test DB yet" comments replaced.
+3. **Verification run:** `npx tsc --noEmit` → exit 0; `npm run test:ci` (the PR-gating fast suite) → **4 files / 47 tests passed**; `npx vitest run src/db/integrity.test.ts` without `.env.test` → **exit 1** with `FATAL: backend/.env.test is required for tests that write to Supabase, and it does not exist … Refusing to fall back to backend/.env (production)` — i.e. fail-closed proven, no production write path.
+4. **Not affected:** the `test:ci` subset and all pure-logic suites are unchanged; no runtime (non-test) code was modified in P0.
+
+---
+
+## 5. P1 progress log
+
+**P1 part 1 — schema append (`schema.sql`). Status: DONE, UNEXECUTED.**
+
+`backend/src/schema.sql` grew by 268 lines (1327 → 1595) with one idempotent, append-only migration section:
+
+| Object | Purpose (trace) |
+|---|---|
+| `sessions` + `fn_sessions_guard` / `fn_sessions_no_delete` + 3 indexes + RLS | Session layer (D1/T15). C1 CHECK fixed: `ck_sessions_voter_nid_hash_hex CHECK (voter_nid_hash ~ …)`. Only `expires_at` / `last_seen_at` / `revoked_at` may change; delete is blocked (revoke instead). |
+| `admin_actions` + no-update / no-delete guards + 2 indexes + RLS | Append-only admin audit (T4/T16). C2: `actor_admin_id` defaults to the static `'shared-admin'`. |
+| `tally_runs` + no-update / no-delete guards + `idx_tally_runs_latest` + RLS | Append-only tally history and **sole** results store (T19/C3); `UNIQUE (election_id, batch_id, tallied_at)`. The index is **`(election_id, tallied_at DESC)`** — election-scoped, NOT `tallied_at` alone — and serves `WHERE election_id = $1 ORDER BY tallied_at DESC LIMIT 1`. |
+| `election_status_events` + no-update / no-delete guards + index + RLS | Open/close transition audit (T13/B2), with the C4 atomic-ship note in its header. |
+| `fn_votes_immutable_guard()` (CREATE OR REPLACE) | Extended to also block `zkp_proof` edits (B6). The existing `trg_votes_immutable` already points at this function, so no trigger change was needed. |
+
+**Verification performed:** `$$` bodies balanced (44 markers = 22 functions); all four `CREATE TABLE IF NOT EXISTS`, all nine `CREATE OR REPLACE FUNCTION` and all eight `CREATE TRIGGER` statements present; the C1 CHECK references `voter_nid_hash`; the `"zkp_proof is immutable after insertion"` clause exists exactly once.
+**Verification NOT possible yet:** the DDL has **not been applied to any database**. Applying it needs the Supabase SQL Editor (repo convention for existing DBs) or `run-schema.ts` (fresh DB), both of which need credentials. **No database state was changed by this work.**
+
+**P1 part 2 — hardening layer + C3 route migration. Status: DONE for code,
+typecheck and unit tests; the DDL and route changes still have not executed
+against a real database (blocked on Open Question #11 — no `.env.test`).**
+
+New middleware in `backend/src/middleware/`:
+
+- **`errorEnvelope.ts`** — the stable `{ error, code, retryable }` envelope plus
+  `mapCastVoteError()`. `error` is byte-identical to what the route said before,
+  so the change is *purely additive* for the web client: the mobile app can branch
+  on `code`, and nothing that reads `error` breaks.
+- **`rateLimit.ts`** — dependency-free fixed-window limiter (T10).
+- **`captcha.ts`** — inert unless `CAPTCHA_SECRET` is set (T10).
+- **`tamperDemo.ts`** — 404 unless `ENABLE_TAMPER_DEMO=1` (T4).
+
+Wiring: `POST /voter/register` = 10/min **and** the CAPTCHA gate;
+`POST /voter/check-nullifier` = 60/min (it is inherently an enumeration oracle);
+`POST /vote` = 30/min; the four `anchor/tamper|restore` routes gated; `index.ts`
+prints a **startup posture report** for both optional gates; `.env.example`
+documents both variables; `test:ci` now runs `src/middleware/middleware.test.ts`.
+
+C3 completion in the same commit: `POST /keyshares/tally` appends to
+`tally_runs`, and `GET /public/results` reads the latest `tally_runs` row
+(`tallied_at DESC`, backed by the already-correct `idx_tally_runs_latest`).
+`tally_results` is no longer written or read anywhere.
+
+Decisions worth keeping:
+
+1. **No new npm dependency.** `express-rate-limit` would add an install step and
+   lockfile churn to the backend for one primitive; the limiter here is ~60 lines
+   with an opportunistic sweep so distinct client keys cannot grow the map
+   unboundedly. Its **single-instance assumption is stated in the file**, not
+   hidden, and is carried as risk R10 — a scaled deployment needs a shared store.
+2. **Gates that are off must say so.** An inert gate that looks active is worse
+   than no gate, so startup logs the state of both optional gates.
+3. **`ENABLE_TAMPER_DEMO` fails safe:** only exactly `"1"` enables it, so a typo
+   (`true`, `yes`, `0`, empty) can never expose the route that deletes votes.
+4. **`vote.ts`'s cast-vote mapping is now code-first** (P0002/P0003/P0004/23505)
+   with the message substring retained only as a fallback. Deliberate tightening:
+   a bare `"already"` no longer means "duplicate vote" — `"relation already
+   exists"` used to be reported to a voter as "You have already voted" (409).
+5. **`sendEmail`-style silent no-ops were avoided**: the CAPTCHA provider being
+   unreachable returns `503 UPSTREAM_UNAVAILABLE` (retryable) rather than
+   pretending the request was fraudulent.
+6. **Three plan docs claimed `express-rate-limit`; the code does not use it.**
+   Corrected rather than left to drift: `METHODOLOGY_CLASSIFICATION.md` (B4),
+   `THREAT_MODEL_AND_SECURITY.md` (T10 control) and `ROADMAP_RISKS_DOD.md` (P1
+   tasks) now describe the dependency-free limiter that actually exists. The
+   per-NID tier those docs also promised is explicitly **deferred**, with the
+   reason stated: the nullifier is derived *inside* the route, so a middleware
+   key would either hold raw NIDs in process memory or duplicate identity
+   derivation.
+
+Evidence:
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npm run test:ci` | 5 files / **63 tests passed** (was 47 before; +16 new) |
+| No whole-body assertions to break | grep confirmed `vote.test.ts` asserts only on `status` and on `body.error` via `.toMatch(...)` — never `toEqual` on a body |
+| Not yet evidenced | the P1 DDL and the route/middleware changes have never run against live Supabase → no `concurrency_stress_output.json` regeneration, no request through the limiter/gate in a running server |
+
+**Deliberately not done in P1 (carried, not silently dropped):**
+`express.json()` still has **no** body-size limit; the limits cover
+`/voter/register`, `/voter/check-nullifier` and `/vote` only — public GETs,
+`/keyshares/submit` and `/keyholder/request` remain unthrottled; and the windows
+are fixed, not the progressive-backoff tiers the source roadmap asks for.
+`FUTURE_WORK.md` §6.1 reads "`express-rate-limit` *(or equivalent)*, per-route",
+so the limiter above satisfies that item **in substance**; the sub-items just
+listed are what remains, and the duplicated `FUTURE_WORK`/`FUTURE_IMPLEMENTATION`
+pair is still Open Question #10 (untouched here on purpose).
+
+A defect caught only by running the suite, recorded so it is not repeated: the
+first draft of the test helper `withEnv()` was not `async`, so its `finally`
+restored the environment variable *before* the awaited test body had finished —
+which silently disabled the CAPTCHA gate halfway through a test and made it
+report a pass-through that never happened. Fixed by awaiting the body.
+
+---
+
+## 7. P2 progress log — session API (PARTIAL)
+
+(§6 is the P4 log on the `feature/core-crypto` branch; numbering skips it here
+so the two branches do not both claim §6 when they merge.)
+
+**Status: COMPLETE as of decision A — sessions, `/voter/me`, refresh, revoke,
+revoke-all, `GET /candidates` bearer-first, and the `POST /vote` migration
+(which needed the `sessions.nullifier_hash` capture; see the decision below).
+`tsc --noEmit` exit 0; `test:ci` 7 files / 104 tests (63 before P2).**
+
+Delivered:
+
+- **`services/sessionStore.ts`** — the token primitive. 256-bit CSPRNG tokens,
+  **only `sha256(token)` persisted**, indexed-digest lookup plus a
+  `timingSafeEqual` check (so R7's "hash-only lookup, timing-safe compare" is
+  literally true), device binding, sliding 20-minute window, rotation, and
+  per-election `revokeAll`. Persistence is a **port** (`SessionRepo`);
+  `createSupabaseSessionRepo` is passed the client rather than importing it, so
+  the module has no `supabaseClient` dependency and cannot trip that module's
+  "missing credentials → `process.exit(1)`" guard inside `test:ci`.
+- **`middleware/sessionAuth.ts`** — `Authorization: Bearer` + `x-device-id`,
+  with distinguishable 401 codes (`SESSION_INVALID`, `SESSION_EXPIRED`,
+  `SESSION_REVOKED`, `DEVICE_MISMATCH`, `DEVICE_ID_REQUIRED`) so the app can
+  choose between silent re-auth and "sign in again". A store failure is a
+  retryable 503, not a 401 — the client did nothing wrong.
+- **`routes/voter.ts`** — `POST /voter/session` (T10 tier + CAPTCHA, registers
+  under the existing semantics), `GET /voter/me`, `POST /voter/session/refresh`,
+  `/revoke`, `/revoke-all`. Registration was extracted into one
+  `ensureVoterRegistered()` helper used by both `/register` and `/session`, with
+  the concurrent-insert policy an explicit parameter (`"conflict"` keeps the web
+  endpoint's 201+409; `"reread"` treats a session race as a retry).
+- **`routes/candidates.ts`** — bearer-first; constituency is read from the
+  `voters` row the session is bound to. The `?constituency=` query parameter is
+  **deleted** as the roadmap required; before deleting it I checked the frontend
+  and it never used it (only `x-voter-nid`, api.ts:242), so no client breaks.
+- **`testUtils/fakeSessionRepo.ts`** + **`services/sessionStore.test.ts`** — the
+  plan's "§3.3 session lifecycle (mock-Supabase)" suite, 21 cases, no database.
+  It also asserts the *field names* of every UPDATE, so the `fn_sessions_guard`
+  contract (only `expires_at`/`last_seen_at`/`revoked_at` may change) is enforced
+  in CI without the trigger.
+
+Decisions recorded:
+
+1. **Two live sessions per NID are allowed** (one per device). Single-active-
+   device was already an open product decision (THREAT_MODEL §4.T15), so the
+   session layer does not quietly invent it; A1 still bounds the voter to one
+   ballot. The suite asserts the coexistence so nobody has to guess later.
+2. **The session binds to `voter_nid_hash`, and a test asserts it equals
+   `hashNidWithSalt(nid)`** — the same key the raw-NID path uses to find the
+   voter row. If those two derivations ever diverge, a session would
+   authenticate someone the vote path cannot attribute, so it is asserted
+   rather than assumed.
+3. **The expiry test needed `touch: false`** — a sliding window means resolving
+   a live token moves the very expiry a boundary test is about to check. The
+   first version of that test failed for exactly this reason (the code was
+   right).
+
+### Blocker: the plan docs contradict each other about `/vote`
+
+`THREAT_MODEL_AND_SECURITY.md` §4.1 says `/vote`'s server "derives
+`nid_hash`/`nullifier_hash`/`constituency_code` **from the session**", while
+`DATA_AND_API_MIGRATION.md` (Unlinkability row) says sessions hold
+`voter_nid_hash` "(not raw NID), so the link is no *easier* server-side". Both
+cannot hold:
+
+- `constituency_code` — **derivable** from the `voters` row via the session's
+  `voter_nid_hash`. Implemented in `GET /candidates`; no schema change needed.
+- `nullifier_hash` — **not derivable**. It is `SHA-256(nid + election_id +
+  NULLIFIER_SECRET)` and the raw NID is gone by cast time. A hash cannot be
+  un-hashed, and `voters` does not store it either.
+
+Three ways out, none of them silent — which is why `/vote` is untouched and
+still accepts `nid` in the body for the web client:
+
+| Option | Effect | Cost |
+|---|---|---|
+| **A. Store the nullifier in the session** at issuance (the server still has the raw NID then) | A1 preserved **exactly**: the session path casts the identical pseudonym the web path computes, so mixed web/mobile voting cannot double-count. Recommended. | Adds a stored pseudonym beside `voter_nid_hash`, which *does* make a DB-only voter→vote link easier — directly contradicting the `DATA_AND_API_MIGRATION.md` sentence above, so that doc needs correcting whichever option is chosen. |
+| **B. Redefine the nullifier as `SHA-256(nid_hash + election_id + secret)`** | Everything becomes derivable from the session; no new column. | Changes an audited security-relevant formula and breaks rows computed the old way — mid-election that could let a voter vote twice. `vote.test.ts` asserts the current formula. |
+| **C. Keep sending the raw NID on cast, behind a valid session** | Smallest step; revocation still applies to every other call. | Contradicts D1 ("the raw NID is retained transiently at login only") and the phone must hold the NID for the whole flow. |
+
+**DECISION TAKEN — option A**, and it is now implemented:
+
+- `schema.sql` gained an idempotent **P2 section**: `ALTER TABLE sessions ADD
+  COLUMN IF NOT EXISTS nullifier_hash CHAR(64)` (hex CHECK) plus an extended
+  `fn_sessions_guard()` that makes it immutable, like `token_hash`.
+- `POST /voter/session` captures `computeNullifier(nid, election_id)` at
+  issuance, while the raw NID is still in hand; `rotateSession` re-issues the
+  same pseudonym and **refuses** a session that has none.
+- `POST /vote` now derives its identity through `services/castIdentity.ts`
+  (session first; the legacy `nid` field only for the web client), and `nid`
+  became optional in the vote schema. The NID is off the cast path for mobile.
+- The A1 spine is asserted twice: `sessionStore.test.ts` checks the stored
+  pseudonym equals `computeNullifier(nid, election)` and differs per election,
+  and `castIdentity.test.ts` checks the session and legacy paths return
+  byte-identical `(nid_hash, nullifier_hash, constituency_code)`.
+
+Docs corrected for the consequences (the previous claims were no longer true):
+`DATA_AND_API_MIGRATION.md` Unlinkability row now says a database-only reader
+*can* link voter→session→vote and that this was the price of the decision;
+`THREAT_MODEL_AND_SECURITY.md` §4.1 records the same trade-off; the doc's own
+`CREATE TABLE sessions` snippet gained the column.
+
+**Not yet evidenced (Open Question #11):** the DDL was never executed and none
+of these routes has ever run against a live database — the lifecycle and the
+A1 equality are proven against the fake port and the pure identity helpers, not
+against `sessions` itself.
+
+---
+
+## 8. P3 progress log — election lifecycle + admin audit
+
+**Status: COMPLETE for the repo-only implementation; live-DB evidence remains
+blocked by Open Question #11 (`backend/.env.test`).** The atomic C4 trio is now
+present: `PATCH /elections/:id/status`, the `/vote` window gate, and the
+`election_status_events` writer.
+
+Delivered:
+
+- `services/electionLifecycle.ts` owns the `setup → voting → tallying → closed`
+  single-step validator, `closed → closed` idempotence, `isAcceptingVotes`, and
+  the public `availability` value (`open`/`closed`). Both the vote gate and
+  election registry use the same predicate.
+- `PATCH /elections/:id/status` is protected by `x-admin-secret`, writes the
+  election row before the status event and then one `admin_actions` row, and
+  does not append an event for repeated `closed → closed`.
+- `/vote` returns the additive `ELECTION_NOT_OPEN` 403 immediately after
+  election existence and identity resolution, before commitment, key, or
+  nullifier checks. `GET /elections` and `GET /elections/:id` expose the
+  computed availability.
+- `services/adminAudit.ts` is the single audit write point. It records the
+  static C2 actor (`shared-admin`) and fails the request if the audit insert
+  fails; the existing DB mutation is not rolled back because these routes do
+  not share a transaction boundary. All `requireAdminSecret` route blocks are
+  covered by the source/stack registry test, including demo and DKG admin
+  routes.
+- The web admin dashboard now has a typed PATCH client and a status-advance
+  control.
+
+Evidence:
+
+| Command | Observed |
+|---|---|
+| `cd backend; npx tsc --noEmit` | exit 0 |
+| `cd backend; npm run test:ci` | 8 files / 111 tests passed |
+| `cd frontend; npm run build` | exit 0; Vite production bundle generated |
+| P3 source/stack registry test | every guarded route block contains `recordAdminAction` |
+
+**Not yet evidenced (Open Question #11):** `backend/.env.test` is absent, so
+the P3 PATCH transition rows, live `/vote` 403, closed-idempotence row count,
+concurrency stress output, and the P1/P2/P3 DDL/triggers were not executed
+against a test database. Pure contracts, route wiring, and the injected audit
+port are covered without a database.
+
+---
+
+## 9. P5–P7 migration progress
+
+P5 is implemented in the root npm workspaces:
+
+- `packages/core-api` is a dependency-light typed client for sessions, the
+  mobile `/vote` body, public transparency, dense/SMT verification, and the
+  additive error envelope. It validates HTTPS base URLs, stores sessions only
+  through an injected store, and has seven passing contract tests.
+- `packages/mobile-app` is an Expo shell covering the S0–S7 voter journey,
+  Watchdog/Results/Settings, the P4 crypto adapter, `expo-secure-store`, and
+  explicit opt-in audit persistence. It fails closed while offline and its
+  Android Metro export succeeds locally.
+- Root CI now typechecks/tests both client packages and performs the Android
+  bundle check. P4's package typecheck also includes its Node and DOM libs.
+
+P6 hardening is implemented but not live-evidenced:
+
+- `strictTransportSecurity` emits HSTS for HTTPS requests, including
+  TLS-terminated proxy requests, while leaving local HTTP development usable.
+- `testing/hostile_client.mjs` sends omitted-proof, forged-proof, and
+  omitted-session requests, records only safe status/code data, and asserts the
+  public vote count is unchanged. It requires an operator-provided staging
+  URL, session token, election, ciphertext, and proof; no output is fabricated.
+- Device-only SecureStore wipe/re-auth and Detox offline/revocation matrices
+  remain pending because no emulator or staging credentials are available.
+
+P7 has a runbook in `testing/P7_REHEARSAL_RUNBOOK.md`. The web voter surface is
+retained for compatibility/admin/public transparency until a real staging
+rehearsal proves the mobile cutover. The absent `backend/.env.test` and staging
+credentials remain the explicit blockers for end-to-end evidence.
+
+## Next session (pointer, not a numbered log)
+
+Handing off? Read **`HANDOFF.md`** in the repo root first. It carries the verified
+git state, the commands to re-run every claim above, the conventions that must
+survive (additive envelopes, injected ports, no un-decided dependencies,
+fail-loud gates, code-and-docs-in-one-commit), the open questions, and the P3
+plan. Remaining phases: **P5, P6, P7**.

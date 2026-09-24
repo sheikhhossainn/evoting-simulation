@@ -30,21 +30,32 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { supabase } from "../supabaseClient";
-import {
-  hashNidWithSalt,
-  computeNullifier,
-  constituencyFromNid,
-} from "../crypto/identity";
 import { verifyBallotValidity } from "../crypto/zkp";
-import { loadPublicKeyFromEnv } from "../crypto/elgamal";
+import { getElection, getElectionPublicKey } from "../services/electionContext";
+import { rateLimit } from "../middleware/rateLimit";
+import { mapCastVoteError, sendError } from "../middleware/errorEnvelope";
+import { bearerTokenFrom, deviceIdFrom } from "../middleware/sessionAuth";
+import { createSupabaseCastIdentityDeps, resolveCastIdentity } from "../services/castIdentity";
+import { isAcceptingVotes } from "../services/electionLifecycle";
 
 const router = Router();
+
+const castIdentityDeps = createSupabaseCastIdentityDeps(supabase);
 
 // ── Zod Schema ──
 
 const voteSchema = z.object({
-  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits"),
-  candidate_id: z.string().uuid("candidate_id must be a valid UUID"),
+  // OPTIONAL, and only for the web client (Open Question #9 — the web page's
+  // fate is undecided). The mobile client authenticates with a session and omits
+  // it entirely: possession of the NID stops being the credential on every cast,
+  // which is the point of the session layer (D1/T15). Identity is derived below
+  // from whichever credential was presented.
+  nid: z.string().regex(/^\d{11}$/, "NID must be exactly 11 digits").optional(),
+  // NOTE: no plaintext candidate_id field. The ZKP disjunction proof is the
+  // sole mechanism that establishes ballot validity — it proves the
+  // ciphertext encrypts one of the server-derived constituency candidates
+  // without revealing which. A plaintext candidate id alongside the
+  // ciphertext would be a redundant leak of the voter's choice.
   encrypted_vote: z.object({
     c1: z.string().min(1, "c1 is required"),
     c2: z.string().min(1, "c2 is required"),
@@ -64,22 +75,85 @@ const voteSchema = z.object({
 
 // ── Route ──
 
-router.post("/vote", async (req: Request, res: Response) => {
+// T10: bound scripted vote submission. Duplicate-vote defence remains
+// fn_cast_vote's P0004/23505 — this only blunts brute force.
+router.post(
+  "/vote",
+  rateLimit({ windowMs: 60_000, max: 30 }),
+  async (req: Request, res: Response) => {
   const parsed = voteSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
 
-  const { nid, candidate_id, encrypted_vote, election_id, zkp_proof } = parsed.data;
-
-  // ── Derive everything server-side from the raw NID ──
-  // The raw NID is used only here, transiently, and is never persisted.
-  const nidHash = hashNidWithSalt(nid);
-  const nullifierHash = computeNullifier(nid, election_id);
-  const constituencyCode = constituencyFromNid(nid);
+  const { nid, encrypted_vote, election_id, zkp_proof } = parsed.data;
 
   try {
+    // ── Step -1: election must exist (threat_model.md §10) ──
+    // Everything derived below (constituency, candidate set) depends on this
+    // election's own registered shape — a typo'd/unknown election_id must
+    // fail loud here, not silently fall through to another election's data.
+    const election = await getElection(election_id);
+    if (!election) {
+      sendError(res, 404, "ELECTION_UNKNOWN", `Unknown election_id: ${election_id}`);
+      return;
+    }
+
+    // ── Derive identity server-side: session first, raw NID only for the web ──
+    // Both credentials yield the SAME (nid_hash, nullifier_hash,
+    // constituency_code) for a given voter + election, so A1 does not depend on
+    // which one the client used — asserted in services/castIdentity.test.ts.
+    const identity = await resolveCastIdentity(castIdentityDeps, {
+      token: bearerTokenFrom(req),
+      deviceId: deviceIdFrom(req),
+      electionId: election_id,
+      constituencyCount: election.constituency_count,
+      legacyNid: nid,
+    });
+
+    if (!identity.ok) {
+      sendError(res, identity.status, identity.code, identity.message);
+      return;
+    }
+
+    // The election window is checked after existence and identity resolution,
+    // but before setup/key/nullifier checks. A closed or not-yet-open election
+    // must not leak a more specific readiness or participation signal.
+    if (!isAcceptingVotes(election.status)) {
+      sendError(res, 403, "ELECTION_NOT_OPEN", "This election is not accepting votes");
+      return;
+    }
+
+    const { nidHash, nullifierHash, constituencyCode } = identity;
+
+    // ── Step 0: Election setup commitment must be anchored before any vote ──
+    // docs/tally-verifiability-design.md §8.2.5: "POST /vote should refuse to
+    // accept ballots for an election_id with no anchored electionSetupCommitment
+    // yet — a commitment computed after votes exist could be back-dated to
+    // match whatever result is wanted." This was previously unenforced (the
+    // check existed only in design-doc prose, not in code) — closing that gap
+    // here so candidate-set integrity is an actual precondition, not a claim.
+    const { data: setupCommitment, error: setupCheckError } = await supabase
+      .from("election_setup_commitments")
+      .select("election_id")
+      .eq("election_id", election_id)
+      .maybeSingle();
+
+    if (setupCheckError) {
+      console.error("Supabase election_setup_commitments check error:", setupCheckError);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+
+    if (!setupCommitment) {
+      res.status(412).json({
+        error:
+          "No election setup commitment has been anchored for this election yet — candidates/constituencies are not yet locked (docs §8.2.5). Votes cannot be accepted until setup is committed.",
+      });
+      return;
+    }
+
     // ── Step 1: Check nullifier hasn't been used ──
     const { data: existingNullifier, error: nullifierCheckError } =
       await supabase
@@ -102,51 +176,46 @@ router.post("/vote", async (req: Request, res: Response) => {
 
     // ── Step 2: Derive the constituency candidate set SERVER-SIDE ──
     // Fetch every candidate in the voter's constituency, ordered identically
-    // to GET /candidates (name ascending). This ordered list is the source of
-    // truth for BOTH the constituency guard and the ZKP valid-candidate set —
-    // the client never gets to say what counts as a valid ballot. The
-    // frontend prover builds its set from the same GET /candidates response,
-    // so an honest ballot's proof verifies against this exact ordering.
+    // to GET /candidates (name ascending). This ordered list is the ZKP
+    // valid-candidate set — the client never gets to say what counts as a
+    // valid ballot. The frontend prover builds its set from the same
+    // GET /candidates response, so an honest ballot's proof verifies against
+    // this exact ordering.
     const { data: constituencyCandidates, error: candidateLookupError } =
       await supabase
         .from("candidates")
         .select("id, name")
+        .eq("election_id", election_id)
         .eq("constituency_code", constituencyCode)
         .order("name", { ascending: true });
 
     if (candidateLookupError) {
       console.error("Supabase candidate lookup error:", candidateLookupError);
-      res.status(500).json({ error: "Internal server error" });
+      sendError(res, 500, "INTERNAL", "Internal server error");
       return;
     }
 
     if (!constituencyCandidates || constituencyCandidates.length === 0) {
-      res.status(404).json({ error: "No candidates found for your constituency" });
+      sendError(res, 404, "NOT_FOUND", "No candidates found for your constituency");
       return;
     }
 
     const candidateIds = constituencyCandidates.map((c) => c.id);
 
-    // Constituency guard — the chosen candidate must belong to this set.
-    // (A non-existent candidate id is also, correctly, "not in your
-    // constituency".) Server-side enforcement; we don't trust the client.
-    if (!candidateIds.includes(candidate_id)) {
-      res.status(403).json({
-        error: "Candidate is not in your constituency",
-      });
-      return;
-    }
-
     // ── Step 2b: Mandatory ZKP ballot-validity check ──
     // Verify the proof against the SERVER-DERIVED candidate set. This proves
     // the ciphertext encrypts one of the real constituency candidates without
-    // revealing which. The proof is required (enforced by the zod schema) and
-    // the candidate set is not client-supplied, so neither the check nor its
-    // reference set can be bypassed or spoofed by the caller.
-    const elgamalPubKey = loadPublicKeyFromEnv();
+    // revealing which — this is now the ONLY mechanism that establishes
+    // ballot validity; there is no separate plaintext candidate_id guard to
+    // bypass or spoof, because there is no plaintext candidate_id at all.
+    const elgamalPubKey = await getElectionPublicKey(election_id);
     if (!elgamalPubKey) {
-      console.error("ZKP verification failed: ElGamal public key not configured");
-      res.status(500).json({ error: "Internal server error" });
+      sendError(
+        res,
+        503,
+        "KEY_NOT_READY",
+        `DKG ceremony not yet qualified for ${election_id} — the election has no encryption key yet.`
+      );
       return;
     }
 
@@ -159,7 +228,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     );
 
     if (!zkpValid) {
-      res.status(400).json({ error: "ZKP ballot validity proof failed" });
+      sendError(res, 400, "INVALID_BALLOT", "ZKP ballot validity proof failed");
       return;
     }
 
@@ -172,6 +241,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     const { data: voteId, error: castError } = await supabase.rpc(
       "fn_cast_vote",
       {
+        p_election_id: election_id,
         p_voter_nid_hash: nidHash,
         p_nullifier_hash: nullifierHash,
         p_constituency_code: constituencyCode,
@@ -183,29 +253,23 @@ router.post("/vote", async (req: Request, res: Response) => {
     if (castError) {
       console.error("Supabase fn_cast_vote error:", castError);
 
-      // Map PostgreSQL error codes to HTTP responses
-      const msg = castError.message || "";
+      // Stable mapping (middleware/errorEnvelope.mapCastVoteError) instead of
+      // substring-matching the PostgreSQL message: fn_cast_vote raises custom
+      // SQLSTATEs P0002/P0003/P0004, and 23505 is the unique-violation backstop
+      // for a concurrent duplicate. The messages are byte-identical to the
+      // previous implementation — the web client and existing tests assert on
+      // them — while `code`/`retryable` are additive for the mobile client.
+      const { status, code } = mapCastVoteError(castError);
+      const message =
+        code === "VOTER_NOT_REGISTERED"
+          ? "Voter not registered"
+          : code === "VOTER_NOT_ELIGIBLE"
+            ? "Voter is not eligible to vote"
+            : code === "VOTE_ALREADY_CAST"
+              ? "You have already voted"
+              : "Internal server error";
 
-      if (msg.includes("not registered") || castError.code === "P0002") {
-        res.status(404).json({ error: "Voter not registered" });
-        return;
-      }
-      if (msg.includes("not eligible") || castError.code === "P0003") {
-        res.status(403).json({ error: "Voter is not eligible to vote" });
-        return;
-      }
-      if (msg.includes("already cast") || castError.code === "P0004") {
-        res.status(409).json({ error: "You have already voted" });
-        return;
-      }
-      // Unique violation on votes.nullifier_hash — a concurrent duplicate
-      // submission lost the race. Same user-facing meaning as P0004.
-      if (castError.code === "23505") {
-        res.status(409).json({ error: "You have already voted" });
-        return;
-      }
-
-      res.status(500).json({ error: "Internal server error" });
+      sendError(res, status, code, message);
       return;
     }
 
@@ -234,7 +298,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error casting vote:", err);
-    res.status(500).json({ error: "Internal server error" });
+    sendError(res, 500, "INTERNAL", "Internal server error");
   }
 });
 

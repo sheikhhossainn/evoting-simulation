@@ -20,19 +20,41 @@
  * operate on seeded/mock data only. Restore is stateless — it recomputes the
  * correct root rather than remembering the old one — so the demo can never get
  * stuck in a tampered state and is safe to repeat mid-meeting.
+ *
+ * All four tamper/restore routes are additionally gated behind
+ * ENABLE_TAMPER_DEMO=1 via middleware/tamperDemo.ts: an unconfigured deployment
+ * answers 404, so the demo surface cannot be reached — or even discovered — in
+ * production (threat T4). Gating is layered ON TOP of requireAdminSecret, not
+ * instead of it.
+ *
+ * Multi-election isolation (threat_model.md §10): every route requires an
+ * explicit `election_id` (query param for GETs, body field for POSTs) —
+ * resolved via resolveElectionId, no silent default — and every
+ * merkle_batches/votes query below is scoped to it. Previously this entire
+ * file had zero election concept: any batch/vote from any election was
+ * reachable from any request.
  */
 
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabaseClient";
 import { requireAdminSecret } from "../middleware/adminAuth";
+import { requireTamperDemo } from "../middleware/tamperDemo";
 import { buildMerkleTree, getProof, hashVoteLeaf, verifyProof } from "../merkle/merkleTree";
 import {
   getReadOnlyMerkleContract,
   getWritableMerkleContract,
 } from "../blockchain/merkleContract";
 import { runAnchorBatch } from "../services/anchorBatch";
+import { getSmtProof, runSmtReanchorAfterDeletion } from "../services/anchorSmtBatch";
+import {
+  verifySmtMembershipProof,
+  verifySmtNonMembershipProof,
+} from "../merkle/sparseMerkleTree";
+import { resolveElectionId } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 interface VoteRow {
   id: string;
@@ -83,12 +105,14 @@ function flipLastNibble(hash: string): string {
 }
 
 /**
- * Resolve which batch a tamper/restore action targets. If the caller passes
- * an explicit batch_id, use it; otherwise default to the latest anchored
- * batch (what the visualizer's auto-target mode relies on). Writes a 404 and
- * returns null when there is nothing to act on.
+ * Resolve which batch a tamper/restore action targets, WITHIN electionId.
+ * If the caller passes an explicit batch_id, use it; otherwise default to
+ * that election's latest anchored batch (what the visualizer's auto-target
+ * mode relies on). Writes a 404 and returns null when there is nothing to
+ * act on.
  */
 async function resolveBatchId(
+  electionId: string,
   requested: unknown,
   res: Response
 ): Promise<number | null> {
@@ -99,12 +123,13 @@ async function resolveBatchId(
   const { data: latest, error } = await supabase
     .from("merkle_batches")
     .select("batch_id")
+    .eq("election_id", electionId)
     .order("batch_id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error || !latest) {
-    res.status(404).json({ error: "No anchored batch to target" });
+    res.status(404).json({ error: "No anchored batch to target for this election" });
     return null;
   }
   return latest.batch_id;
@@ -113,7 +138,14 @@ async function resolveBatchId(
 router.post(
   "/anchor/batch",
   requireAdminSecret,
-  async (_req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
+    const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+    const electionId = resolved.electionId;
+
     try {
       if (!getWritableMerkleContract()) {
         res.status(503).json({
@@ -123,14 +155,23 @@ router.post(
         return;
       }
 
-      const result = await runAnchorBatch();
+      const result = await runAnchorBatch(electionId);
 
       if (!result) {
-        res.status(400).json({ error: "No unanchored votes to batch" });
+        res.status(400).json({ error: "No unanchored votes to batch for this election" });
         return;
       }
 
-      res.status(201).json(result);
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.batch",
+          request_summary: { vote_count: result.vote_count },
+          http_status: 201,
+        },
+        adminAuditWriter
+      );
+      res.status(201).json({ election_id: electionId, ...result });
     } catch (err) {
       console.error("Unexpected error in POST /anchor/batch:", err);
       res.status(500).json({ error: "Internal server error" });
@@ -139,6 +180,12 @@ router.post(
 );
 
 router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const electionId = resolved.electionId;
   const voteId = String(req.params.voteId);
 
   try {
@@ -149,6 +196,7 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
     const { data: batch, error: batchError } = await supabase
       .from("merkle_batches")
       .select("batch_id, root, tx_hash, vote_ids")
+      .eq("election_id", electionId)
       .contains("vote_ids", JSON.stringify([voteId]))
       .maybeSingle();
 
@@ -159,7 +207,7 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
     }
 
     if (!batch) {
-      res.status(404).json({ error: "Vote not found in any anchored batch yet" });
+      res.status(404).json({ error: "Vote not found in any anchored batch yet for this election" });
       return;
     }
 
@@ -217,13 +265,14 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
     const readContract = getReadOnlyMerkleContract();
     if (readContract) {
       try {
-        includedOnChain = await readContract.verify(batch.batch_id, leaf, proof);
+        includedOnChain = await readContract.verify(electionId, batch.batch_id, leaf, proof);
       } catch (err) {
         console.error("On-chain verify() call failed:", err);
       }
     }
 
     res.json({
+      election_id: electionId,
       vote_id: voteId,
       batch_id: batch.batch_id,
       tx_hash: batch.tx_hash,
@@ -239,17 +288,106 @@ router.get("/anchor/verify/:voteId", async (req: Request, res: Response) => {
 });
 
 /**
- * GET /anchor/latest — latest anchored batch + a sample vote id.
+ * GET /anchor/verify-smt/:voteId — SMT counterpart to GET /anchor/verify/:voteId
+ * (docs/smt-design.md §13 test 18). Public, read-only. Fetches the vote's
+ * nullifier_hash, generates a membership (or non-membership, if the key was
+ * since removed) proof against the current cumulative SMT root for this
+ * election, and verifies it both locally and against the on-chain contract.
+ */
+router.get("/anchor/verify-smt/:voteId", async (req: Request, res: Response) => {
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const electionId = resolved.electionId;
+  const voteId = String(req.params.voteId);
+
+  try {
+    const { data: vote, error: voteError } = await supabase
+      .from("votes")
+      .select("id, nullifier_hash")
+      .eq("id", voteId)
+      .eq("election_id", electionId)
+      .maybeSingle();
+
+    if (voteError) {
+      console.error("Supabase error looking up vote for SMT verify:", voteError);
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+    if (!vote) {
+      res.status(404).json({ error: "Vote not found for this election" });
+      return;
+    }
+
+    const result = await getSmtProof(electionId, vote.nullifier_hash);
+    const includedLocally =
+      result.type === "membership"
+        ? verifySmtMembershipProof(result.root, result.proof as any)
+        : verifySmtNonMembershipProof(result.root, result.proof as any);
+
+    let includedOnChain: boolean | null = null;
+    const readContract = getReadOnlyMerkleContract();
+    if (readContract) {
+      try {
+        includedOnChain =
+          result.type === "membership"
+            ? await readContract.verifySmtMembership(
+                result.root,
+                (result.proof as any).key,
+                (result.proof as any).value,
+                (result.proof as any).bitmap,
+                (result.proof as any).siblings
+              )
+            : await readContract.verifySmtNonMembership(
+                result.root,
+                (result.proof as any).key,
+                (result.proof as any).bitmap,
+                (result.proof as any).siblings
+              );
+      } catch (err) {
+        console.error("On-chain verifySmtMembership/NonMembership call failed:", err);
+      }
+    }
+
+    res.json({
+      election_id: electionId,
+      vote_id: voteId,
+      nullifier_hash: vote.nullifier_hash,
+      type: result.type,
+      root: result.root,
+      proof: result.proof,
+      included_locally: includedLocally,
+      included_on_chain: includedOnChain,
+    });
+  } catch (err) {
+    console.error("Unexpected error in GET /anchor/verify-smt:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * GET /anchor/latest — latest anchored batch + a sample vote id, for a
+ * specific election.
  *
  * Public, read-only. Backs the visualizer's "Anchor status" zone and gives
  * the tamper console a batch to auto-target without the operator hunting for
- * ids. Returns 404 when nothing is anchored yet.
+ * ids. Returns 404 when nothing is anchored yet for this election.
  */
-router.get("/anchor/latest", async (_req: Request, res: Response) => {
+router.get("/anchor/latest", async (req: Request, res: Response) => {
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const electionId = resolved.electionId;
+
   try {
     const { data: batch, error } = await supabase
       .from("merkle_batches")
       .select("batch_id, root, tx_hash, vote_ids, vote_count, created_at")
+      .eq("election_id", electionId)
       .order("batch_id", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -260,12 +398,13 @@ router.get("/anchor/latest", async (_req: Request, res: Response) => {
       return;
     }
     if (!batch) {
-      res.status(404).json({ error: "No anchored batch yet" });
+      res.status(404).json({ error: "No anchored batch yet for this election" });
       return;
     }
 
     const voteIds: string[] = batch.vote_ids;
     res.json({
+      election_id: electionId,
       batch_id: batch.batch_id,
       root: batch.root,
       tx_hash: batch.tx_hash,
@@ -282,23 +421,32 @@ router.get("/anchor/latest", async (_req: Request, res: Response) => {
 /**
  * POST /anchor/tamper/root — demo vector 1.
  *
- * Flips one nibble of a batch's stored root (defaults to the latest batch).
- * merkle_batches.root has no immutability trigger, so this edit SUCCEEDS at
- * the DB layer — which is the point: afterwards GET /anchor/verify/:id
- * returns 409 because the recomputed root no longer matches the stored one.
- * Seeded/mock data only.
+ * Flips one nibble of a batch's stored root (defaults to the election's
+ * latest batch). merkle_batches.root has no immutability trigger, so this
+ * edit SUCCEEDS at the DB layer — which is the point: afterwards
+ * GET /anchor/verify/:id returns 409 because the recomputed root no longer
+ * matches the stored one. Seeded/mock data only.
  */
 router.post(
   "/anchor/tamper/root",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
+    const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+    const electionId = resolved.electionId;
+
     try {
-      const batchId = await resolveBatchId(req.body?.batch_id, res);
+      const batchId = await resolveBatchId(electionId, req.body?.batch_id, res);
       if (batchId === null) return;
 
       const { data: batch, error } = await supabase
         .from("merkle_batches")
         .select("batch_id, root")
+        .eq("election_id", electionId)
         .eq("batch_id", batchId)
         .maybeSingle();
 
@@ -311,6 +459,7 @@ router.post(
       const { error: updErr } = await supabase
         .from("merkle_batches")
         .update({ root: tamperedRoot })
+        .eq("election_id", electionId)
         .eq("batch_id", batchId);
 
       if (updErr) {
@@ -319,7 +468,17 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
+        election_id: electionId,
         batch_id: batchId,
         original_root: batch.root,
         tampered_root: tamperedRoot,
@@ -341,15 +500,24 @@ router.post(
  */
 router.post(
   "/anchor/restore/root",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
+    const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+    const electionId = resolved.electionId;
+
     try {
-      const batchId = await resolveBatchId(req.body?.batch_id, res);
+      const batchId = await resolveBatchId(electionId, req.body?.batch_id, res);
       if (batchId === null) return;
 
       const { data: batch, error } = await supabase
         .from("merkle_batches")
         .select("batch_id, root, vote_ids")
+        .eq("election_id", electionId)
         .eq("batch_id", batchId)
         .maybeSingle();
 
@@ -362,6 +530,7 @@ router.post(
       const { error: updErr } = await supabase
         .from("merkle_batches")
         .update({ root: trueRoot })
+        .eq("election_id", electionId)
         .eq("batch_id", batchId);
 
       if (updErr) {
@@ -370,7 +539,17 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.restore.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
+        election_id: electionId,
         batch_id: batchId,
         restored_root: trueRoot,
         was_tampered: trueRoot.toLowerCase() !== batch.root.toLowerCase(),
@@ -392,15 +571,24 @@ router.post(
  */
 router.post(
   "/anchor/tamper/ballot",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
+    const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+    const electionId = resolved.electionId;
+
     try {
-      const batchId = await resolveBatchId(req.body?.batch_id, res);
+      const batchId = await resolveBatchId(electionId, req.body?.batch_id, res);
       if (batchId === null) return;
 
       const { data: batch, error } = await supabase
         .from("merkle_batches")
         .select("vote_ids")
+        .eq("election_id", electionId)
         .eq("batch_id", batchId)
         .maybeSingle();
 
@@ -416,7 +604,17 @@ router.post(
         .eq("id", targetVoteId);
 
       // A rejection (updErr set) is the expected, desired outcome.
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.ballot",
+          request_summary: { batch_id: batchId, vote_id: targetVoteId, blocked: !!updErr },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
+        election_id: electionId,
         batch_id: batchId,
         vote_id: targetVoteId,
         blocked: !!updErr,
@@ -427,6 +625,95 @@ router.post(
       });
     } catch (err) {
       console.error("Unexpected error in POST /anchor/tamper/ballot:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+/**
+ * POST /anchor/tamper/delete-vote — SMT deletion-detection demo (docs/smt-design.md
+ * §13 test 19). Deletes a confirmed, already-SMT-anchored vote row via the
+ * scoped fn_admin_delete_vote() RPC (schema.sql), then re-anchors the SMT
+ * for this election. The now-stale membership proof issued before deletion
+ * still verifies against its original root (§8's contradiction) —
+ * GET /anchor/verify-smt on the same vote_id, called again after this, will
+ * 404 (vote row gone) while a proof captured beforehand remains
+ * independently checkable via verifySmtMembershipProof/verifySmtMembership
+ * against the pre-deletion root. Seeded/mock data only, same operating
+ * envelope as the other tamper routes.
+ */
+router.post(
+  "/anchor/tamper/delete-vote",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
+  requireAdminSecret,
+  async (req: Request, res: Response) => {
+    const resolved = await resolveElectionId(req.body as Record<string, unknown>);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
+    const electionId = resolved.electionId;
+
+    try {
+      const voteId = req.body?.vote_id;
+      if (typeof voteId !== "string" || !voteId) {
+        res.status(400).json({ error: "vote_id is required" });
+        return;
+      }
+
+      const { data: vote, error: fetchErr } = await supabase
+        .from("votes")
+        .select("id, nullifier_hash, tx_hash")
+        .eq("id", voteId)
+        .eq("election_id", electionId)
+        .maybeSingle();
+
+      if (fetchErr || !vote) {
+        res.status(404).json({ error: "Vote not found for this election" });
+        return;
+      }
+      if (!vote.tx_hash) {
+        res.status(400).json({
+          error: "Vote has not been anchored yet — nothing for the SMT to contradict",
+        });
+        return;
+      }
+
+      const proofBeforeDeletion = await getSmtProof(electionId, vote.nullifier_hash);
+
+      const { error: rpcErr } = await supabase.rpc("fn_admin_delete_vote", {
+        p_vote_id: voteId,
+      });
+      if (rpcErr) {
+        console.error("fn_admin_delete_vote RPC failed:", rpcErr);
+        res.status(500).json({ error: "Internal server error" });
+        return;
+      }
+
+      const reanchorResult = await runSmtReanchorAfterDeletion(electionId);
+
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.delete-vote",
+          request_summary: { vote_id: voteId, reanchored: !!reanchorResult },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
+      res.json({
+        election_id: electionId,
+        vote_id: voteId,
+        nullifier_hash: vote.nullifier_hash,
+        deleted: true,
+        proof_before_deletion: proofBeforeDeletion,
+        reanchor: reanchorResult,
+        note: reanchorResult
+          ? "Vote row deleted and SMT re-anchored. proof_before_deletion (a membership proof) still verifies against its original root; a fresh non-membership proof for the same key now verifies against the new root."
+          : "Vote row deleted, but SMT anchoring is not configured (no re-anchor performed) or the root did not change.",
+      });
+    } catch (err) {
+      console.error("Unexpected error in POST /anchor/tamper/delete-vote:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   }

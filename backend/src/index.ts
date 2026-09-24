@@ -14,10 +14,16 @@ import dotenv from "dotenv";
 import voterRouter from "./routes/voter";
 import voteRouter from "./routes/vote";
 import candidatesRouter from "./routes/candidates";
-import { loadPublicKeyFromEnv } from "./crypto/elgamal";
 import keySharesRouter from "./routes/keyshares";
 import anchorRouter from "./routes/anchor";
 import publicRouter from "./routes/public";
+import electionsRouter from "./routes/elections";
+import dkgRouter from "./routes/dkg";
+import { maybeAutoAnchor } from "./services/anchorBatch";
+import { resolveElectionId, getElectionPublicKey } from "./services/electionContext";
+import { isCaptchaEnabled } from "./middleware/captcha";
+import { isTamperDemoEnabled } from "./middleware/tamperDemo";
+import { strictTransportSecurity } from "./middleware/securityHeaders";
 
 
 dotenv.config();
@@ -26,10 +32,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Middleware ──
+app.use(strictTransportSecurity);
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PATCH"],
   })
 );
 app.use(express.json());
@@ -41,6 +48,8 @@ app.use(candidatesRouter);    // GET /candidates lives at root
 app.use("/keyshares", keySharesRouter);
 app.use(anchorRouter);         // POST /anchor/batch, GET /anchor/verify/:voteId
 app.use(publicRouter);         // GET /public/stats (Public Watchdog page)
+app.use(electionsRouter);      // POST /elections, GET /elections, GET /elections/:id
+app.use("/dkg", dkgRouter);    // Distributed key generation ceremony
 
 
 // ── Health check ──
@@ -49,31 +58,34 @@ app.get("/health", (_req, res) => {
 });
 
 // ── ElGamal public key endpoint ──
-// Frontend fetches this to encrypt votes client-side
-app.get("/election/public-key", (_req, res) => {
-  const pubKey = loadPublicKeyFromEnv();
-  if (!pubKey) {
-    res.status(503).json({
-      error: "ElGamal keys not configured. Run: npx ts-node src/scripts/setup-keys.ts",
-    });
+// Frontend fetches this to encrypt votes client-side. Sourced entirely from
+// the election's DKG ceremony (election_key_ceremony), never from env — see
+// electionContext.ts's getElectionPublicKey doc comment.
+app.get("/election/public-key", async (req, res) => {
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
     return;
   }
-  res.json(pubKey);
+
+  try {
+    const pubKey = await getElectionPublicKey(resolved.electionId);
+    if (!pubKey) {
+      res.status(503).json({
+        error: `DKG ceremony not yet qualified for ${resolved.electionId} — run the key ceremony first.`,
+      });
+      return;
+    }
+    res.json(pubKey);
+  } catch (err) {
+    console.error("Unexpected error in GET /election/public-key:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ── Start ──
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-
-  // Verify ElGamal keys are loaded
-  const pubKey = loadPublicKeyFromEnv();
-  if (pubKey) {
-    console.log(`🔐 ElGamal public key loaded (p=${pubKey.p.slice(0, 12)}...)`);
-  } else {
-    console.warn(
-      "⚠️  ElGamal keys not found in .env — run: npx ts-node src/scripts/setup-keys.ts"
-    );
-  }
 
   // Verify NID salt
   if (process.env.NID_HASH_SALT) {
@@ -81,4 +93,32 @@ app.listen(PORT, () => {
   } else {
     console.warn("⚠️  NID_HASH_SALT not set — NID hashes will be unsalted!");
   }
+
+  // P1 posture report (T10/T4). A gate that is silently inert is worse than no
+  // gate at all, because it looks like protection — so both optional gates
+  // announce their state at startup rather than passing requests invisibly.
+  if (isCaptchaEnabled()) {
+    console.log("🛡️  CAPTCHA gate enabled for POST /voter/register");
+  } else {
+    console.warn(
+      "⚠️  CAPTCHA_SECRET not set — POST /voter/register is rate-limited only"
+    );
+  }
+  if (isTamperDemoEnabled()) {
+    console.warn(
+      "⚠️  ENABLE_TAMPER_DEMO=1 — demo tamper routes are ENABLED (never do this in production)"
+    );
+  } else {
+    console.log("🔒 Tamper demo routes disabled (they answer 404)");
+  }
+
+  // Periodic auto-anchor check, independent of vote traffic (methodology-audit
+  // finding M3). maybeAutoAnchor() was previously only ever invoked
+  // fire-and-forget after a vote was cast — if voting stopped entirely before
+  // AUTO_ANCHOR_THRESHOLD was reached, nothing would ever re-check the
+  // age-based trigger. This closes that: the pre-anchor window is now bounded
+  // by AUTO_ANCHOR_MAX_AGE_MS even with zero further votes.
+  setInterval(() => {
+    maybeAutoAnchor().catch((err) => console.error("Periodic auto-anchor check failed:", err));
+  }, 5 * 60 * 1000);
 });

@@ -1,21 +1,16 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
 import * as crypto from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import { constituencyFromNid } from '../crypto/identity';
 import { proveBallotValidity } from '../crypto/zkp';
 import { modPow, encodeCandidateId } from '../crypto/elgamal';
+import { loadTestSupabaseEnv } from '../testUtils/testSupabaseEnv';
 
-// Load test environment variables
-const envTestPath = path.resolve(__dirname, '../../.env.test');
-const envProdPath = path.resolve(__dirname, '../../.env');
-if (fs.existsSync(envTestPath)) {
-  dotenv.config({ path: envTestPath });
-} else {
-  dotenv.config({ path: envProdPath });
-}
+// This test inserts real vote rows (via fn_cast_vote) — it must never be
+// able to silently run against production. See testSupabaseEnv.ts.
+loadTestSupabaseEnv();
 
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'NID_HASH_SALT', 'NULLIFIER_SECRET'];
 for (const key of REQUIRED_ENV) {
@@ -38,27 +33,6 @@ async function fetchPost(urlPath: string, body: any) {
   return { status: res.status, body: await res.json() };
 }
 
-// /vote now requires a real candidate_id whose constituency_code matches
-// the voter's derived constituency (server-side constituency guard, see
-// vote.ts). Tests must look up a genuinely seeded candidate rather than
-// sending a placeholder id, or every request is rejected at that guard
-// before it ever reaches the check the test is actually trying to exercise.
-async function candidateIdForNid(nid: string): Promise<string> {
-  const constituency = constituencyFromNid(nid);
-  const { data, error } = await supabase
-    .from('candidates')
-    .select('id')
-    .eq('constituency_code', constituency)
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) {
-    throw new Error(
-      `No seeded candidate found for constituency ${constituency} (nid ${nid}) — run seed-constituencies/seed-candidates first.`
-    );
-  }
-  return data.id;
-}
-
 // /vote now MANDATES a ZKP ballot-validity proof, and derives the valid
 // candidate set server-side (all candidates in the voter's constituency,
 // ordered by name ascending — identical to GET /candidates). To exercise the
@@ -75,12 +49,15 @@ function loadPubKey() {
   return { p, g, y };
 }
 
+const EID = 'NATIONAL-2026-001';
+
 async function buildValidBallot(nid: string) {
-  const constituency = constituencyFromNid(nid);
+  const constituency = constituencyFromNid(nid, 8);
   // Same query + ordering the server uses to build the valid candidate set.
   const { data, error } = await supabase
     .from('candidates')
     .select('id, name')
+    .eq('election_id', EID)
     .eq('constituency_code', constituency)
     .order('name', { ascending: true });
   if (error || !data || data.length === 0) {
@@ -115,7 +92,7 @@ async function buildValidBallot(nid: string) {
     trueIndex
   );
 
-  return { candidate_id, encrypted_vote, zkp_proof, candidate_ids: candidateIds };
+  return { encrypted_vote, zkp_proof };
 }
 
 describe('Vote Casting Adversarial Tests', () => {
@@ -124,18 +101,16 @@ describe('Vote Casting Adversarial Tests', () => {
     const ballot = await buildValidBallot(unregNid);
     const unregRes = await fetchPost('/vote', {
       nid: unregNid,
-      candidate_id: ballot.candidate_id,
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: ballot.encrypted_vote,
       zkp_proof: ballot.zkp_proof,
-      candidate_ids: ballot.candidate_ids,
     });
     expect(unregRes.status).toBe(404);
   });
 
   it('rejects ineligible voter (403)', async () => {
     const inelNid = '10001000001';
-    await fetchPost('/voter/register', { nid: inelNid });
+    await fetchPost('/voter/register', { nid: inelNid, election_id: EID });
     const inelHash = crypto.createHash('sha256').update(inelNid + process.env.NID_HASH_SALT!).digest('hex');
 
     const inelUpdate = await supabase.from('voters').update({ is_eligible: false }).eq('nid_hash', inelHash);
@@ -151,11 +126,9 @@ describe('Vote Casting Adversarial Tests', () => {
     const ballot = await buildValidBallot(inelNid);
     const inelRes = await fetchPost('/vote', {
       nid: inelNid,
-      candidate_id: ballot.candidate_id,
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: ballot.encrypted_vote,
       zkp_proof: ballot.zkp_proof,
-      candidate_ids: ballot.candidate_ids,
     });
     expect(inelRes.status).toBe(403);
   });
@@ -164,7 +137,6 @@ describe('Vote Casting Adversarial Tests', () => {
     const malNid = '10001234571';
     const malRes = await fetchPost('/vote', {
       nid: malNid,
-      candidate_id: await candidateIdForNid(malNid),
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: { c1: 'c1' } // missing c2
     });
@@ -176,10 +148,8 @@ describe('Vote Casting Adversarial Tests', () => {
     // schema requires it, so a proofless ballot is rejected at the 400 gate —
     // it never reaches registration/eligibility/insert.
     const nid = '99999999999';
-    const candidate_id = await candidateIdForNid(nid);
     const res = await fetchPost('/vote', {
       nid,
-      candidate_id,
       election_id: 'NATIONAL-2026-001',
       encrypted_vote: { c1: 'abc', c2: 'def' },
       // zkp_proof deliberately omitted
@@ -187,15 +157,16 @@ describe('Vote Casting Adversarial Tests', () => {
     expect(res.status).toBe(400);
   });
 
-  it('ignores client-supplied candidate_ids — proof is checked against the server set', async () => {
-    // The core trust-boundary fix: an attacker forges a ciphertext encoding an
-    // illegal value and ships candidate_ids=[thatValue] so the proof validates
-    // against their own bogus single-element set. The server now derives the
-    // valid set itself (real constituency candidates), so the forged proof
-    // fails to verify (wrong set + length mismatch) and the vote is rejected.
+  it('ignores a client-supplied candidate set — proof is checked against the server-derived set', async () => {
+    // The core trust-boundary regression test: there is no plaintext
+    // candidate_id or candidate_ids field on the wire at all anymore — the
+    // ZKP is the sole mechanism for ballot validity. An attacker forges a
+    // ciphertext encoding an illegal value and builds a proof against their
+    // own bogus single-element set. The server derives the valid set itself
+    // (real constituency candidates) and verifies the proof against THAT set,
+    // so the forged proof (wrong set + length mismatch) fails to verify.
     // Unregistered NID guarantees nothing persists even if the gate regressed.
     const nid = '99999999999';
-    const realCandidateId = await candidateIdForNid(nid); // passes constituency guard
 
     const pubKey = loadPubKey();
     const p = BigInt('0x' + pubKey.p);
@@ -224,25 +195,21 @@ describe('Vote Casting Adversarial Tests', () => {
 
     const res = await fetchPost('/vote', {
       nid,
-      candidate_id: realCandidateId,
       election_id: 'NATIONAL-2026-001',
       encrypted_vote,
       zkp_proof,
-      candidate_ids: forgedSet, // ignored by the server
     });
     expect(res.status).toBe(400);
     expect((res.body as any)?.error).toMatch(/ZKP ballot validity proof failed/);
   });
 
-  // SKIPPED: each of the 10 trials below inserts a real, successful vote row
-  // (via fn_cast_vote), and trg_votes_no_delete now makes every one of them
-  // permanent — there's no way to reset between trials or clean up after,
-  // and no separate test DB yet (this file points at the same project as
-  // the live app — see .env). Running this would leave 10 fake votes in the
-  // real database on every run. Unskip once a dedicated test DB exists;
-  // concurrency_stress_output.json remains as the last verified evidence
-  // until then.
-  it.skip('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
+  // UNSKIPPED (P0 — BUILD_NOTES §4): this file's loadTestSupabaseEnv() guard
+  // makes running against production impossible (no .env.test, or a .env.test
+  // whose SUPABASE_URL matches production, is a hard failure at import time),
+  // so the 10 permanent rows each run leaves behind are confined to the
+  // throwaway test project. Evidence is rewritten to
+  // testing/concurrency_stress_output.json on every run.
+  it('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
     // Concurrency stress: instead of 2 racing requests, fire N=50 identical
     // casts for the same voter simultaneously, repeated over several trials.
     // The DB lock must let exactly ONE through each time — never 0, never 2+.
@@ -258,8 +225,7 @@ describe('Vote Casting Adversarial Tests', () => {
       // is no longer possible; giving every trial its own voter is cleaner
       // anyway — fully independent trials, nothing to reset.
       const trialNid = `1000100${String(9000 + trial)}`; // 11 digits total
-      await fetchPost('/voter/register', { nid: trialNid });
-      const trialCandidateId = await candidateIdForNid(trialNid);
+      await fetchPost('/voter/register', { nid: trialNid, election_id: electionId });
       const trialNullifier = crypto
         .createHash('sha256')
         .update(trialNid + electionId + process.env.NULLIFIER_SECRET!)
@@ -269,7 +235,6 @@ describe('Vote Casting Adversarial Tests', () => {
       const requests = Array.from({ length: N }, () =>
         fetchPost('/vote', {
           nid: trialNid,
-          candidate_id: trialCandidateId,
           election_id: electionId,
           encrypted_vote: { c1: 'c1', c2: 'c2' },
         })

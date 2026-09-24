@@ -1,0 +1,25 @@
+
+Independent tally verification report
+============================================================
+[PASS] 1. on-chain batch existence + root check
+       Batch 3 on-chain root: 0xe4172130e3bdb08f6f9cad7644b6ad99e027bd96ca8f02debec5632407e0883e
+[PASS] 1b. on-chain SMT batch root + total_keys_anchored check
+       on-chain smt_root=0x883ff73a246abfe64b4a8fe2c56f4baf0e1497318bb4f5adb0180f8e6e89908f, total=38
+[PASS] 1c. per-ballot SMT membership proof verification
+       3 valid, 0 invalid/missing
+[PASS] 2. dense root rebuild
+       rebuilt=0xe4172130e3bdb08f6f9cad7644b6ad99e027bd96ca8f02debec5632407e0883e, bundle claims=0xe4172130e3bdb08f6f9cad7644b6ad99e027bd96ca8f02debec5632407e0883e
+[PASS] 2a. candidate/constituency commitment (recomputed vs bundle)
+       recomputed=0x5650d923b8308d482cd3d7de0ddc3c164525a5e087049b8272bc314b224affa8
+[PASS] 2a. candidate/constituency commitment (recomputed vs on-chain)
+       on-chain=0x5650d923b8308d482cd3d7de0ddc3c164525a5e087049b8272bc314b224affa8
+[PASS] 3. completeness cross-check (bounded, cannot catch small/targeted omission — docs §8.1)
+       total_keys_anchored=38, independently_observed_vote_count=39
+[PASS] 4. DLEQ proof verification
+       9 valid, 0 invalid partial decryptions
+[PASS] 5. independent recount
+       recounted valid_votes=3, insufficient_shares=0, decrypt_failures=0, candidate_mismatch=0
+[PASS] 6. diff vs published_results
+       recounted valid_votes=3 vs published=3
+============================================================
+ALL CHECKS PASSED

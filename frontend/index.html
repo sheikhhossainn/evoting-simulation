@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="SecureVote BD — A blockchain-secured, cryptographically verifiable e-voting simulation for Bangladesh. ElGamal encrypted ballots, ZKP verification, Shamir's Secret Sharing." />
+    <!--
+      Content-Security-Policy (security-audit follow-up): the keyholder DKG
+      ceremony page (KeyCeremony.tsx) holds a private polynomial + ECDH key
+      in sessionStorage for the ceremony's duration — script-src 'self' is
+      the concrete mitigation against an XSS bug elsewhere in the SPA
+      exfiltrating it. connect-src's http://localhost:3000 matches api.ts's
+      VITE_API_BASE dev default — a production deployment with a different
+      API origin MUST update this (meta-tag CSP is static per build, not
+      env-driven).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://localhost:3000; object-src 'none'; base-uri 'self'; frame-ancestors 'none';" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />

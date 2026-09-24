@@ -10,26 +10,42 @@
  *
  * Per-candidate results live in GET /public/results below — they only
  * exist once the 3-of-4 key ceremony completes and POST /keyshares/tally
- * has run at least once (see routes/keyshares.ts). That route persists
+ * has run at least once (see routes/keyshares.ts). That route appends
  * aggregate counts only (never the key, never raw ballots) to the
- * `tally_results` table, which this route reads from.
+ * `tally_runs` table — which is the SOLE results store (BUILD-BRIEF C3);
+ * this route reads its latest row. The legacy `tally_results` table is no
+ * longer read or written anywhere.
+ *
+ * Multi-election isolation (threat_model.md §10): `election_id` is REQUIRED
+ * (via resolveElectionId — no silent default) and every query below is
+ * scoped to it. Previously `voters`/`votes`/`merkle_batches` were queried
+ * unscoped even though `key_shares`/`tally_results` already took
+ * `election_id` — a second election's data would have leaked straight into
+ * these stats.
  */
 
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabaseClient";
+import { resolveElectionId } from "../services/electionContext";
 
 const router = Router();
 
-const DEFAULT_ELECTION_ID = "NATIONAL-2026-001";
-
 router.get("/public/stats", async (req: Request, res: Response) => {
-  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
 
   try {
     const [votersRes, votesCountRes, keySharesRes, batchCountRes, latestBatchRes] =
       await Promise.all([
-        supabase.from("voters").select("constituency_code, has_voted"),
-        supabase.from("votes").select("id", { count: "exact", head: true }),
+        supabase.from("voters").select("constituency_code, has_voted").eq("election_id", election_id),
+        supabase
+          .from("votes")
+          .select("id", { count: "exact", head: true })
+          .eq("election_id", election_id),
         supabase
           .from("key_shares")
           .select("share_index, keyholder_role, submitted, submitted_at")
@@ -37,10 +53,12 @@ router.get("/public/stats", async (req: Request, res: Response) => {
           .order("share_index", { ascending: true }),
         supabase
           .from("merkle_batches")
-          .select("id", { count: "exact", head: true }),
+          .select("id", { count: "exact", head: true })
+          .eq("election_id", election_id),
         supabase
           .from("merkle_batches")
           .select("batch_id, tx_hash, vote_count, created_at")
+          .eq("election_id", election_id)
           .order("batch_id", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -108,13 +126,22 @@ router.get("/public/stats", async (req: Request, res: Response) => {
 });
 
 router.get("/public/results", async (req: Request, res: Response) => {
-  const election_id = (req.query.election_id as string) || DEFAULT_ELECTION_ID;
+  const resolved = await resolveElectionId(req.query as Record<string, unknown>);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+  const election_id = resolved.electionId;
 
   try {
+    // BUILD-BRIEF C3: read the LATEST run from tally_runs, the sole results
+    // store. The legacy `tally_results` table is deliberately not read here.
     const { data, error } = await supabase
-      .from("tally_results")
-      .select("tallied_at, results")
+      .from("tally_runs")
+      .select("tallied_at, results, batch_id, total_votes, valid_votes, invalid_votes")
       .eq("election_id", election_id)
+      .order("tallied_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -132,6 +159,10 @@ router.get("/public/results", async (req: Request, res: Response) => {
       status: "tallied",
       tallied_at: data.tallied_at,
       results: data.results,
+      batch_id: data.batch_id,
+      total_votes: data.total_votes,
+      valid_votes: data.valid_votes,
+      invalid_votes: data.invalid_votes,
     });
   } catch (err) {
     console.error("Unexpected error in GET /public/results:", err);

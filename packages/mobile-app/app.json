@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Secure Vote",
+    "slug": "secure-vote",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "secure-vote",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.evoting.securevote"
+    },
+    "android": {
+      "package": "org.evoting.securevote"
+    },
+    "plugins": ["expo-secure-store"],
+    "extra": {
+      "apiBaseUrl": "https://api.example.invalid"
+    }
+  }
+}

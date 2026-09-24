@@ -29,6 +29,10 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Multi-election isolation (threat_model.md §10) — same CEREMONY_ELECTION_ID
+// convention as seed-constituencies.ts/setup-shamir-zq.ts.
+const ELECTION_ID = process.env.CEREMONY_ELECTION_ID || "NATIONAL-2026-001";
+
 // ── Helpers ──
 
 function sha256WithSalt(input: string): string {
@@ -94,7 +98,23 @@ const MOCK_NIDS: { nid: string; displayName: string }[] = [
 ];
 
 async function main() {
-  console.log("\n🌱 Seeding 20 mock voters into Supabase...\n");
+  console.log(`\n🌱 Seeding 20 mock voters into Supabase for election ${ELECTION_ID}...\n`);
+
+  const { data: election, error: electionErr } = await supabase
+    .from("elections")
+    .select("election_id")
+    .eq("election_id", ELECTION_ID)
+    .maybeSingle();
+  if (electionErr) {
+    console.error("❌ Supabase error checking elections row:", electionErr.message);
+    process.exit(1);
+  }
+  if (!election) {
+    console.error(
+      `❌ No elections row for ${ELECTION_ID} — create it first (POST /elections or an INSERT into elections).`
+    );
+    process.exit(1);
+  }
 
   if (!process.env.NID_HASH_SALT) {
     console.warn(
@@ -117,6 +137,7 @@ async function main() {
 
     const { error } = await supabase.from("voters").upsert(
       {
+        election_id: ELECTION_ID,
         nid_hash: nidHash,
         name: voter.name,
         constituency_code: voter.constituency_code,
@@ -124,7 +145,7 @@ async function main() {
         has_voted: false,
       },
       {
-        onConflict: "nid_hash",
+        onConflict: "election_id,nid_hash",
         ignoreDuplicates: true,
       }
     );
