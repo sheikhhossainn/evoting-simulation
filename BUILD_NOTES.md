@@ -141,6 +141,14 @@ Decisions worth keeping:
 5. **`sendEmail`-style silent no-ops were avoided**: the CAPTCHA provider being
    unreachable returns `503 UPSTREAM_UNAVAILABLE` (retryable) rather than
    pretending the request was fraudulent.
+6. **Three plan docs claimed `express-rate-limit`; the code does not use it.**
+   Corrected rather than left to drift: `METHODOLOGY_CLASSIFICATION.md` (B4),
+   `THREAT_MODEL_AND_SECURITY.md` (T10 control) and `ROADMAP_RISKS_DOD.md` (P1
+   tasks) now describe the dependency-free limiter that actually exists. The
+   per-NID tier those docs also promised is explicitly **deferred**, with the
+   reason stated: the nullifier is derived *inside* the route, so a middleware
+   key would either hold raw NIDs in process memory or duplicate identity
+   derivation.
 
 Evidence:
 
@@ -150,6 +158,16 @@ Evidence:
 | `npm run test:ci` | 5 files / **63 tests passed** (was 47 before; +16 new) |
 | No whole-body assertions to break | grep confirmed `vote.test.ts` asserts only on `status` and on `body.error` via `.toMatch(...)` — never `toEqual` on a body |
 | Not yet evidenced | the P1 DDL and the route/middleware changes have never run against live Supabase → no `concurrency_stress_output.json` regeneration, no request through the limiter/gate in a running server |
+
+**Deliberately not done in P1 (carried, not silently dropped):**
+`express.json()` still has **no** body-size limit; the limits cover
+`/voter/register`, `/voter/check-nullifier` and `/vote` only — public GETs,
+`/keyshares/submit` and `/keyholder/request` remain unthrottled; and the windows
+are fixed, not the progressive-backoff tiers the source roadmap asks for.
+`FUTURE_WORK.md` §6.1 reads "`express-rate-limit` *(or equivalent)*, per-route",
+so the limiter above satisfies that item **in substance**; the sub-items just
+listed are what remains, and the duplicated `FUTURE_WORK`/`FUTURE_IMPLEMENTATION`
+pair is still Open Question #10 (untouched here on purpose).
 
 A defect caught only by running the suite, recorded so it is not repeated: the
 first draft of the test helper `withEnv()` was not `async`, so its `finally`

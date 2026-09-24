@@ -57,7 +57,7 @@ Monorepo with four packages + docs + evidence, orchestrated by a root `package.j
 **Stack (verified `backend/package.json`):** express `^5.2.1`, zod `^4.4.3`, `@supabase/supabase-js ^2.108.2`, ethers `^6.13.5`, cors, dotenv, `secrets.js-grempe` (used only by legacy `crypto/shamir.ts`); dev: vitest `^4.1.10`, fast-check `^4.9.0`, ts-node, nodemon, TypeScript 6. Scripts: `test`→`vitest run`; `test:ci`→a fixed 4-file crypto/merkle subset. Type: `commonjs`.
 
 **Server entry `backend/src/index.ts`:**
-- Middleware: CORS allowing only `http://localhost:5173` / `http://127.0.0.1:5173` (L32-37), `express.json()` (no body-size limit, no rate limiting — absent from index.ts and both package.json files; corroborated by FUTURE_WORK.md §0).
+- Middleware: CORS allowing only `http://localhost:5173` / `http://127.0.0.1:5173` (L32-37), `express.json()` (no body-size limit, no rate limiting — absent from index.ts and both package.json files; corroborated by FUTURE_WORK.md §0). *(As audited. Rate limiting + a CAPTCHA gate were added in P1 — BUILD_NOTES §5; `express.json()` still has no body-size limit.)*
 - Routers mounted (L40-49): `/voter` (voter.ts), `/vote` (vote.ts, root), `/candidates` (candidates.ts, root), `/keyshares` (keyshares.ts), `/anchor` (anchor.ts), `/public` (public.ts), `/elections` (elections.ts), `/dkg` (dkg.ts).
 - `GET /health` (L52); `GET /election/public-key` (L60-80) → `getElectionPublicKey` (electionContext.ts:79-89) reads `election_key_ceremony` (status `qualified`) and returns `{p,g,y}` — never from env.
 - `setInterval(5 min)` → `maybeAutoAnchor()` (index.ts:99-101).
@@ -124,7 +124,7 @@ There is **no session-based authentication for any role**. Verified mechanisms:
    - `GET /candidates` derives constituency from the `x-voter-nid` header (candidates.ts:37-47) — the NID itself is the credential; there is no per-request token.
 2. **Admin = shared secret header**: `requireAdminSecret` (adminAuth.ts:16-40) compares `x-admin-secret` against `ADMIN_SECRET` with `timingSafeEqual`, only when `ADMIN_SECRET` is configured (else 503). Applied to: `POST /elections` (elections.ts:36), `POST /anchor/batch`, `POST /anchor/tamper/*`, `POST /anchor/restore/root` (anchor.ts), `POST /keyshares/tally` (keyshares.ts), `POST /dkg/init` (dkg.ts:57). `AdminLogin.tsx` is a UI mock (adminAuth.ts:4-8; FUTURE_WORK.md §0).
 3. **Keyholders = per-election passphrase**: `verifyKeyholderPassphrase(election_id, keyholder_id, passphrase)` (keyholders.ts:67-80) compares salted SHA-256 `passphrase_hash` from the `keyholders` table. Applied to: `POST /dkg/round1/2/3`, `POST /dkg/round2/inbox` (dkg.ts), `POST /keyshares/submit-partial` (keyshares.ts:81-84). Keyholder share_index is derived server-side (`getKeyholderIndex`, keyholders.ts:50-56).
-4. **No rate limiting, no CAPTCHA, no WAF config** (absent from index.ts and both package.json files; FUTURE_WORK.md §0).
+4. **No rate limiting, no CAPTCHA, no WAF config** (absent from index.ts and both package.json files; FUTURE_WORK.md §0). *(Rate limiting + CAPTCHA gate added in P1 — BUILD_NOTES §5; WAF config remains outside the repo.)*
 5. **No Supabase Auth integration**: `supabaseClient.ts` uses the service-role key with `auth:{autoRefreshToken:false, persistSession:false}`; Supabase `config.toml` auth defaults are untouched (no JWT verification middleware in index.ts).
 ---
 
@@ -374,7 +374,7 @@ Every gap below could not be resolved from the repository alone. Each states wha
 6. **The exact response shape of `GET /anchor/latest` and the dkg.ts round-2/round-2-inbox handlers** were verified at route/schema level; the precise round-2 response fields were summarized from the client contract (api.ts), not from a full read of the handler. *To verify:* full read of dkg.ts:103-250.
 7. **Runtime state of the live deployment** (current on-chain batch counts, whether the deployed contract address in the seed row is current, DB contents). The repo pins documented addresses/evidence snapshots that may be superseded. *To verify:* live RPC + DB queries (out of scope for a repo-only audit).
 8. **Whether any other mechanism (ops script, cron, Supabase edge function) transitions `votes.status` or `elections.status` outside the Express app.** No such artifacts are in the repo. *To verify:* Supabase scheduled functions / external jobs inventory.
-9. **Rate-limit/enumeration resistance of `/voter/register`.** No rate limiting or CAPTCHA is present in the repo; whether infra provides it elsewhere is unverifiable here. *To verify:* infra/WAF config outside the repo.
+9. **Rate-limit/enumeration resistance of `/voter/register`.** No rate limiting or CAPTCHA is present in the repo; whether infra provides it elsewhere is unverifiable here. *To verify:* infra/WAF config outside the repo. *(Superseded in P1: `middleware/rateLimit.ts` + `middleware/captcha.ts` now throttle `/voter/register` per client IP + path; the per-NID tier is deferred, and WAF/infra remains out of repo.)*
 
 ---
 
