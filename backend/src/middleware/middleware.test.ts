@@ -14,6 +14,9 @@ import { isRetryable, mapCastVoteError, sendError } from "./errorEnvelope";
 import { rateLimit, rateLimitBucketCount, resetRateLimits } from "./rateLimit";
 import { isCaptchaEnabled, requireCaptchaIfConfigured } from "./captcha";
 import { isTamperDemoEnabled, requireTamperDemo } from "./tamperDemo";
+import { requireSession, sessionFrom } from "./sessionAuth";
+import { createSession, hashSessionToken } from "../services/sessionStore";
+import { createFakeSessionRepo } from "../testUtils/fakeSessionRepo";
 
 interface Captured {
   status: number | null;
@@ -331,7 +334,152 @@ describe("requireCaptchaIfConfigured", () => {
   });
 });
 
+// ── Session middleware (P2) ──
+
+describe("requireSession", () => {
+  const fake = createFakeSessionRepo();
+
+  /** Mint a real session in the fake store and return its raw token. */
+  async function mintToken(deviceId = "33333333-3333-4333-8333-333333333333") {
+    const created = await createSession(fake, {
+      electionId: "election-1",
+      voterNidHash: "a".repeat(64),
+      deviceId,
+    });
+    if (!created.ok) throw new Error("fixture failed");
+    return { token: created.token, deviceId };
+  }
+
+  /** The stored row for a token — so a test mutates exactly its own session. */
+  function rowFor(token: string) {
+    const row = fake.rows.find((candidate) => candidate.token_hash === hashSessionToken(token));
+    if (!row) throw new Error("fixture row missing");
+    return row;
+  }
+
+  function authReq(token?: string, deviceId?: string): Request {
+    const headers: Record<string, string> = {};
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (deviceId) headers["x-device-id"] = deviceId;
+    return makeReq({
+      header: (name: string) => headers[name.toLowerCase()],
+      voterSession: undefined,
+    });
+  }
+
+  it("rejects a request with no Authorization header", async () => {
+    const { res, captured } = makeRes();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake })(authReq(), res, next);
+
+    expect(calls()).toBe(0);
+    expect(captured.status).toBe(401);
+    expect(captured.body?.code).toBe("UNAUTHORIZED");
+  });
+
+  it("rejects a malformed Authorization header (not a Bearer scheme)", async () => {
+    const { res, captured } = makeRes();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake })(
+      makeReq({ header: (name: string) => (name.toLowerCase() === "authorization" ? "Token abc" : undefined) }),
+      res,
+      next
+    );
+
+    expect(calls()).toBe(0);
+    expect(captured.status).toBe(401);
+  });
+
+  it("requires x-device-id when device binding is on (D6)", async () => {
+    const { token } = await mintToken();
+    const { res, captured } = makeRes();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake })(authReq(token), res, next);
+
+    expect(calls()).toBe(0);
+    expect(captured.status).toBe(401);
+    expect(captured.body?.code).toBe("DEVICE_ID_REQUIRED");
+  });
+
+  it("attaches the session and calls next() for a valid token + device", async () => {
+    const { token, deviceId } = await mintToken();
+    const req = authReq(token, deviceId);
+    const { res } = makeRes();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake })(req, res, next);
+
+    expect(calls()).toBe(1);
+    expect(sessionFrom(req)?.device_id).toBe(deviceId);
+  });
+
+  it("answers DEVICE_MISMATCH when the token is used from another device", async () => {
+    const { token } = await mintToken("44444444-4444-4444-8444-444444444444");
+    const { res, captured } = makeRes();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake })(
+      authReq(token, "55555555-5555-4555-8555-555555555555"),
+      res,
+      next
+    );
+
+    expect(calls()).toBe(0);
+    expect(captured.status).toBe(401);
+    expect(captured.body?.code).toBe("DEVICE_MISMATCH");
+  });
+
+  it("distinguishes expired from revoked so the app can choose its copy", async () => {
+    const { token } = await mintToken();
+    const req = authReq(token, "33333333-3333-4333-8333-333333333333");
+
+    // Not asserting exact timing — only that both paths answer 401 with their
+    // own stable code once the row is marked.
+    const row = rowFor(token);
+    row.revoked_at = new Date().toISOString();
+    const revoked = makeRes();
+    await requireSession({ repo: fake })(req, revoked.res, makeNext().next);
+    expect(revoked.captured.body?.code).toBe("SESSION_REVOKED");
+
+    row.revoked_at = null;
+    row.expires_at = new Date(Date.now() - 1_000).toISOString();
+    const expired = makeRes();
+    await requireSession({ repo: fake })(req, expired.res, makeNext().next);
+    expect(expired.captured.body?.code).toBe("SESSION_EXPIRED");
+  });
+
+  it("fails closed but retryably when the session store is unreachable", async () => {
+    const { token, deviceId } = await mintToken();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fake.failNextLookup({ message: "connection reset" });
+
+    const { res, captured } = makeRes();
+    const { next, calls } = makeNext();
+    await requireSession({ repo: fake })(authReq(token, deviceId), res, next);
+
+    expect(calls()).toBe(0);
+    expect(captured.status).toBe(503);
+    expect(captured.body?.code).toBe("UPSTREAM_UNAVAILABLE");
+    expect(captured.body?.retryable).toBe(true);
+
+    errorSpy.mockRestore();
+  });
+
+  it("can be configured without device binding (read-only flows)", async () => {
+    const { token } = await mintToken();
+    const { next, calls } = makeNext();
+
+    await requireSession({ repo: fake, requireDeviceId: false })(authReq(token), makeRes().res, next);
+
+    expect(calls()).toBe(1);
+  });
+});
+
 // ── Tamper-demo gate ──
+
 
 describe("requireTamperDemo", () => {
   it("answers 404 — the route looks absent — unless ENABLE_TAMPER_DEMO=1", async () => {

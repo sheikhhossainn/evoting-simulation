@@ -174,3 +174,90 @@ first draft of the test helper `withEnv()` was not `async`, so its `finally`
 restored the environment variable *before* the awaited test body had finished —
 which silently disabled the CAPTCHA gate halfway through a test and made it
 report a pass-through that never happened. Fixed by awaiting the body.
+
+---
+
+## 7. P2 progress log — session API (PARTIAL)
+
+(§6 is the P4 log on the `feature/core-crypto` branch; numbering skips it here
+so the two branches do not both claim §6 when they merge.)
+
+**Status: DONE for sessions, `/voter/me`, refresh, revoke, revoke-all and
+`GET /candidates`. NOT DONE: the `POST /vote` migration — blocked on a decision,
+see "Blocker" below. `tsc --noEmit` exit 0; `test:ci` 6 files / 92 tests**
+(63 before, +29).
+
+Delivered:
+
+- **`services/sessionStore.ts`** — the token primitive. 256-bit CSPRNG tokens,
+  **only `sha256(token)` persisted**, indexed-digest lookup plus a
+  `timingSafeEqual` check (so R7's "hash-only lookup, timing-safe compare" is
+  literally true), device binding, sliding 20-minute window, rotation, and
+  per-election `revokeAll`. Persistence is a **port** (`SessionRepo`);
+  `createSupabaseSessionRepo` is passed the client rather than importing it, so
+  the module has no `supabaseClient` dependency and cannot trip that module's
+  "missing credentials → `process.exit(1)`" guard inside `test:ci`.
+- **`middleware/sessionAuth.ts`** — `Authorization: Bearer` + `x-device-id`,
+  with distinguishable 401 codes (`SESSION_INVALID`, `SESSION_EXPIRED`,
+  `SESSION_REVOKED`, `DEVICE_MISMATCH`, `DEVICE_ID_REQUIRED`) so the app can
+  choose between silent re-auth and "sign in again". A store failure is a
+  retryable 503, not a 401 — the client did nothing wrong.
+- **`routes/voter.ts`** — `POST /voter/session` (T10 tier + CAPTCHA, registers
+  under the existing semantics), `GET /voter/me`, `POST /voter/session/refresh`,
+  `/revoke`, `/revoke-all`. Registration was extracted into one
+  `ensureVoterRegistered()` helper used by both `/register` and `/session`, with
+  the concurrent-insert policy an explicit parameter (`"conflict"` keeps the web
+  endpoint's 201+409; `"reread"` treats a session race as a retry).
+- **`routes/candidates.ts`** — bearer-first; constituency is read from the
+  `voters` row the session is bound to. The `?constituency=` query parameter is
+  **deleted** as the roadmap required; before deleting it I checked the frontend
+  and it never used it (only `x-voter-nid`, api.ts:242), so no client breaks.
+- **`testUtils/fakeSessionRepo.ts`** + **`services/sessionStore.test.ts`** — the
+  plan's "§3.3 session lifecycle (mock-Supabase)" suite, 21 cases, no database.
+  It also asserts the *field names* of every UPDATE, so the `fn_sessions_guard`
+  contract (only `expires_at`/`last_seen_at`/`revoked_at` may change) is enforced
+  in CI without the trigger.
+
+Decisions recorded:
+
+1. **Two live sessions per NID are allowed** (one per device). Single-active-
+   device was already an open product decision (THREAT_MODEL §4.T15), so the
+   session layer does not quietly invent it; A1 still bounds the voter to one
+   ballot. The suite asserts the coexistence so nobody has to guess later.
+2. **The session binds to `voter_nid_hash`, and a test asserts it equals
+   `hashNidWithSalt(nid)`** — the same key the raw-NID path uses to find the
+   voter row. If those two derivations ever diverge, a session would
+   authenticate someone the vote path cannot attribute, so it is asserted
+   rather than assumed.
+3. **The expiry test needed `touch: false`** — a sliding window means resolving
+   a live token moves the very expiry a boundary test is about to check. The
+   first version of that test failed for exactly this reason (the code was
+   right).
+
+### Blocker: the plan docs contradict each other about `/vote`
+
+`THREAT_MODEL_AND_SECURITY.md` §4.1 says `/vote`'s server "derives
+`nid_hash`/`nullifier_hash`/`constituency_code` **from the session**", while
+`DATA_AND_API_MIGRATION.md` (Unlinkability row) says sessions hold
+`voter_nid_hash` "(not raw NID), so the link is no *easier* server-side". Both
+cannot hold:
+
+- `constituency_code` — **derivable** from the `voters` row via the session's
+  `voter_nid_hash`. Implemented in `GET /candidates`; no schema change needed.
+- `nullifier_hash` — **not derivable**. It is `SHA-256(nid + election_id +
+  NULLIFIER_SECRET)` and the raw NID is gone by cast time. A hash cannot be
+  un-hashed, and `voters` does not store it either.
+
+Three ways out, none of them silent — which is why `/vote` is untouched and
+still accepts `nid` in the body for the web client:
+
+| Option | Effect | Cost |
+|---|---|---|
+| **A. Store the nullifier in the session** at issuance (the server still has the raw NID then) | A1 preserved **exactly**: the session path casts the identical pseudonym the web path computes, so mixed web/mobile voting cannot double-count. Recommended. | Adds a stored pseudonym beside `voter_nid_hash`, which *does* make a DB-only voter→vote link easier — directly contradicting the `DATA_AND_API_MIGRATION.md` sentence above, so that doc needs correcting whichever option is chosen. |
+| **B. Redefine the nullifier as `SHA-256(nid_hash + election_id + secret)`** | Everything becomes derivable from the session; no new column. | Changes an audited security-relevant formula and breaks rows computed the old way — mid-election that could let a voter vote twice. `vote.test.ts` asserts the current formula. |
+| **C. Keep sending the raw NID on cast, behind a valid session** | Smallest step; revocation still applies to every other call. | Contradicts D1 ("the raw NID is retained transiently at login only") and the phone must hold the NID for the whole flow. |
+
+**Not yet evidenced (Open Question #11):** the P1 DDL was never executed and
+none of these routes has ever run against a live database — so the session
+lifecycle is proven against the fake port, not against `sessions` itself, and
+`fn_sessions_guard` compatibility is asserted at field-name level only.

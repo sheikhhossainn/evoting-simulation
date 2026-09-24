@@ -16,6 +16,7 @@ export type ApiErrorCode =
   | "VALIDATION_FAILED"
   | "VOTER_NOT_REGISTERED"
   | "VOTER_NOT_ELIGIBLE"
+  | "VOTER_ALREADY_REGISTERED"
   | "VOTE_ALREADY_CAST"
   | "ELECTION_UNKNOWN"
   | "ELECTION_NOT_OPEN"
@@ -26,6 +27,11 @@ export type ApiErrorCode =
   | "CAPTCHA_FAILED"
   | "UPSTREAM_UNAVAILABLE"
   | "UNAUTHORIZED"
+  | "SESSION_INVALID"
+  | "SESSION_EXPIRED"
+  | "SESSION_REVOKED"
+  | "DEVICE_MISMATCH"
+  | "DEVICE_ID_REQUIRED"
   | "NOT_FOUND"
   | "INTERNAL";
 
@@ -34,6 +40,7 @@ const RETRYABLE: Record<ApiErrorCode, boolean> = {
   VALIDATION_FAILED: false,
   VOTER_NOT_REGISTERED: false,
   VOTER_NOT_ELIGIBLE: false,
+  VOTER_ALREADY_REGISTERED: false,
   VOTE_ALREADY_CAST: false,
   ELECTION_UNKNOWN: false,
   ELECTION_NOT_OPEN: false,
@@ -44,6 +51,11 @@ const RETRYABLE: Record<ApiErrorCode, boolean> = {
   CAPTCHA_FAILED: false,
   UPSTREAM_UNAVAILABLE: true,
   UNAUTHORIZED: false,
+  SESSION_INVALID: false,
+  SESSION_EXPIRED: false,
+  SESSION_REVOKED: false,
+  DEVICE_MISMATCH: false,
+  DEVICE_ID_REQUIRED: false,
   NOT_FOUND: false,
   INTERNAL: true,
 };
