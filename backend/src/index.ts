@@ -23,6 +23,7 @@ import { maybeAutoAnchor } from "./services/anchorBatch";
 import { resolveElectionId, getElectionPublicKey } from "./services/electionContext";
 import { isCaptchaEnabled } from "./middleware/captcha";
 import { isTamperDemoEnabled } from "./middleware/tamperDemo";
+import { strictTransportSecurity } from "./middleware/securityHeaders";
 
 
 dotenv.config();
@@ -31,6 +32,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Middleware ──
+app.use(strictTransportSecurity);
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],

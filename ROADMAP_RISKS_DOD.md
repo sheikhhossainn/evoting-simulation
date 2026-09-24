@@ -47,6 +47,10 @@ Two decisions flagged as open in earlier phases are **closed here** with rationa
 - **Completion criteria:** 100% cross-validation pass; vectors match; serialized request shape byte-for-byte equal to the web prover.
 
 ### P5 — `core-api` + Expo app scaffold (Phase 4 §3 screens, Phase 6 §3.2/3.4)
+- **Status (P5): IMPLEMENTED; device evidence pending.** The typed client, Expo
+  journey, secure-storage adapter, public transparency screens, fail-closed
+  offline UX, and Metro Android export are in the repository. Detox and
+  SecureStore assertions still require iOS/Android emulator execution.
 - **Objective:** the typed mobile client and the voter journey, in lifecycle order, with secure storage and honored offline behavior.
 - **Tasks:** `packages/core-api` (typed client: sessions, `/vote`, `/candidates`, `/public/*`, verify; error-envelope parsing; no-log guarantee; HTTPS-only validation); Expo app (`packages/mobile-app`) with the screen set S0→S7 (Election Hub → Authenticate → Voter status → Ballot → Cast-or-audit → Confirm → Receipt → Verify) + Watchdog/Results/Settings; `expo-secure-store` for token/device_id/opt-in audit data; offline banner/overlay (D3); a11y per Phase 4 §5.
 - **Affected files:** `packages/core-api/**` (new), `packages/mobile-app/**` (new), mobile `package.json`/config.
@@ -54,6 +58,11 @@ Two decisions flagged as open in earlier phases are **closed here** with rationa
 - **Completion criteria:** full journey green on iOS+Android emulators; no success screen without a 2xx; token only in secure storage; offline fail-closed verified at every journey step.
 
 ### P6 — Mobile security hardening (Phase 6 §4)
+- **Status (P6): IMPLEMENTED; staging/device evidence pending.** HTTPS-only
+  configuration, proxy-aware HSTS middleware, and the HTTP hostile-client
+  harness are present and covered by local contract/unit checks. No staging
+  URL or device farm credentials are available in this workspace, so the
+  generated hostile-client and secure-storage artifacts are not claimed.
 - **Objective:** prove the client-is-untrusted property and the TLS posture on real devices.
 - **Tasks:** hostile-client harness (script that sends forged/omitted-proof/replayed requests exactly at the HTTP layer — must produce only 400/401/409 and zero DB effects); HTTPS-only config validation in `core-api`; HSTS header assertion; device tests for token wipe on sign-out and re-auth after app-data-clear.
 - **Affected files:** `packages/core-api/**`, `packages/mobile-app/**` (security/config), `testing/` artifacts (`hostile_client_output.json`).
@@ -61,6 +70,10 @@ Two decisions flagged as open in earlier phases are **closed here** with rationa
 - **Completion criteria:** every hostile-client attempt rejected/detected; HTTPS-only enforced in release; token storage invariants hold on iOS+Android.
 
 ### P7 — Full-cycle rehearsal & cutover (FUTURE_WORK §11.6 + Phase 6 §5)
+- **Status (P7): RUNBOOK READY; rehearsal blocked by missing test/staging
+  credentials.** The web voter surface is retained as a compatibility/admin
+  and public-transparency surface while the mobile app becomes the voter
+  journey; deletion is deferred until a live rehearsal proves parity.
 - **Objective:** prove the whole methodology once on staging and decide the web-app cutover.
 - **Tasks:** full-cycle rehearsal (register → vote via mobile → anchor → tally → verifier → results; simulated tamper → detected → voter-visible verify failure); archive evidence (`testing/`, `docs/evidence/verifier-output-mobile-…txt`); decide the fate of voter-facing web pages (keep as read-only public-info pages per FUTURE_WORK §1 vs delete); update `README.md`, `context.md`, `CLAUDE.md`; `graphify update .`.
 - **Affected files:** docs set above; `docs/` and `testing/` artifacts.

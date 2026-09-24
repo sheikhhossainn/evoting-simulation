@@ -95,6 +95,26 @@ jobs:
       # One root install covers the workspace (npm links packages/* itself).
       - run: npm ci
       - run: npm test --workspace=packages/core-crypto
+      - run: npm run typecheck --workspace=packages/core-crypto
+
+  # ── P5: typed API client and Expo shell ──
+  # The export is a Metro bundle check; device-only Detox and SecureStore
+  # evidence remain a separate emulator gate described in VERIFICATION_AND_TESTING.md.
+  core-api-mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test --workspace=packages/core-api
+      - run: npm run typecheck --workspace=packages/core-api
+      - run: npm run typecheck --workspace=packages/mobile-app
+      - run: npx expo export --platform android
+        working-directory: packages/mobile-app
 
   # ── Live-DB integrity suites (gated) ──
   # Runs ONLY on manual dispatch. Requires repository secrets pointing at a

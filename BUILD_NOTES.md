@@ -332,6 +332,37 @@ port are covered without a database.
 
 ---
 
+## 9. P5–P7 migration progress
+
+P5 is implemented in the root npm workspaces:
+
+- `packages/core-api` is a dependency-light typed client for sessions, the
+  mobile `/vote` body, public transparency, dense/SMT verification, and the
+  additive error envelope. It validates HTTPS base URLs, stores sessions only
+  through an injected store, and has seven passing contract tests.
+- `packages/mobile-app` is an Expo shell covering the S0–S7 voter journey,
+  Watchdog/Results/Settings, the P4 crypto adapter, `expo-secure-store`, and
+  explicit opt-in audit persistence. It fails closed while offline and its
+  Android Metro export succeeds locally.
+- Root CI now typechecks/tests both client packages and performs the Android
+  bundle check. P4's package typecheck also includes its Node and DOM libs.
+
+P6 hardening is implemented but not live-evidenced:
+
+- `strictTransportSecurity` emits HSTS for HTTPS requests, including
+  TLS-terminated proxy requests, while leaving local HTTP development usable.
+- `testing/hostile_client.mjs` sends omitted-proof, forged-proof, and
+  omitted-session requests, records only safe status/code data, and asserts the
+  public vote count is unchanged. It requires an operator-provided staging
+  URL, session token, election, ciphertext, and proof; no output is fabricated.
+- Device-only SecureStore wipe/re-auth and Detox offline/revocation matrices
+  remain pending because no emulator or staging credentials are available.
+
+P7 has a runbook in `testing/P7_REHEARSAL_RUNBOOK.md`. The web voter surface is
+retained for compatibility/admin/public transparency until a real staging
+rehearsal proves the mobile cutover. The absent `backend/.env.test` and staging
+credentials remain the explicit blockers for end-to-end evidence.
+
 ## Next session (pointer, not a numbered log)
 
 Handing off? Read **`HANDOFF.md`** in the repo root first. It carries the verified

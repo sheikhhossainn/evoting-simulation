@@ -18,10 +18,16 @@ Blockchain-based secure e-voting simulation using ZKP of ballot validity, ElGama
 evoting-simulation/
 ├── package.json              ← Root orchestrator (scripts only)
 ├── frontend/                 ← React 19 + Vite 8 + TS + Tailwind 3
+├── packages/core-api/        ← typed mobile API client and envelope mapping
+├── packages/core-crypto/     ← portable ElGamal/ZKP/Benaloh client crypto
+├── packages/mobile-app/      ← Expo voter journey, secure storage, offline UX
 ├── backend/                  ← Express 5 + TS + Zod 4 + Supabase + ethers
 ├── blockchain/                ← Hardhat + Solidity — MerkleRootStorage contract
 └── shared-interfaces/        ← Shared TS types (types.ts)
 ```
+
+The Expo app is the voter-facing migration target. The web app remains the
+legacy/admin/public-transparency surface until the P7 staging rehearsal.
 
 ## Tech Stack
 

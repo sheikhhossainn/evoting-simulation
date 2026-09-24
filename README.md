@@ -4,7 +4,7 @@ A full-stack **blockchain-secured e-voting simulation** that lets you cast, veri
 
 It is a working simulation of the cryptographic mechanisms behind real end-to-end verifiable (E2E-V) voting systems — not a production election platform.
 
-**Stack:** React 19 + Vite + Tailwind (frontend) · Express 5 + TypeScript (backend) · Supabase/Postgres (storage) · Hardhat + Solidity (anchoring) · Web Crypto API (client crypto)
+**Stack:** React 19 + Vite + Tailwind (legacy web/admin surface) · React Native + Expo (mobile voter client) · Express 5 + TypeScript (backend) · Supabase/Postgres (storage) · Hardhat + Solidity (anchoring) · portable TypeScript client crypto
 
 ---
 
@@ -135,7 +135,10 @@ for an independent observer to re-verify the tally themselves.
 │   │   ├── scripts/      setup-keys, setup-shamir-zq (dev-only), seed-*, run-schema
 │   │   ├── schema.sql    Postgres schema (tables, fn_cast_vote, triggers, DKG ceremony tables)
 │   │   └── index.ts      app + route mounts
-├── frontend/             React 19 + Vite + Tailwind SPA
+├── frontend/             React 19 + Vite + Tailwind legacy/admin/public SPA
+├── packages/core-api/    typed mobile API client and stable error mapping
+├── packages/core-crypto/ portable ElGamal + ZKP + Benaloh client crypto
+├── packages/mobile-app/  Expo voter journey (secure storage, offline fail-closed)
 │   └── src/pages/        Landing, VoterLogin, VotingPage, TallyingPage, KeyCeremony,
 │                         TamperVisualizer, PublicWatchdog, KeyShare*…
 ├── blockchain/           Hardhat project: MerkleRootStorage.sol, deploy scripts
@@ -231,6 +234,20 @@ cd frontend && npm run dev        # or from root: npm run dev
 ```
 
 Open the frontend URL, register a voter, and cast a vote — the tamper visualizer and watchdog pages show the anchoring/verification side.
+
+The voter-facing migration target is the Expo app:
+
+```bash
+npm run typecheck -w @evoting/core-api
+npm run typecheck -w @evoting/mobile-app
+npm run start --workspace=@evoting/mobile-app
+```
+
+The mobile client requires an HTTPS API base in release builds. Set
+`EXPO_PUBLIC_API_BASE` for a deployed backend; local HTTP is accepted only for
+explicit development hosts. The existing web app remains available for
+administration, ceremony operations, and public transparency until the live
+P7 rehearsal validates the cutover.
 
 ## Testing
 
