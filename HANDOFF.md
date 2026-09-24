@@ -3,6 +3,11 @@
 **Written:** 2026-09-24 · **Author:** previous agent session (P0 → P2 + P4)
 **Purpose:** let a fresh agent continue **P3** without re-deriving anything.
 
+> **Current-status note:** this is a historical P3 kickoff. For current mobile
+> app work, read [`MOBILE_AGENT_HANDOFF.md`](MOBILE_AGENT_HANDOFF.md) first. The
+> repository is now on merged `dev`; this file's old git-state and remaining-
+> phases sections are retained as historical context only.
+
 This file deliberately does **not** restate phase specs, acceptance criteria or
 architecture rationale — those already exist and are authoritative. It records
 *state*, *evidence*, *how to verify*, *traps*, and *the P3 plan*.
