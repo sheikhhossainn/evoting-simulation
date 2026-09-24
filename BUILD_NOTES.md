@@ -177,10 +177,26 @@ report a pass-through that never happened. Fixed by awaiting the body.
 
 ---
 
-## 7. P2 progress log — session API (PARTIAL)
+## 6. P4 progress log — portable client crypto
 
-(§6 is the P4 log on the `feature/core-crypto` branch; numbering skips it here
-so the two branches do not both claim §6 when they merge.)
+**Status: COMPLETE and locally verified.** `packages/core-crypto/` is a
+pure-TypeScript port of the web ElGamal encryption, Chaum–Pedersen disjunctive
+OR-proof, and Benaloh cast-or-audit path.
+
+- Platform primitives are injected (`randomBytes`, `sha256`); no hand-rolled
+  SHA-256 or Expo import enters the portable package.
+- `src/index.ts` exports the platform-neutral API; the Node adapter is test-only
+  and the mobile adapter lives in `packages/mobile-app`.
+- The root workspace uses a committed npm lockfile rather than a local
+  `node_modules` junction.
+
+Evidence: `npm test --workspace=packages/core-crypto` passed 13/13 locally;
+the unchanged backend verifier accepts the ported prover, and the package is
+typechecked in the mobile workspace CI job.
+
+---
+
+## 7. P2 progress log — session API (PARTIAL)
 
 **Status: COMPLETE as of decision A — sessions, `/voter/me`, refresh, revoke,
 revoke-all, `GET /candidates` bearer-first, and the `POST /vote` migration
