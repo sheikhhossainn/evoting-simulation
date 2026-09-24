@@ -98,4 +98,61 @@ Re-run over all `frontend/src/**/*.tsx` (22 files): `aria-` = **3**, `role=` = *
 **Verification performed:** `$$` bodies balanced (44 markers = 22 functions); all four `CREATE TABLE IF NOT EXISTS`, all nine `CREATE OR REPLACE FUNCTION` and all eight `CREATE TRIGGER` statements present; the C1 CHECK references `voter_nid_hash`; the `"zkp_proof is immutable after insertion"` clause exists exactly once.
 **Verification NOT possible yet:** the DDL has **not been applied to any database**. Applying it needs the Supabase SQL Editor (repo convention for existing DBs) or `run-schema.ts` (fresh DB), both of which need credentials. **No database state was changed by this work.**
 
-**P1 part 2 (next):** error-envelope helper; `express-rate-limit` + CAPTCHA hooks; `ENABLE_TAMPER_DEMO` gating for the four demo routes; `tally_runs` insert in `POST /keyshares/tally`; `GET /public/results` switched to `tally_runs ORDER BY tallied_at DESC LIMIT 1` (replacing the `tally_results` read).
+**P1 part 2 — hardening layer + C3 route migration. Status: DONE for code,
+typecheck and unit tests; the DDL and route changes still have not executed
+against a real database (blocked on Open Question #11 — no `.env.test`).**
+
+New middleware in `backend/src/middleware/`:
+
+- **`errorEnvelope.ts`** — the stable `{ error, code, retryable }` envelope plus
+  `mapCastVoteError()`. `error` is byte-identical to what the route said before,
+  so the change is *purely additive* for the web client: the mobile app can branch
+  on `code`, and nothing that reads `error` breaks.
+- **`rateLimit.ts`** — dependency-free fixed-window limiter (T10).
+- **`captcha.ts`** — inert unless `CAPTCHA_SECRET` is set (T10).
+- **`tamperDemo.ts`** — 404 unless `ENABLE_TAMPER_DEMO=1` (T4).
+
+Wiring: `POST /voter/register` = 10/min **and** the CAPTCHA gate;
+`POST /voter/check-nullifier` = 60/min (it is inherently an enumeration oracle);
+`POST /vote` = 30/min; the four `anchor/tamper|restore` routes gated; `index.ts`
+prints a **startup posture report** for both optional gates; `.env.example`
+documents both variables; `test:ci` now runs `src/middleware/middleware.test.ts`.
+
+C3 completion in the same commit: `POST /keyshares/tally` appends to
+`tally_runs`, and `GET /public/results` reads the latest `tally_runs` row
+(`tallied_at DESC`, backed by the already-correct `idx_tally_runs_latest`).
+`tally_results` is no longer written or read anywhere.
+
+Decisions worth keeping:
+
+1. **No new npm dependency.** `express-rate-limit` would add an install step and
+   lockfile churn to the backend for one primitive; the limiter here is ~60 lines
+   with an opportunistic sweep so distinct client keys cannot grow the map
+   unboundedly. Its **single-instance assumption is stated in the file**, not
+   hidden, and is carried as risk R10 — a scaled deployment needs a shared store.
+2. **Gates that are off must say so.** An inert gate that looks active is worse
+   than no gate, so startup logs the state of both optional gates.
+3. **`ENABLE_TAMPER_DEMO` fails safe:** only exactly `"1"` enables it, so a typo
+   (`true`, `yes`, `0`, empty) can never expose the route that deletes votes.
+4. **`vote.ts`'s cast-vote mapping is now code-first** (P0002/P0003/P0004/23505)
+   with the message substring retained only as a fallback. Deliberate tightening:
+   a bare `"already"` no longer means "duplicate vote" — `"relation already
+   exists"` used to be reported to a voter as "You have already voted" (409).
+5. **`sendEmail`-style silent no-ops were avoided**: the CAPTCHA provider being
+   unreachable returns `503 UPSTREAM_UNAVAILABLE` (retryable) rather than
+   pretending the request was fraudulent.
+
+Evidence:
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npm run test:ci` | 5 files / **63 tests passed** (was 47 before; +16 new) |
+| No whole-body assertions to break | grep confirmed `vote.test.ts` asserts only on `status` and on `body.error` via `.toMatch(...)` — never `toEqual` on a body |
+| Not yet evidenced | the P1 DDL and the route/middleware changes have never run against live Supabase → no `concurrency_stress_output.json` regeneration, no request through the limiter/gate in a running server |
+
+A defect caught only by running the suite, recorded so it is not repeated: the
+first draft of the test helper `withEnv()` was not `async`, so its `finally`
+restored the environment variable *before* the awaited test body had finished —
+which silently disabled the CAPTCHA gate halfway through a test and made it
+report a pass-through that never happened. Fixed by awaiting the body.

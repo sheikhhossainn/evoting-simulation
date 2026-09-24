@@ -25,6 +25,8 @@ import {
   constituencyFromNid,
 } from "../crypto/identity";
 import { getElection } from "../services/electionContext";
+import { rateLimit } from "../middleware/rateLimit";
+import { requireCaptchaIfConfigured } from "../middleware/captcha";
 
 const router = Router();
 
@@ -51,7 +53,14 @@ function nameFromNid(nid: string): string {
 
 // ── Routes ──
 
-router.post("/register", async (req: Request, res: Response) => {
+// T10: scripted NID registration/enumeration. Two independent barriers — a
+// per-client fixed window (10/min) and, when CAPTCHA_SECRET is configured, a
+// provider token. The limiter is the backstop for when the gate is inert.
+router.post(
+  "/register",
+  rateLimit({ windowMs: 60_000, max: 10 }),
+  requireCaptchaIfConfigured(),
+  async (req: Request, res: Response) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -145,7 +154,12 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/check-nullifier", async (req: Request, res: Response) => {
+// T10: this endpoint is inherently an enumeration oracle (it answers "has this
+// NID voted yet?"), so it gets a wider but still bounded window.
+router.post(
+  "/check-nullifier",
+  rateLimit({ windowMs: 60_000, max: 60 }),
+  async (req: Request, res: Response) => {
   const parsed = checkNullifierSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });

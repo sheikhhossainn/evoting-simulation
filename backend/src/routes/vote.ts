@@ -37,6 +37,8 @@ import {
 } from "../crypto/identity";
 import { verifyBallotValidity } from "../crypto/zkp";
 import { getElection, getElectionPublicKey } from "../services/electionContext";
+import { rateLimit } from "../middleware/rateLimit";
+import { mapCastVoteError, sendError } from "../middleware/errorEnvelope";
 
 const router = Router();
 
@@ -68,7 +70,12 @@ const voteSchema = z.object({
 
 // ── Route ──
 
-router.post("/vote", async (req: Request, res: Response) => {
+// T10: bound scripted vote submission. Duplicate-vote defence remains
+// fn_cast_vote's P0004/23505 — this only blunts brute force.
+router.post(
+  "/vote",
+  rateLimit({ windowMs: 60_000, max: 30 }),
+  async (req: Request, res: Response) => {
   const parsed = voteSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues });
@@ -84,7 +91,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     // fail loud here, not silently fall through to another election's data.
     const election = await getElection(election_id);
     if (!election) {
-      res.status(404).json({ error: `Unknown election_id: ${election_id}` });
+      sendError(res, 404, "ELECTION_UNKNOWN", `Unknown election_id: ${election_id}`);
       return;
     }
 
@@ -158,12 +165,12 @@ router.post("/vote", async (req: Request, res: Response) => {
 
     if (candidateLookupError) {
       console.error("Supabase candidate lookup error:", candidateLookupError);
-      res.status(500).json({ error: "Internal server error" });
+      sendError(res, 500, "INTERNAL", "Internal server error");
       return;
     }
 
     if (!constituencyCandidates || constituencyCandidates.length === 0) {
-      res.status(404).json({ error: "No candidates found for your constituency" });
+      sendError(res, 404, "NOT_FOUND", "No candidates found for your constituency");
       return;
     }
 
@@ -177,9 +184,12 @@ router.post("/vote", async (req: Request, res: Response) => {
     // bypass or spoof, because there is no plaintext candidate_id at all.
     const elgamalPubKey = await getElectionPublicKey(election_id);
     if (!elgamalPubKey) {
-      res.status(503).json({
-        error: `DKG ceremony not yet qualified for ${election_id} — the election has no encryption key yet.`,
-      });
+      sendError(
+        res,
+        503,
+        "KEY_NOT_READY",
+        `DKG ceremony not yet qualified for ${election_id} — the election has no encryption key yet.`
+      );
       return;
     }
 
@@ -192,7 +202,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     );
 
     if (!zkpValid) {
-      res.status(400).json({ error: "ZKP ballot validity proof failed" });
+      sendError(res, 400, "INVALID_BALLOT", "ZKP ballot validity proof failed");
       return;
     }
 
@@ -217,29 +227,23 @@ router.post("/vote", async (req: Request, res: Response) => {
     if (castError) {
       console.error("Supabase fn_cast_vote error:", castError);
 
-      // Map PostgreSQL error codes to HTTP responses
-      const msg = castError.message || "";
+      // Stable mapping (middleware/errorEnvelope.mapCastVoteError) instead of
+      // substring-matching the PostgreSQL message: fn_cast_vote raises custom
+      // SQLSTATEs P0002/P0003/P0004, and 23505 is the unique-violation backstop
+      // for a concurrent duplicate. The messages are byte-identical to the
+      // previous implementation — the web client and existing tests assert on
+      // them — while `code`/`retryable` are additive for the mobile client.
+      const { status, code } = mapCastVoteError(castError);
+      const message =
+        code === "VOTER_NOT_REGISTERED"
+          ? "Voter not registered"
+          : code === "VOTER_NOT_ELIGIBLE"
+            ? "Voter is not eligible to vote"
+            : code === "VOTE_ALREADY_CAST"
+              ? "You have already voted"
+              : "Internal server error";
 
-      if (msg.includes("not registered") || castError.code === "P0002") {
-        res.status(404).json({ error: "Voter not registered" });
-        return;
-      }
-      if (msg.includes("not eligible") || castError.code === "P0003") {
-        res.status(403).json({ error: "Voter is not eligible to vote" });
-        return;
-      }
-      if (msg.includes("already cast") || castError.code === "P0004") {
-        res.status(409).json({ error: "You have already voted" });
-        return;
-      }
-      // Unique violation on votes.nullifier_hash — a concurrent duplicate
-      // submission lost the race. Same user-facing meaning as P0004.
-      if (castError.code === "23505") {
-        res.status(409).json({ error: "You have already voted" });
-        return;
-      }
-
-      res.status(500).json({ error: "Internal server error" });
+      sendError(res, status, code, message);
       return;
     }
 
@@ -268,7 +272,7 @@ router.post("/vote", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error casting vote:", err);
-    res.status(500).json({ error: "Internal server error" });
+    sendError(res, 500, "INTERNAL", "Internal server error");
   }
 });
 
