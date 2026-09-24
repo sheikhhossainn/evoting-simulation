@@ -7,7 +7,7 @@
     "dev": "nodemon",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ci": "vitest run src/crypto/elgamal.test.ts src/crypto/identity.test.ts src/crypto/zkp.test.ts src/merkle/merkleTree.test.ts src/middleware/middleware.test.ts src/services/sessionStore.test.ts src/services/castIdentity.test.ts",
+    "test:ci": "vitest run src/crypto/elgamal.test.ts src/crypto/identity.test.ts src/crypto/zkp.test.ts src/merkle/merkleTree.test.ts src/middleware/middleware.test.ts src/services/sessionStore.test.ts src/services/castIdentity.test.ts src/services/p3Contracts.test.ts",
     "test:merkle": "ts-node src/merkle/merkleTree.test.ts"
   },
   "keywords": [],

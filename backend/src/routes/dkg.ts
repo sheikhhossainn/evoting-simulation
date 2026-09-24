@@ -42,8 +42,10 @@ import { deriveShareCommitment, type FeldmanCommitments } from "../crypto/shamir
 import { combineFeldmanCommitments } from "../crypto/dkg";
 import { requireAdminSecret } from "../middleware/adminAuth";
 import { resolveElectionId, getElection } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 const hex = /^[0-9a-f]+$/;
 const keyholderIdSchema = z.string().regex(/^KH-\d{3}$/);
@@ -85,6 +87,15 @@ router.post("/init", requireAdminSecret, async (req: Request, res: Response) => 
     });
     if (insertErr) throw insertErr;
 
+    await recordAdminAction(
+      {
+        election_id,
+        action: "dkg.init",
+        request_summary: { status: "pending" },
+        http_status: 201,
+      },
+      adminAuditWriter
+    );
     res.status(201).json({ election_id, group_params: { p: publicKey.p, g: publicKey.g }, status: "pending" });
   } catch (err) {
     console.error("Unexpected error in POST /dkg/init:", err);

@@ -36,6 +36,7 @@ import { rateLimit } from "../middleware/rateLimit";
 import { mapCastVoteError, sendError } from "../middleware/errorEnvelope";
 import { bearerTokenFrom, deviceIdFrom } from "../middleware/sessionAuth";
 import { createSupabaseCastIdentityDeps, resolveCastIdentity } from "../services/castIdentity";
+import { isAcceptingVotes } from "../services/electionLifecycle";
 
 const router = Router();
 
@@ -113,6 +114,14 @@ router.post(
 
     if (!identity.ok) {
       sendError(res, identity.status, identity.code, identity.message);
+      return;
+    }
+
+    // The election window is checked after existence and identity resolution,
+    // but before setup/key/nullifier checks. A closed or not-yet-open election
+    // must not leak a more specific readiness or participation signal.
+    if (!isAcceptingVotes(election.status)) {
+      sendError(res, 403, "ELECTION_NOT_OPEN", "This election is not accepting votes");
       return;
     }
 

@@ -51,8 +51,10 @@ import {
   verifySmtNonMembershipProof,
 } from "../merkle/sparseMerkleTree";
 import { resolveElectionId } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 interface VoteRow {
   id: string;
@@ -160,6 +162,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.batch",
+          request_summary: { vote_count: result.vote_count },
+          http_status: 201,
+        },
+        adminAuditWriter
+      );
       res.status(201).json({ election_id: electionId, ...result });
     } catch (err) {
       console.error("Unexpected error in POST /anchor/batch:", err);
@@ -457,6 +468,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -519,6 +539,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.restore.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -575,6 +604,15 @@ router.post(
         .eq("id", targetVoteId);
 
       // A rejection (updErr set) is the expected, desired outcome.
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.ballot",
+          request_summary: { batch_id: batchId, vote_id: targetVoteId, blocked: !!updErr },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -654,6 +692,15 @@ router.post(
 
       const reanchorResult = await runSmtReanchorAfterDeletion(electionId);
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.delete-vote",
+          request_summary: { vote_id: voteId, reanchored: !!reanchorResult },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         vote_id: voteId,

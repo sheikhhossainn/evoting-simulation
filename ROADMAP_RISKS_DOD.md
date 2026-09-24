@@ -37,6 +37,7 @@ Two decisions flagged as open in earlier phases are **closed here** with rationa
 - **Affected files:** `backend/src/routes/elections.ts`, `vote.ts`, `anchor.ts`, `keyshares.ts`, `backend/src/middleware/adminAuth.ts` (actor identity), web `frontend/src/pages/AdminDashboard.tsx`.
 - **Required tests:** A-5 (401/404/audit rows), T13 (3.3 window gate), PATCH transition audit rows, `closed→closed` idempotence.
 - **Completion criteria:** `/vote` rejects outside `voting`; every transition and admin op produces exactly one audit row; GET /elections reflects server truth.
+- **Status (P3): DONE for repo-only evidence** — the lifecycle contracts, `/vote` gate, computed availability, audit write point, all guarded-route registry check, web status control, `tsc`, and 8-file/111-test CI suite are green. Live HTTP/DB evidence remains blocked by Open Question #11 (`backend/.env.test`).
 
 ### P4 — `core-crypto` port (Phase 4 §1, Phase 6 §3.1, D4)
 - **Objective:** the mobile prover with byte-identical request bodies, validated by the **unchanged** backend verifier.
@@ -89,7 +90,7 @@ P3/P6 ─► P7 (rehearsal needs window enforcement + hardened app)
 | R6 | Testing/Data safety | Live-gated tests pointed at production data by a config mistake | Critical | Low | Existing `loadTestSupabaseEnv` guard (vote.test.ts:11-20); gated CI job; `.env.test` required | §1; CI gated job refuses prod env vars |
 | R7 | Auth | Sessions table becomes a new attack surface (token guess, hash timing, enumeration) | Medium | Low | 256-bit CSPRNG tokens; hash-only lookup; timing-safe compare; rate-limited login (T15) | §3.3 lifecycle; A-2(c) |
 | R8 | Privacy/Coercion | Saved Benaloh audit data used as a receipt | Medium (privacy) | Medium | Opt-in only; secure store; delete UX; coercion warning copy (Phase 4 §5; docs non-goal §2) | §4.1 wipe/delete; UI copy review |
-| R9 | Auditability | An admin path bypasses `admin_actions` | Medium — an unaudited admin action (attribution is the static `"shared-admin"` this pass — BUILD-BRIEF C2) | Medium | Single middleware write point (P1); route registry test enumerates every admin route | A-5: "exactly one row per admin op" |
+| R9 | Auditability | An admin path bypasses `admin_actions` | Medium — an unaudited admin action (attribution is the static `"shared-admin"` this pass — BUILD-BRIEF C2) | Medium | Single service write point (`services/adminAudit.ts`); route registry test enumerates every admin route | A-5: "exactly one row per admin op" |
 | R10 | Deployment | Horizontal scaling breaks single-process assumptions (in-memory auto-anchor lock, SMT cache, rate-limit store) | Medium | Medium | Document single-instance assumption; reconcile via on-chain truth (T20); swap rate-limit store when scaling | T20 reconciliation job; load test |
 | R11 | Usability/Fairness | Tight rate limits deny legitimate voters at deadline | Medium | Medium | Tiered limits; headroom before close; CAPTCHA not on cast for session holders | §3.4 deadline-path E2E; load test |
 | R12 | Scalability | Client BigInt modpow + ZKP too slow on low-end phones | Medium — usability | Medium | Benchmark during P5; target (<2 s ballot build on mid-tier device); pure-TS arithmetic is already 256-bit-only | §3.1 perf bounds; device matrix |

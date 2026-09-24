@@ -629,6 +629,27 @@ async function adminPost<T>(
   return data as T;
 }
 
+async function adminPatch<T>(
+  path: string,
+  adminSecret: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-secret": adminSecret,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const message = typeof data.error === "string" ? data.error : "Request failed";
+    throw new ApiError(message, res.status, data);
+  }
+  return data as T;
+}
+
 export interface TamperRootResponse {
   batch_id: number;
   original_root: string;
@@ -659,9 +680,13 @@ export interface ElectionResponse {
   election_id: string;
   name: string;
   constituency_count: number;
-  status: string;
+  status: ElectionStatus;
+  availability: ElectionAvailability;
   created_at: string;
 }
+
+export type ElectionStatus = "setup" | "voting" | "tallying" | "closed";
+export type ElectionAvailability = "open" | "closed";
 
 export interface ElectionListResponse {
   elections: Omit<ElectionResponse, "merkle_contract_address" | "election_setup_contract_address">[];
@@ -678,6 +703,18 @@ export function createElection(
     name,
     constituency_count: constituencyCount,
   });
+}
+
+export function updateElectionStatus(
+  adminSecret: string,
+  electionId: string,
+  status: ElectionStatus
+): Promise<ElectionResponse> {
+  return adminPatch<ElectionResponse>(
+    `/elections/${encodeURIComponent(electionId)}/status`,
+    adminSecret,
+    { status }
+  );
 }
 
 export async function listElections(): Promise<ElectionListResponse> {

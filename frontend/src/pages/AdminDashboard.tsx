@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createElection, initDkgCeremony, ApiError } from "../utils/api";
+import {
+  createElection,
+  initDkgCeremony,
+  updateElectionStatus,
+  type ElectionStatus,
+  ApiError,
+} from "../utils/api";
 
 // ── Sample data ──
 const CONSTITUENCIES = [
@@ -86,6 +92,13 @@ const AdminDashboard = () => {
   const [dkgError, setDkgError] = useState<string | null>(null);
   const [dkgSuccess, setDkgSuccess] = useState<string | null>(null);
 
+  // ── Election lifecycle control (P3: setup → voting → tallying → closed) ──
+  const [statusElectionId, setStatusElectionId] = useState("");
+  const [statusTarget, setStatusTarget] = useState<ElectionStatus>("voting");
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusSuccess, setStatusSuccess] = useState<string | null>(null);
+
   const handleInitDkg = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!electionAdminSecret.trim() || !dkgElectionId.trim()) return;
@@ -127,6 +140,28 @@ const AdminDashboard = () => {
       setElectionError(err instanceof ApiError ? err.message : "Failed to create election.");
     } finally {
       setElectionSubmitting(false);
+    }
+  };
+
+  const handleUpdateElectionStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!electionAdminSecret.trim() || !statusElectionId.trim()) return;
+    setStatusSubmitting(true);
+    setStatusError(null);
+    setStatusSuccess(null);
+    try {
+      const updated = await updateElectionStatus(
+        electionAdminSecret.trim(),
+        statusElectionId.trim(),
+        statusTarget
+      );
+      setStatusSuccess(
+        `Election "${updated.election_id}" is now ${updated.status} (${updated.availability}).`
+      );
+    } catch (err) {
+      setStatusError(err instanceof ApiError ? err.message : "Failed to update election status.");
+    } finally {
+      setStatusSubmitting(false);
     }
   };
 
@@ -629,6 +664,74 @@ const AdminDashboard = () => {
                   {electionSubmitting ? "Creating…" : "Create Election"}
                 </button>
               </div>
+            </form>
+          </div>
+        )}
+
+        {activeTab === "elections" && (
+          <div className="glass-card overflow-hidden opacity-0-init animate-scale-in mt-6">
+            <div className="flex items-center gap-2 px-6 py-3.5" style={{ background: "#006A4E" }}>
+              <svg className="h-4 w-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+              </svg>
+              <span className="text-sm font-semibold text-white">Advance Election Window</span>
+            </div>
+
+            <form onSubmit={handleUpdateElectionStatus} className="space-y-4 p-6 md:p-8">
+              <p className="text-sm" style={{ color: "#627d98" }}>
+                Move an election forward one server-validated step. The API records the transition
+                and the shared-admin audit row; closing an already closed election is idempotent.
+              </p>
+
+              {statusError && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(244,42,65,0.05)", border: "1px solid rgba(244,42,65,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#F42A41" }}>⚠ {statusError}</p>
+                </div>
+              )}
+              {statusSuccess && (
+                <div className="rounded-xl p-4" style={{ background: "rgba(0,106,78,0.06)", border: "1px solid rgba(0,106,78,0.2)" }}>
+                  <p className="text-sm font-medium" style={{ color: "#0F6E56" }}>✓ {statusSuccess}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="status-election-id" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                    Election ID
+                  </label>
+                  <input
+                    id="status-election-id"
+                    type="text"
+                    value={statusElectionId}
+                    onChange={(e) => setStatusElectionId(e.target.value)}
+                    placeholder="e.g. NATIONAL-2027-001"
+                    className="input-field font-mono"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="status-target" className="mb-1.5 block text-sm font-medium" style={{ color: "#0A2540" }}>
+                    Advance to
+                  </label>
+                  <select
+                    id="status-target"
+                    value={statusTarget}
+                    onChange={(e) => setStatusTarget(e.target.value as ElectionStatus)}
+                    className="input-field bg-white cursor-pointer"
+                  >
+                    <option value="voting">Voting — accept ballots</option>
+                    <option value="tallying">Tallying — stop ballots</option>
+                    <option value="closed">Closed — finish election</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!electionAdminSecret.trim() || !statusElectionId.trim() || statusSubmitting}
+                className="btn-navy w-full text-sm shadow-sm"
+              >
+                {statusSubmitting ? "Updating…" : "Update Election Status"}
+              </button>
             </form>
           </div>
         )}

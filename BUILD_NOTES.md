@@ -286,11 +286,56 @@ against `sessions` itself.
 
 ---
 
+## 8. P3 progress log — election lifecycle + admin audit
+
+**Status: COMPLETE for the repo-only implementation; live-DB evidence remains
+blocked by Open Question #11 (`backend/.env.test`).** The atomic C4 trio is now
+present: `PATCH /elections/:id/status`, the `/vote` window gate, and the
+`election_status_events` writer.
+
+Delivered:
+
+- `services/electionLifecycle.ts` owns the `setup → voting → tallying → closed`
+  single-step validator, `closed → closed` idempotence, `isAcceptingVotes`, and
+  the public `availability` value (`open`/`closed`). Both the vote gate and
+  election registry use the same predicate.
+- `PATCH /elections/:id/status` is protected by `x-admin-secret`, writes the
+  election row before the status event and then one `admin_actions` row, and
+  does not append an event for repeated `closed → closed`.
+- `/vote` returns the additive `ELECTION_NOT_OPEN` 403 immediately after
+  election existence and identity resolution, before commitment, key, or
+  nullifier checks. `GET /elections` and `GET /elections/:id` expose the
+  computed availability.
+- `services/adminAudit.ts` is the single audit write point. It records the
+  static C2 actor (`shared-admin`) and fails the request if the audit insert
+  fails; the existing DB mutation is not rolled back because these routes do
+  not share a transaction boundary. All `requireAdminSecret` route blocks are
+  covered by the source/stack registry test, including demo and DKG admin
+  routes.
+- The web admin dashboard now has a typed PATCH client and a status-advance
+  control.
+
+Evidence:
+
+| Command | Observed |
+|---|---|
+| `cd backend; npx tsc --noEmit` | exit 0 |
+| `cd backend; npm run test:ci` | 8 files / 111 tests passed |
+| `cd frontend; npm run build` | exit 0; Vite production bundle generated |
+| P3 source/stack registry test | every guarded route block contains `recordAdminAction` |
+
+**Not yet evidenced (Open Question #11):** `backend/.env.test` is absent, so
+the P3 PATCH transition rows, live `/vote` 403, closed-idempotence row count,
+concurrency stress output, and the P1/P2/P3 DDL/triggers were not executed
+against a test database. Pure contracts, route wiring, and the injected audit
+port are covered without a database.
+
+---
+
 ## Next session (pointer, not a numbered log)
 
 Handing off? Read **`HANDOFF.md`** in the repo root first. It carries the verified
 git state, the commands to re-run every claim above, the conventions that must
 survive (additive envelopes, injected ports, no un-decided dependencies,
 fail-loud gates, code-and-docs-in-one-commit), the open questions, and the P3
-plan. Remaining phases: **P3, P5, P6, P7** — P3's three parts ship atomically per
-BUILD-BRIEF C4.
+plan. Remaining phases: **P5, P6, P7**.

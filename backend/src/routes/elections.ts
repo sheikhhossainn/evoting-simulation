@@ -22,8 +22,16 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { supabase } from "../supabaseClient";
 import { requireAdminSecret } from "../middleware/adminAuth";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
+import {
+  ELECTION_STATUSES,
+  computeAvailability,
+  validateStatusTransition,
+} from "../services/electionLifecycle";
+import { getElection } from "../services/electionContext";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 const createElectionSchema = z.object({
   election_id: z.string().min(1).regex(/^[A-Za-z0-9_-]+$/, "election_id must be alphanumeric/-/_ only"),
@@ -66,7 +74,16 @@ router.post("/elections", requireAdminSecret, async (req: Request, res: Response
       return;
     }
 
-    res.status(201).json(data);
+    await recordAdminAction(
+      {
+        election_id,
+        action: "election.create",
+        request_summary: { name, constituency_count },
+        http_status: 201,
+      },
+      adminAuditWriter
+    );
+    res.status(201).json({ ...data, availability: computeAvailability(data.status) });
   } catch (err) {
     console.error("Unexpected error in POST /elections:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -86,7 +103,12 @@ router.get("/elections", async (_req: Request, res: Response) => {
       return;
     }
 
-    res.json({ elections: data ?? [] });
+    res.json({
+      elections: (data ?? []).map((election) => ({
+        ...election,
+        availability: computeAvailability(election.status),
+      })),
+    });
   } catch (err) {
     console.error("Unexpected error in GET /elections:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -113,9 +135,95 @@ router.get("/elections/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(data);
+    res.json({ ...data, availability: computeAvailability(data.status) });
   } catch (err) {
     console.error("Unexpected error in GET /elections/:id:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const updateStatusSchema = z.object({
+  status: z.enum(ELECTION_STATUSES),
+});
+
+router.patch("/elections/:id/status", requireAdminSecret, async (req: Request, res: Response) => {
+  const parsed = updateStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues });
+    return;
+  }
+
+  const electionId = String(req.params.id);
+  const toStatus = parsed.data.status;
+
+  try {
+    const election = await getElection(electionId);
+    if (!election) {
+      res.status(404).json({ error: `Unknown election_id: ${electionId}` });
+      return;
+    }
+
+    const transition = validateStatusTransition(election.status, toStatus);
+    if (!transition.ok) {
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "election.status.rejected",
+          request_summary: { from_status: election.status, to_status: toStatus, reason: transition.reason },
+          http_status: 409,
+        },
+        adminAuditWriter
+      );
+      res.status(409).json({
+        error: `Illegal election status transition: ${election.status} -> ${toStatus}`,
+      });
+      return;
+    }
+
+    if (transition.idempotent) {
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "election.status.idempotent",
+          request_summary: { from_status: election.status, to_status: toStatus },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
+      res.status(200).json({ ...election, availability: computeAvailability(election.status) });
+      return;
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("elections")
+      .update({ status: toStatus })
+      .eq("election_id", electionId)
+      .select(
+        "election_id, name, constituency_count, status, merkle_contract_address, election_setup_contract_address, created_at"
+      )
+      .single();
+    if (updateError || !updated) throw updateError ?? new Error("Election status update returned no row");
+
+    const { error: eventError } = await supabase.from("election_status_events").insert({
+      election_id: electionId,
+      from_status: election.status,
+      to_status: toStatus,
+      changed_by: "shared-admin",
+    });
+    if (eventError) throw eventError;
+
+    await recordAdminAction(
+      {
+        election_id: electionId,
+        action: "election.status",
+        request_summary: { from_status: election.status, to_status: toStatus },
+        http_status: 200,
+      },
+      adminAuditWriter
+    );
+    res.status(200).json({ ...updated, availability: computeAvailability(updated.status) });
+  } catch (err) {
+    console.error("Unexpected error in PATCH /elections/:id/status:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -46,7 +46,7 @@ Condensed verified inventory:
 
 ## 2. Existing Methodology — with A/B/C/D classification (Phase 2 — see `METHODOLOGY_CLASSIFICATION.md`)
 
-- **Real election state machine:** `elections.status` is descriptive only (no transitions); the *actual* gates on vote acceptance are existence (404) → DKG-qualified key (503) → setup commitment (412) (§Part 1). **Real vote state machine:** `queued → confirmed` (anchor) only; `'rejected'` is never written (§Part 2).
+- **Real election state machine:** P3 now enforces `setup → voting → tallying → closed` through the admin PATCH and append-only status events; the vote gates are existence (404) → identity resolution → `status='voting'` (403) → setup commitment (412) → DKG-qualified key (503). **Real vote state machine:** `queued → confirmed` (anchor) only; `'rejected'` is never written (§Part 2).
 - **Linkability, stated plainly (Part 4):** the cast ballot is **anonymous** (no identity column; nullifier needs the server secret) — but the **server can link at cast time** (it derives identity and nullifier from the same NID and holds the secret), and the unauthenticated `check-nullifier` endpoint is a **participation oracle** (reveals whether a known NID has voted). "Voter authenticated" ≠ "vote anonymous" — two separate properties, kept separate in the mobile design.
 
 **Classification (full table in Part 6 of the phase file):**

@@ -25,8 +25,10 @@ import { verifyDleq, combinePartialDecryptions, type ValidPartial } from "../cry
 import { requireAdminSecret } from "../middleware/adminAuth";
 import { verifyBatchSmtCoverage, getSmtProof } from "../services/anchorSmtBatch";
 import { resolveElectionId, getElection } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 // ── Explicit batch_id resolution — NO "latest batch" fallback ──
 // docs/tally-verifiability-design.md §8 requires the tally be scoped to a
@@ -591,10 +593,28 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
 
     if (persistError) {
       console.error("Supabase error appending tally run:", persistError);
+      await recordAdminAction(
+        {
+          election_id,
+          action: "keyshares.tally",
+          request_summary: { batch_id: batch.batch_id, persisted: false },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({ ...tallyRecord, persisted: false });
       return;
     }
 
+    await recordAdminAction(
+      {
+        election_id,
+        action: "keyshares.tally",
+        request_summary: { batch_id: batch.batch_id, persisted: true },
+        http_status: 200,
+      },
+      adminAuditWriter
+    );
     res.json({ ...tallyRecord, persisted: true });
   } catch (err) {
     console.error("Unexpected error in POST /keyshares/tally:", err);
