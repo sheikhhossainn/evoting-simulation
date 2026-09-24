@@ -17,19 +17,17 @@
 
 import { describe, it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import * as dotenv from "dotenv";
 import * as crypto from "crypto";
-import * as path from "path";
-import * as fs from "fs";
+import { loadTestSupabaseEnv } from "../testUtils/testSupabaseEnv";
 
-// Load test environment variables (same convention as vote.test.ts)
-const envTestPath = path.resolve(__dirname, "../../.env.test");
-const envProdPath = path.resolve(__dirname, "../../.env");
-if (fs.existsSync(envTestPath)) {
-  dotenv.config({ path: envTestPath });
-} else {
-  dotenv.config({ path: envProdPath });
-}
+// Load test environment via the fail-closed loader (P0 fix — BUILD_NOTES §4).
+// This file previously fell back to backend/.env (production) whenever
+// .env.test was absent — the exact silent-fallback pattern that
+// testUtils/testSupabaseEnv.ts exists to prevent. That was only tolerable
+// while the DELETE / duplicate-nullifier tests below were skipped; now that
+// they are unskipped, the loader is mandatory: no .env.test (or a .env.test
+// whose SUPABASE_URL matches production) is a hard failure at import time.
+loadTestSupabaseEnv();
 
 const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 for (const key of REQUIRED_ENV) {
@@ -66,13 +64,11 @@ describe("DB Integrity & Immutability", () => {
     // ("enforces DB immutability trigger for SQL UPDATEs"). This covers
     // the DELETE half, guarded by trg_votes_no_delete (schema.sql).
     //
-    // SKIPPED: this test inserts a real row into `votes` to attempt-and-fail
-    // deleting it. Because trg_votes_no_delete blocks all deletes and there's
-    // no separate test DB yet (this file and vote.test.ts both point at the
-    // same project as the live app — see .env), running this would
-    // permanently pollute the real database with a fake vote. Unskip once a
-    // dedicated test DB exists.
-    it.skip("rejects DELETE on a cast vote row", async () => {
+    // UNSKIPPED (P0 — BUILD_NOTES §4): the fail-closed loader at the top of
+    // this file now guarantees a dedicated test project (it refuses to run
+    // otherwise), so the permanent row this test deliberately inserts can no
+    // longer land in the production database.
+    it("rejects DELETE on a cast vote row", async () => {
       const insertRes = await supabase
         .from("votes")
         .insert({
@@ -137,11 +133,10 @@ describe("DB Integrity & Immutability", () => {
   });
 
   describe("Category 3 — Double-vote unique constraint (votes.nullifier_hash)", () => {
-    // SKIPPED: the first insert below is a real, successful row in `votes`
-    // that trg_votes_no_delete then makes permanent. Same reasoning as the
-    // DELETE test above — no separate test DB yet, so this would leave a
-    // fake vote in the live database. Unskip once a dedicated test DB exists.
-    it.skip("rejects a second vote row with a duplicate nullifier_hash", async () => {
+    // UNSKIPPED (P0 — BUILD_NOTES §4): runs only against the dedicated test
+    // project now that the loader at the top of this file is mandatory. The
+    // permanent first row is expected and harmless in a throwaway test DB.
+    it("rejects a second vote row with a duplicate nullifier_hash", async () => {
       // Bypasses fn_cast_vote and the /vote route entirely, to isolate the
       // raw schema constraint (uq_votes_nullifier_hash) on its own —
       // independent of the HTTP-level concurrency stress test in

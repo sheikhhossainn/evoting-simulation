@@ -21,6 +21,12 @@
  * correct root rather than remembering the old one — so the demo can never get
  * stuck in a tampered state and is safe to repeat mid-meeting.
  *
+ * All four tamper/restore routes are additionally gated behind
+ * ENABLE_TAMPER_DEMO=1 via middleware/tamperDemo.ts: an unconfigured deployment
+ * answers 404, so the demo surface cannot be reached — or even discovered — in
+ * production (threat T4). Gating is layered ON TOP of requireAdminSecret, not
+ * instead of it.
+ *
  * Multi-election isolation (threat_model.md §10): every route requires an
  * explicit `election_id` (query param for GETs, body field for POSTs) —
  * resolved via resolveElectionId, no silent default — and every
@@ -32,6 +38,7 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabaseClient";
 import { requireAdminSecret } from "../middleware/adminAuth";
+import { requireTamperDemo } from "../middleware/tamperDemo";
 import { buildMerkleTree, getProof, hashVoteLeaf, verifyProof } from "../merkle/merkleTree";
 import {
   getReadOnlyMerkleContract,
@@ -44,8 +51,10 @@ import {
   verifySmtNonMembershipProof,
 } from "../merkle/sparseMerkleTree";
 import { resolveElectionId } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 interface VoteRow {
   id: string;
@@ -153,6 +162,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.batch",
+          request_summary: { vote_count: result.vote_count },
+          http_status: 201,
+        },
+        adminAuditWriter
+      );
       res.status(201).json({ election_id: electionId, ...result });
     } catch (err) {
       console.error("Unexpected error in POST /anchor/batch:", err);
@@ -411,6 +429,7 @@ router.get("/anchor/latest", async (req: Request, res: Response) => {
  */
 router.post(
   "/anchor/tamper/root",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
     const resolved = await resolveElectionId(req.body as Record<string, unknown>);
@@ -449,6 +468,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -472,6 +500,7 @@ router.post(
  */
 router.post(
   "/anchor/restore/root",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
     const resolved = await resolveElectionId(req.body as Record<string, unknown>);
@@ -510,6 +539,15 @@ router.post(
         return;
       }
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.restore.root",
+          request_summary: { batch_id: batchId },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -533,6 +571,7 @@ router.post(
  */
 router.post(
   "/anchor/tamper/ballot",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
     const resolved = await resolveElectionId(req.body as Record<string, unknown>);
@@ -565,6 +604,15 @@ router.post(
         .eq("id", targetVoteId);
 
       // A rejection (updErr set) is the expected, desired outcome.
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.ballot",
+          request_summary: { batch_id: batchId, vote_id: targetVoteId, blocked: !!updErr },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         batch_id: batchId,
@@ -596,6 +644,7 @@ router.post(
  */
 router.post(
   "/anchor/tamper/delete-vote",
+  requireTamperDemo, // 404 unless ENABLE_TAMPER_DEMO=1
   requireAdminSecret,
   async (req: Request, res: Response) => {
     const resolved = await resolveElectionId(req.body as Record<string, unknown>);
@@ -643,6 +692,15 @@ router.post(
 
       const reanchorResult = await runSmtReanchorAfterDeletion(electionId);
 
+      await recordAdminAction(
+        {
+          election_id: electionId,
+          action: "anchor.tamper.delete-vote",
+          request_summary: { vote_id: voteId, reanchored: !!reanchorResult },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({
         election_id: electionId,
         vote_id: voteId,

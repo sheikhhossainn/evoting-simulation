@@ -1325,3 +1325,336 @@ CREATE TRIGGER trg_partial_decryptions_no_update
     BEFORE UPDATE ON partial_decryptions
     FOR EACH ROW EXECUTE FUNCTION fn_partial_decryptions_no_update();
 
+-- =============================================================
+-- E-Voting Simulation — Mobile Migration: Session Layer & Audit
+-- (BUILD_NOTES.md C1–C3; DATA_AND_API_MIGRATION.md §1)
+--
+-- Adds, idempotently, applied the same manual way as every other section in
+-- this file (Supabase SQL Editor; run-schema.ts picks it up for fresh DBs):
+--   1. sessions                — server-issued session tokens (hash-only)
+--   2. admin_actions           — append-only audit of admin operations
+--   3. tally_runs              — append-only tally history; SOLE results store
+--   4. election_status_events  — election open/close transition audit
+--   5. fn_votes_immutable_guard() extended to also block zkp_proof edits
+--
+-- NOTE (BUILD-BRIEF C3): the legacy `tally_results` table is deliberately
+-- left in place and is NO LONGER READ OR WRITTEN by any route —
+-- `GET /public/results` reads `tally_runs ORDER BY tallied_at DESC LIMIT 1`
+-- instead. Same treatment as the legacy `key_shares.share_value` column.
+-- =============================================================
+
+-- ── 1. sessions ──
+-- Opaque bearer tokens for the mobile client (D1/T15). Only sha256(token) is
+-- stored; the raw token exists solely on the device, in OS-backed secure
+-- storage. Device-binding and revocation are enforced here, not in the app.
+-- A session authenticates a voter; it never authorizes a second ballot —
+-- one-person-one-vote remains entirely inside fn_cast_vote (A1).
+CREATE TABLE IF NOT EXISTS sessions (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id    TEXT        NOT NULL REFERENCES elections (election_id),
+    voter_nid_hash CHAR(64)    NOT NULL
+                     CONSTRAINT ck_sessions_voter_nid_hash_hex
+                         CHECK (voter_nid_hash ~ '^[a-f0-9]{64}$'),
+    token_hash     CHAR(64)    NOT NULL UNIQUE
+                     CONSTRAINT ck_sessions_token_hash_hex
+                         CHECK (token_hash ~ '^[a-f0-9]{64}$'),
+    device_id      UUID        NOT NULL,
+    issued_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at     TIMESTAMPTZ NOT NULL,
+    last_seen_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    revoked_at     TIMESTAMPTZ,
+    created_ip     INET,
+    CONSTRAINT ck_sessions_valid_window CHECK (expires_at > issued_at)
+);
+
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_sessions_election_voter ON sessions (election_id, voter_nid_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_device         ON sessions (device_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_active_expiry  ON sessions (expires_at) WHERE revoked_at IS NULL;
+
+-- Update guard: only the sliding window and revocation may change.
+CREATE OR REPLACE FUNCTION fn_sessions_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.token_hash IS DISTINCT FROM NEW.token_hash THEN
+        RAISE EXCEPTION 'sessions.token_hash is immutable after insertion';
+    END IF;
+    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
+        RAISE EXCEPTION 'sessions.voter_nid_hash is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'sessions.election_id is immutable after insertion';
+    END IF;
+    IF OLD.device_id IS DISTINCT FROM NEW.device_id THEN
+        RAISE EXCEPTION 'sessions.device_id is immutable after insertion';
+    END IF;
+    IF OLD.issued_at IS DISTINCT FROM NEW.issued_at THEN
+        RAISE EXCEPTION 'sessions.issued_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sessions_guard ON sessions;
+CREATE TRIGGER trg_sessions_guard
+    BEFORE UPDATE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_sessions_guard();
+
+-- No-delete guard: revocation (revoked_at) is the only supported path.
+CREATE OR REPLACE FUNCTION fn_sessions_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'sessions rows cannot be deleted; set revoked_at instead';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sessions_no_delete ON sessions;
+CREATE TRIGGER trg_sessions_no_delete
+    BEFORE DELETE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION fn_sessions_no_delete();
+
+-- ── 2. admin_actions ──
+-- Append-only audit of administrative operations (T4/T16).
+-- BUILD-BRIEF C2: per-admin identity is OUT OF SCOPE for this pass, so
+-- actor_admin_id is the static string 'shared-admin' (the column is kept so a
+-- future identity layer only has to start populating it rather than migrate).
+-- The table records WHAT happened, WHEN, and the HTTP result; it deliberately
+-- does not claim to say WHO beyond that.
+CREATE TABLE IF NOT EXISTS admin_actions (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_admin_id  TEXT        NOT NULL DEFAULT 'shared-admin',
+    election_id     TEXT        NOT NULL REFERENCES elections (election_id),
+    action          TEXT        NOT NULL,
+    request_summary JSONB,
+    http_status     INTEGER,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE admin_actions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_admin_actions_election_time ON admin_actions (election_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_actions_action_time   ON admin_actions (action, created_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_admin_actions_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'admin_actions rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_admin_actions_no_update ON admin_actions;
+CREATE TRIGGER trg_admin_actions_no_update
+    BEFORE UPDATE ON admin_actions
+    FOR EACH ROW EXECUTE FUNCTION fn_admin_actions_no_update();
+
+CREATE OR REPLACE FUNCTION fn_admin_actions_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'admin_actions rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_admin_actions_no_delete ON admin_actions;
+CREATE TRIGGER trg_admin_actions_no_delete
+    BEFORE DELETE ON admin_actions
+    FOR EACH ROW EXECUTE FUNCTION fn_admin_actions_no_delete();
+
+-- ── 3. tally_runs ──
+-- Append-only tally history and the SOLE store behind GET /public/results
+-- (T19; BUILD-BRIEF C3). Re-running the tally APPENDS a row rather than
+-- overwriting one, so neither an out-of-band edit nor a routine re-run can
+-- erase the previously published result without leaving visible history.
+-- batch_id is the explicit dense Merkle batch that was tallied (A8): the
+-- tally route already requires it and has no "latest batch" fallback.
+CREATE TABLE IF NOT EXISTS tally_runs (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id    TEXT        NOT NULL REFERENCES elections (election_id),
+    batch_id       BIGINT      NOT NULL,
+    tallied_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    shares_used    INTEGER     NOT NULL,
+    total_votes    INTEGER     NOT NULL,
+    valid_votes    INTEGER     NOT NULL,
+    invalid_votes  INTEGER     NOT NULL,
+    results        JSONB       NOT NULL,
+    run_by         TEXT        NOT NULL DEFAULT 'shared-admin',
+    CONSTRAINT uq_tally_runs_election_batch_time UNIQUE (election_id, batch_id, tallied_at)
+);
+
+ALTER TABLE tally_runs ENABLE ROW LEVEL SECURITY;
+
+-- Serves the public read: WHERE election_id = $1 ORDER BY tallied_at DESC LIMIT 1
+CREATE INDEX IF NOT EXISTS idx_tally_runs_latest ON tally_runs (election_id, tallied_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_tally_runs_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'tally_runs rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_tally_runs_no_update ON tally_runs;
+CREATE TRIGGER trg_tally_runs_no_update
+    BEFORE UPDATE ON tally_runs
+    FOR EACH ROW EXECUTE FUNCTION fn_tally_runs_no_update();
+
+CREATE OR REPLACE FUNCTION fn_tally_runs_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'tally_runs rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_tally_runs_no_delete ON tally_runs;
+CREATE TRIGGER trg_tally_runs_no_delete
+    BEFORE DELETE ON tally_runs
+    FOR EACH ROW EXECUTE FUNCTION fn_tally_runs_no_delete();
+
+-- ── 4. election_status_events ──
+-- Audit trail for real election open/close transitions (T13/B2).
+-- BUILD-BRIEF C4: P3 ships the `PATCH /elections/:id/status` endpoint, the
+-- `/vote` status gate and THIS table together, in one phase — never the gate
+-- before the transition endpoint, or every election would be stuck in
+-- 'setup' with no way to open voting. from_status/to_status mirror the
+-- allowed values of elections.status's own CHECK constraint.
+CREATE TABLE IF NOT EXISTS election_status_events (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    election_id  TEXT        NOT NULL REFERENCES elections (election_id),
+    from_status  TEXT        NOT NULL
+                   CONSTRAINT ck_election_status_events_from
+                       CHECK (from_status IN ('setup', 'voting', 'tallying', 'closed')),
+    to_status    TEXT        NOT NULL
+                   CONSTRAINT ck_election_status_events_to
+                       CHECK (to_status IN ('setup', 'voting', 'tallying', 'closed')),
+    changed_by   TEXT        NOT NULL DEFAULT 'shared-admin',
+    changed_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE election_status_events ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_election_status_events_time
+    ON election_status_events (election_id, changed_at DESC);
+
+CREATE OR REPLACE FUNCTION fn_election_status_events_no_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'election_status_events rows are append-only and cannot be updated';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_election_status_events_no_update ON election_status_events;
+CREATE TRIGGER trg_election_status_events_no_update
+    BEFORE UPDATE ON election_status_events
+    FOR EACH ROW EXECUTE FUNCTION fn_election_status_events_no_update();
+
+CREATE OR REPLACE FUNCTION fn_election_status_events_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'election_status_events rows are append-only and cannot be deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_election_status_events_no_delete ON election_status_events;
+CREATE TRIGGER trg_election_status_events_no_delete
+    BEFORE DELETE ON election_status_events
+    FOR EACH ROW EXECUTE FUNCTION fn_election_status_events_no_delete();
+
+-- ── 5. fn_votes_immutable_guard(): also block zkp_proof edits ──
+-- Audit finding B6: `zkp_proof` was the one integrity-bearing column on
+-- `votes` the guard did not cover. It is written once at INSERT and no code
+-- path updates it (verified by a repo-wide grep: the only writers are the
+-- INSERT in fn_cast_vote and nothing else), so blocking it cannot break any
+-- legitimate flow. The remaining clauses are identical to the
+-- election-scoped version defined earlier in this file — CREATE OR REPLACE
+-- keeps exactly one definition, and the pre-existing `trg_votes_immutable`
+-- trigger already points at this function, so no trigger change is needed.
+CREATE OR REPLACE FUNCTION fn_votes_immutable_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.constituency_code IS DISTINCT FROM NEW.constituency_code THEN
+        RAISE EXCEPTION 'constituency_code is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'election_id is immutable after insertion';
+    END IF;
+    IF OLD.encrypted_vote IS DISTINCT FROM NEW.encrypted_vote THEN
+        RAISE EXCEPTION 'encrypted_vote is immutable after insertion';
+    END IF;
+    IF OLD.zkp_proof IS DISTINCT FROM NEW.zkp_proof THEN
+        RAISE EXCEPTION 'zkp_proof is immutable after insertion';
+    END IF;
+    IF OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+        RAISE EXCEPTION 'created_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- =============================================================
+-- P2 — session cast material (mobile migration; decision A, BUILD_NOTES §7)
+-- =============================================================
+-- Applied idempotently like every other section in this file (Supabase SQL
+-- Editor; run-schema.ts picks it up for fresh databases).
+--
+-- WHY THIS COLUMN EXISTS:
+-- THREAT_MODEL_AND_SECURITY.md §4.1 requires POST /vote to derive its identity
+-- server-side from the session, with no raw NID on the wire. constituency_code
+-- is derivable from the `voters` row the session is bound to, but
+-- nullifier_hash is SHA-256(nid ‖ election_id ‖ NULLIFIER_SECRET) and a hash
+-- cannot be un-hashed. So the server captures the nullifier ONCE at session
+-- issuance — while it transiently holds the raw NID — and /vote reads it back.
+--
+-- WHY THAT MATTERS (A1):
+-- The session path must cast the *identical* pseudonym the legacy raw-NID path
+-- computes. Two formulas, or two pseudonyms for one voter in one election,
+-- would let a single voter cast twice — the exact invariant fn_cast_vote and
+-- uq_votes_election_nullifier_hash exist to prevent. The equality is asserted
+-- in backend/src/services/sessionStore.test.ts.
+--
+-- TRADE-OFF, recorded rather than hidden: this stores a pseudonym beside
+-- voter_nid_hash, so a reader with database access ALONE can link a hashed
+-- voter to a vote row; previously that also required NULLIFIER_SECRET. The
+-- "no easier server-side" claim in DATA_AND_API_MIGRATION.md is corrected
+-- accordingly. Nothing new about the NID itself is exposed: the stored value is
+-- the same nullifier already persisted in `nullifiers` and `votes`.
+--
+-- Nullable only so this ALTER applies to a table that may already hold rows;
+-- every session created by POST /voter/session sets it, /vote refuses a session
+-- without one, and rotation refuses to propagate one (sessionStore.ts).
+ALTER TABLE sessions
+    ADD COLUMN IF NOT EXISTS nullifier_hash CHAR(64)
+        CONSTRAINT ck_sessions_nullifier_hash_hex
+            CHECK (nullifier_hash ~ '^[a-f0-9]{64}$');
+
+-- Extend the sessions guard: the captured pseudonym is part of the session's
+-- identity, so it is immutable after insertion exactly like token_hash and
+-- voter_nid_hash. (CREATE OR REPLACE keeps the existing trigger valid.)
+CREATE OR REPLACE FUNCTION fn_sessions_guard()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.token_hash IS DISTINCT FROM NEW.token_hash THEN
+        RAISE EXCEPTION 'sessions.token_hash is immutable after insertion';
+    END IF;
+    IF OLD.voter_nid_hash IS DISTINCT FROM NEW.voter_nid_hash THEN
+        RAISE EXCEPTION 'sessions.voter_nid_hash is immutable after insertion';
+    END IF;
+    IF OLD.nullifier_hash IS DISTINCT FROM NEW.nullifier_hash THEN
+        RAISE EXCEPTION 'sessions.nullifier_hash is immutable after insertion';
+    END IF;
+    IF OLD.election_id IS DISTINCT FROM NEW.election_id THEN
+        RAISE EXCEPTION 'sessions.election_id is immutable after insertion';
+    END IF;
+    IF OLD.device_id IS DISTINCT FROM NEW.device_id THEN
+        RAISE EXCEPTION 'sessions.device_id is immutable after insertion';
+    END IF;
+    IF OLD.issued_at IS DISTINCT FROM NEW.issued_at THEN
+        RAISE EXCEPTION 'sessions.issued_at is immutable after insertion';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+

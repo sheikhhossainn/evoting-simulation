@@ -25,8 +25,10 @@ import { verifyDleq, combinePartialDecryptions, type ValidPartial } from "../cry
 import { requireAdminSecret } from "../middleware/adminAuth";
 import { verifyBatchSmtCoverage, getSmtProof } from "../services/anchorSmtBatch";
 import { resolveElectionId, getElection } from "../services/electionContext";
+import { createSupabaseAdminAuditWriter, recordAdminAction } from "../services/adminAudit";
 
 const router = Router();
+const adminAuditWriter = createSupabaseAdminAuditWriter(supabase);
 
 // ── Explicit batch_id resolution — NO "latest batch" fallback ──
 // docs/tally-verifiability-design.md §8 requires the tally be scoped to a
@@ -571,27 +573,48 @@ router.post("/tally", requireAdminSecret, async (req: Request, res: Response) =>
       results,
     };
 
+    // BUILD-BRIEF C3: tally_runs is the SOLE results store. Each run APPENDS a
+    // row — no upsert, no cache-sync — so a re-run or an out-of-band edit can
+    // never erase a previously published result without leaving history. The
+    // legacy `tally_results` table is left in place but is no longer written
+    // here (same treatment as the legacy key_shares.share_value column).
     const { error: persistError } = await supabase
-      .from("tally_results")
-      .upsert(
-        {
-          election_id: tallyRecord.election_id,
-          tallied_at: tallyRecord.tallied_at,
-          shares_used: tallyRecord.shares_used,
-          total_votes: tallyRecord.total_votes,
-          valid_votes: tallyRecord.valid_votes,
-          invalid_votes: tallyRecord.invalid_votes,
-          results: tallyRecord.results,
-        },
-        { onConflict: "election_id" }
-      );
+      .from("tally_runs")
+      .insert({
+        election_id: tallyRecord.election_id,
+        batch_id: batch.batch_id,
+        tallied_at: tallyRecord.tallied_at,
+        shares_used: tallyRecord.shares_used,
+        total_votes: tallyRecord.total_votes,
+        valid_votes: tallyRecord.valid_votes,
+        invalid_votes: tallyRecord.invalid_votes,
+        results: tallyRecord.results,
+      });
 
     if (persistError) {
-      console.error("Supabase error persisting tally results:", persistError);
+      console.error("Supabase error appending tally run:", persistError);
+      await recordAdminAction(
+        {
+          election_id,
+          action: "keyshares.tally",
+          request_summary: { batch_id: batch.batch_id, persisted: false },
+          http_status: 200,
+        },
+        adminAuditWriter
+      );
       res.json({ ...tallyRecord, persisted: false });
       return;
     }
 
+    await recordAdminAction(
+      {
+        election_id,
+        action: "keyshares.tally",
+        request_summary: { batch_id: batch.batch_id, persisted: true },
+        http_status: 200,
+      },
+      adminAuditWriter
+    );
     res.json({ ...tallyRecord, persisted: true });
   } catch (err) {
     console.error("Unexpected error in POST /keyshares/tally:", err);

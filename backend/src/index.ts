@@ -21,6 +21,9 @@ import electionsRouter from "./routes/elections";
 import dkgRouter from "./routes/dkg";
 import { maybeAutoAnchor } from "./services/anchorBatch";
 import { resolveElectionId, getElectionPublicKey } from "./services/electionContext";
+import { isCaptchaEnabled } from "./middleware/captcha";
+import { isTamperDemoEnabled } from "./middleware/tamperDemo";
+import { strictTransportSecurity } from "./middleware/securityHeaders";
 
 
 dotenv.config();
@@ -29,10 +32,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Middleware ──
+app.use(strictTransportSecurity);
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PATCH"],
   })
 );
 app.use(express.json());
@@ -88,6 +92,24 @@ app.listen(PORT, () => {
     console.log("🧂 NID hash salt loaded");
   } else {
     console.warn("⚠️  NID_HASH_SALT not set — NID hashes will be unsalted!");
+  }
+
+  // P1 posture report (T10/T4). A gate that is silently inert is worse than no
+  // gate at all, because it looks like protection — so both optional gates
+  // announce their state at startup rather than passing requests invisibly.
+  if (isCaptchaEnabled()) {
+    console.log("🛡️  CAPTCHA gate enabled for POST /voter/register");
+  } else {
+    console.warn(
+      "⚠️  CAPTCHA_SECRET not set — POST /voter/register is rate-limited only"
+    );
+  }
+  if (isTamperDemoEnabled()) {
+    console.warn(
+      "⚠️  ENABLE_TAMPER_DEMO=1 — demo tamper routes are ENABLED (never do this in production)"
+    );
+  } else {
+    console.log("🔒 Tamper demo routes disabled (they answer 404)");
   }
 
   // Periodic auto-anchor check, independent of vote traffic (methodology-audit

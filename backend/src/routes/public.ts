@@ -10,9 +10,11 @@
  *
  * Per-candidate results live in GET /public/results below — they only
  * exist once the 3-of-4 key ceremony completes and POST /keyshares/tally
- * has run at least once (see routes/keyshares.ts). That route persists
+ * has run at least once (see routes/keyshares.ts). That route appends
  * aggregate counts only (never the key, never raw ballots) to the
- * `tally_results` table, which this route reads from.
+ * `tally_runs` table — which is the SOLE results store (BUILD-BRIEF C3);
+ * this route reads its latest row. The legacy `tally_results` table is no
+ * longer read or written anywhere.
  *
  * Multi-election isolation (threat_model.md §10): `election_id` is REQUIRED
  * (via resolveElectionId — no silent default) and every query below is
@@ -132,10 +134,14 @@ router.get("/public/results", async (req: Request, res: Response) => {
   const election_id = resolved.electionId;
 
   try {
+    // BUILD-BRIEF C3: read the LATEST run from tally_runs, the sole results
+    // store. The legacy `tally_results` table is deliberately not read here.
     const { data, error } = await supabase
-      .from("tally_results")
-      .select("tallied_at, results")
+      .from("tally_runs")
+      .select("tallied_at, results, batch_id, total_votes, valid_votes, invalid_votes")
       .eq("election_id", election_id)
+      .order("tallied_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -153,6 +159,10 @@ router.get("/public/results", async (req: Request, res: Response) => {
       status: "tallied",
       tallied_at: data.tallied_at,
       results: data.results,
+      batch_id: data.batch_id,
+      total_votes: data.total_votes,
+      valid_votes: data.valid_votes,
+      invalid_votes: data.invalid_votes,
     });
   } catch (err) {
     console.error("Unexpected error in GET /public/results:", err);

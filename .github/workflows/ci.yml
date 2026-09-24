@@ -6,6 +6,12 @@ name: CI
 on:
   pull_request:
     branches: [dev]
+  # Live-DB integrity suites (the unskipped N=50 concurrency test and the
+  # DB-immutability / duplicate-nullifier tests) need a dedicated Supabase
+  # test project, so they run only on manual dispatch — never on a normal PR.
+  # See backend/.env.test.example, backend/src/testUtils/testSupabaseEnv.ts,
+  # and BUILD_NOTES.md §4.
+  workflow_dispatch:
 
 jobs:
   frontend:
@@ -70,3 +76,92 @@ jobs:
       # Runs on Hardhat's in-memory network — no Amoy RPC/funds needed.
       - run: npm test
         working-directory: blockchain
+
+  # ── P4: portable client crypto (core-crypto workspace) ──
+  # Pure TypeScript, no DB and no chain. Unlike every other backend suite,
+  # this one runs the BACKEND VERIFIER in-process (it imports
+  # backend/src/crypto/{elgamal,zkp}.ts by relative path), so it gates the
+  # property the mobile migration depends on: a ported prover that the
+  # unchanged verifier accepts can never drift from it (D4 / risk R4).
+  core-crypto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # One root install covers the workspace (npm links packages/* itself).
+      - run: npm ci
+      - run: npm test --workspace=packages/core-crypto
+      - run: npm run typecheck --workspace=packages/core-crypto
+
+  # ── P5: typed API client and Expo shell ──
+  # The export is a Metro bundle check; device-only Detox and SecureStore
+  # evidence remain a separate emulator gate described in VERIFICATION_AND_TESTING.md.
+  core-api-mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test --workspace=packages/core-api
+      - run: npm run typecheck --workspace=packages/core-api
+      - run: npm run typecheck --workspace=packages/mobile-app
+      - run: npx expo export --platform android
+        working-directory: packages/mobile-app
+
+  # ── Live-DB integrity suites (gated) ──
+  # Runs ONLY on manual dispatch. Requires repository secrets pointing at a
+  # SEPARATE Supabase test project (never production):
+  #   TEST_SUPABASE_URL, TEST_SUPABASE_ANON_KEY,
+  #   TEST_SUPABASE_SERVICE_ROLE_KEY, TEST_NID_HASH_SALT,
+  #   TEST_NULLIFIER_SECRET, TEST_ELGAMAL_P, TEST_ELGAMAL_G,
+  #   TEST_ELGAMAL_PUBLIC_KEY
+  # The job writes backend/.env.test; the fail-closed loader
+  # (testUtils/testSupabaseEnv.ts) then refuses to run if that file is missing
+  # or points at the same project as backend/.env.
+  live-integrity:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - name: Write backend/.env.test from secrets (fail if unset)
+        working-directory: backend
+        run: |
+          if [ -z "${{ secrets.TEST_SUPABASE_URL }}" ]; then
+            echo "TEST_SUPABASE_URL secret is not set — cannot run the live integrity suites."
+            exit 1
+          fi
+          cat > .env.test <<EOF
+          SUPABASE_URL=${{ secrets.TEST_SUPABASE_URL }}
+          SUPABASE_ANON_KEY=${{ secrets.TEST_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+          NID_HASH_SALT=${{ secrets.TEST_NID_HASH_SALT }}
+          NULLIFIER_SECRET=${{ secrets.TEST_NULLIFIER_SECRET }}
+          ELGAMAL_P=${{ secrets.TEST_ELGAMAL_P }}
+          ELGAMAL_G=${{ secrets.TEST_ELGAMAL_G }}
+          ELGAMAL_PUBLIC_KEY=${{ secrets.TEST_ELGAMAL_PUBLIC_KEY }}
+          EOF
+      - name: Integrity-critical live suites (P0 — unskipped)
+        working-directory: backend
+        run: npx vitest run src/db/integrity.test.ts src/routes/vote.test.ts
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-integrity-evidence
+          path: testing/*.json
+          if-no-files-found: warn

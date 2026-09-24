@@ -203,15 +203,13 @@ describe('Vote Casting Adversarial Tests', () => {
     expect((res.body as any)?.error).toMatch(/ZKP ballot validity proof failed/);
   });
 
-  // SKIPPED: each of the 10 trials below inserts a real, successful vote row
-  // (via fn_cast_vote), and trg_votes_no_delete now makes every one of them
-  // permanent — there's no way to reset between trials or clean up after,
-  // and no separate test DB yet (this file points at the same project as
-  // the live app — see .env). Running this would leave 10 fake votes in the
-  // real database on every run. Unskip once a dedicated test DB exists;
-  // concurrency_stress_output.json remains as the last verified evidence
-  // until then.
-  it.skip('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
+  // UNSKIPPED (P0 — BUILD_NOTES §4): this file's loadTestSupabaseEnv() guard
+  // makes running against production impossible (no .env.test, or a .env.test
+  // whose SUPABASE_URL matches production, is a hard failure at import time),
+  // so the 10 permanent rows each run leaves behind are confined to the
+  // throwaway test project. Evidence is rewritten to
+  // testing/concurrency_stress_output.json on every run.
+  it('prevents concurrent double-cast under N=50 stress (exactly 1 DB row every trial)', async () => {
     // Concurrency stress: instead of 2 racing requests, fire N=50 identical
     // casts for the same voter simultaneously, repeated over several trials.
     // The DB lock must let exactly ONE through each time — never 0, never 2+.
