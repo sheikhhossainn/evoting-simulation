@@ -242,3 +242,59 @@ mobile chain (P5), add **`react-native-best-practices`** and **`pick-ui-library`
 4. Working tree clean; nothing pushed unless asked; report the exact test count and
    the commit hash.
 
+## 10. Kickoff prompt for the next agent (paste as-is)
+
+```
+Repo: d:\Coding\evoting-simulation (Windows, PowerShell). You are continuing a
+7-phase migration of a web e-voting simulation to a React Native/Expo client.
+P0, P1, P2 and P4 are done. YOUR TASK IS P3.
+
+Do this first, in order — do not skip step 3:
+ 1. `git rev-parse --abbrev-ref HEAD` must be `feature/mobile-migration-p0`, and
+    `git merge-base --is-ancestor 1cbad76 HEAD` must succeed (that is the handoff
+    commit; later commits on this branch are fine). `dev` is untouched, nothing is
+    pushed, leave the older unrelated stash alone.
+ 2. Read HANDOFF.md: §0 (which doc holds what), §1 (git state), §3 (conventions),
+    §5 (the P3 plan, with the pre-checks I did NOT verify), §6 (open questions),
+    §9 (definition of done).
+ 3. PROVE THE BASELINE before changing anything:
+    cd backend; npx tsc --noEmit      -> expect exit 0
+    cd backend; npm run test:ci       -> expect 7 files / 104 tests
+    If that does not match HANDOFF.md, stop and report: the tree is not what the
+    handoff describes.
+ 4. Read BUILD_NOTES.md §7 (P2 + the "decision A" record) so you do not undo the
+    nullifier capture — reverting it breaks A1 under mixed web/mobile voting.
+
+SCOPE: P3 only. Per BUILD-BRIEF C4 its three parts ship in ONE commit:
+ (a) PATCH /elections/:id/status writing elections.status +
+     election_status_events + exactly one admin_actions row;
+ (b) the /vote gate answering 403 ELECTION_NOT_OPEN outside 'voting'
+     (placement matters — see HANDOFF.md §5.1 item 2);
+ (c) audit wiring for the admin routes through a single write point
+     (R9's route-registry test is required).
+Do NOT start P5–P7. Do NOT re-open build-brief overrides C1–C4.
+
+NON-NEGOTIABLE CONVENTIONS (each exists because breaking it caused a defect):
+ - response changes are additive only: `error` stays byte-identical, add
+   `code`/`retryable`;
+ - never import supabaseClient into a module a test imports (it process.exit(1)s
+   without credentials and kills vitest) — inject a port;
+ - no new npm dependency without asking the user;
+ - every claim must map to a command + output, and state what stays unevidenced;
+ - update docs in the SAME commit as the code, including any claim your change
+   makes false;
+ - do not push; do not touch the stash.
+
+ASK THE USER (never decide silently) if you hit: a product-scoped choice
+(per-admin identity, the web page's fate, authoritative eligibility), or whether
+to stop and unblock the test database first — supplying backend/.env.test turns
+most of P1/P2/P3's evidence from inference into observation.
+
+Suggested skills: `tdd` (write the transition + `isAcceptingVotes`/`availability`
+predicates first), `code-review` before committing, `handoff` when you stop.
+```
+
+Nothing else needs to travel with it: every document referenced above is
+committed on the branch.
+
+
