@@ -35,7 +35,7 @@ it.
 
 Always read:
 
-- `BUILD_NOTES.md` §7–§9 for decision A and current implementation/evidence.
+- `BUILD_NOTES.md` §6–§9 for P4, decision A, and current implementation/evidence.
 - `ROADMAP_RISKS_DOD.md` P5–P7 for acceptance criteria and remaining status.
 
 Then follow the branch matching the task:
